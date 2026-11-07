@@ -102,8 +102,7 @@ private val AppTypography = Typography().run {
 
 
 @Composable
-fun PureSudokuTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun PureSudokuTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val scheme = if (dark) {
         darkColorScheme(
             primary = Color(0xFF79A8F2), onPrimary = Color(0xFF0E1A2C),

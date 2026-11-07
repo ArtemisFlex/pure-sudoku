@@ -1,9 +1,11 @@
 package com.puresudoku
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
@@ -13,12 +15,15 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import com.puresudoku.data.ThemeMode
 import com.puresudoku.ui.GameViewModel
 import com.puresudoku.ui.Screen
 import com.puresudoku.ui.screens.DifficultyScreen
@@ -42,7 +47,19 @@ class MainActivity : ComponentActivity() {
         })
 
         setContent {
-            PureSudokuTheme {
+            val dark = when (vm.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            // Keep status/navigation bar icons readable when the in-app theme overrides the system one.
+            DisposableEffect(dark) {
+                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT)
+                else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose { }
+            }
+            PureSudokuTheme(dark = dark) {
                 // Surface supplies the theme's content colour (light text/icons in dark mode).
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     BackHandler(enabled = vm.screen != Screen.Home) { vm.back() }

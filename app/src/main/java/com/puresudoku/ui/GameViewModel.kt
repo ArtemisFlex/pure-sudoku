@@ -19,6 +19,7 @@ import com.puresudoku.core.SudokuGenerator
 import com.puresudoku.data.DifficultyStats
 import com.puresudoku.data.SaveRepository
 import com.puresudoku.data.SolveRecord
+import com.puresudoku.data.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -51,6 +52,12 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     var screen by mutableStateOf<Screen>(Screen.Home); private set
     var slots by mutableStateOf(repo.loadSlots()); private set
     var stats by mutableStateOf(loadStats()); private set
+    var themeMode by mutableStateOf(repo.themeMode()); private set
+
+    fun updateThemeMode(m: ThemeMode) {
+        themeMode = m
+        repo.setThemeMode(m)
+    }
 
     // ---- current game ----
     private var game: Game? = null

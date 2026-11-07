@@ -6,6 +6,8 @@ import com.puresudoku.core.GameSnapshot
 import org.json.JSONArray
 import org.json.JSONObject
 
+enum class ThemeMode(val label: String) { SYSTEM("System default"), LIGHT("Light"), DARK("Dark") }
+
 data class DifficultyStats(
     val wins: Int = 0,
     val bestScore: Int = 0,
@@ -38,6 +40,13 @@ class SaveRepository(context: Context) {
 
     fun clear(slot: Int) {
         prefs.edit().remove("slot_$slot").apply()
+    }
+
+    fun themeMode(): ThemeMode =
+        runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", null) ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM)
+
+    fun setThemeMode(m: ThemeMode) {
+        prefs.edit().putString("theme_mode", m.name).apply()
     }
 
     fun stats(d: Difficulty) = DifficultyStats(

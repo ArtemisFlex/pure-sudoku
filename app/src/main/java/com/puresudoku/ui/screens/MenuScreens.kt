@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -38,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameSnapshot
 import com.puresudoku.core.formatTime
+import com.puresudoku.data.ThemeMode
 import com.puresudoku.ui.GameViewModel
 import com.puresudoku.ui.progress
 import com.puresudoku.ui.components.Dot
@@ -73,6 +76,8 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(vm: GameViewModel) {
+    var showAppearance by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -102,6 +107,38 @@ fun HomeScreen(vm: GameViewModel) {
         Spacer(Modifier.height(36.dp))
         Records(vm)
     }
+    IconButton(
+        onClick = { showAppearance = true },
+        modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
+    ) {
+        Icon(Icons.Outlined.Settings, contentDescription = "Appearance")
+    }
+    }
+    if (showAppearance) AppearanceDialog(vm.themeMode, onPick = vm::updateThemeMode, onDismiss = { showAppearance = false })
+}
+
+@Composable
+private fun AppearanceDialog(current: ThemeMode, onPick: (ThemeMode) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Appearance") },
+        text = {
+            Column {
+                ThemeMode.entries.forEach { m ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                            .clickable { onPick(m) }.padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = m == current, onClick = { onPick(m) })
+                        HSpace(8)
+                        Text(m.label, fontSize = 16.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
 }
 
 @Composable
