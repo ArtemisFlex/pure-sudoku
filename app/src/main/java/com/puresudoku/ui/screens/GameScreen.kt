@@ -86,7 +86,7 @@ fun GameScreen(vm: GameViewModel) {
             Box(Modifier.widthIn(max = 520.dp)) {
                 SudokuBoard(vm)
                 // Pause hides the board so the clock can't be cheated.
-                AnimatedVisibility(phase == Phase.PAUSED, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
+                androidx.compose.animation.AnimatedVisibility(phase == Phase.PAUSED, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
                     Box(
                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                             .clickable(remember { MutableInteractionSource() }, null) { vm.unpause() },
