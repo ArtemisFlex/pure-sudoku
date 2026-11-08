@@ -20,21 +20,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.puresudoku.data.ThemeMode
-import com.puresudoku.ui.GameViewModel
+import com.puresudoku.ui.AppViewModel
 import com.puresudoku.ui.Screen
-import com.puresudoku.ui.screens.DifficultyScreen
-import com.puresudoku.ui.screens.GameScreen
+import com.puresudoku.ui.games.Games
+import com.puresudoku.ui.screens.GameMenuScreen
 import com.puresudoku.ui.screens.GeneratingScreen
-import com.puresudoku.ui.screens.HomeScreen
+import com.puresudoku.ui.screens.HubScreen
+import com.puresudoku.ui.screens.LevelScreen
+import com.puresudoku.ui.screens.PlayScreen
 import com.puresudoku.ui.screens.SlotsScreen
+import com.puresudoku.ui.tutorial.TutorialOverlay
 import com.puresudoku.ui.theme.PureSudokuTheme
 
 class MainActivity : ComponentActivity() {
-    private val vm: GameViewModel by viewModels()
+    private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +67,7 @@ class MainActivity : ComponentActivity() {
             PureSudokuTheme(dark = dark) {
                 // Surface supplies the theme's content colour (light text/icons in dark mode).
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    BackHandler(enabled = vm.screen != Screen.Home) { vm.back() }
+                    BackHandler(enabled = vm.screen != Screen.Hub) { vm.back() }
                     AnimatedContent(
                         targetState = vm.screen,
                         contentKey = { it::class },
@@ -73,12 +78,23 @@ class MainActivity : ComponentActivity() {
                         label = "screens",
                     ) { s ->
                         when (s) {
-                            Screen.Home -> HomeScreen(vm)
-                            Screen.PickDifficulty -> DifficultyScreen(vm)
-                            is Screen.Slots -> SlotsScreen(vm, s.replaceFor)
-                            is Screen.Generating -> GeneratingScreen(s.difficulty)
-                            Screen.Playing -> GameScreen(vm)
+                            Screen.Hub -> HubScreen(vm)
+                            is Screen.Menu -> GameMenuScreen(vm, s.kind)
+                            is Screen.PickLevel -> LevelScreen(vm, s.kind)
+                            is Screen.Slots -> SlotsScreen(vm, s.kind, s.replaceFor)
+                            is Screen.Generating -> GeneratingScreen(s.kind, s.difficulty)
+                            Screen.Playing -> PlayScreen(vm)
                         }
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = vm.tutorialFor != null,
+                        enter = fadeIn(tween(250)) + scaleIn(tween(300), initialScale = 0.94f),
+                        exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.96f),
+                    ) {
+                        // Keep the last game shown while the exit animation plays.
+                        val kind = remember { mutableStateOf(vm.tutorialFor) }
+                        vm.tutorialFor?.let { kind.value = it }
+                        kind.value?.let { k -> TutorialOverlay(k, Games.of(k).tutorial, onClose = vm::closeTutorial) }
                     }
                 }
             }

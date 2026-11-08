@@ -141,14 +141,14 @@ private fun LogoCell(digit: Int, strong: Boolean, soft: Boolean, fontSize: TextU
     }
 }
 
-/** "PureSudoku" wordmark: "Pure" in accent blue, "Sudoku" in ink, as in the logo. */
+/** "PurePuzzles" wordmark: "Pure" in accent blue, "Puzzles" in ink, as in the logo. */
 @Composable
 fun Wordmark(fontSize: TextUnit, modifier: Modifier = Modifier) {
     val colors = LocalBoardColors.current
     Text(
         buildAnnotatedString {
             withStyle(SpanStyle(color = colors.entered)) { append("Pure") }
-            withStyle(SpanStyle(color = colors.given)) { append("Sudoku") }
+            withStyle(SpanStyle(color = colors.given)) { append("Puzzles") }
         },
         fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = fontSize,
         modifier = modifier,

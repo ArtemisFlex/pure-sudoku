@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
@@ -46,82 +47,76 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.puresudoku.core.formatTime
-import com.puresudoku.ui.GameViewModel
-import com.puresudoku.ui.Phase
+import com.puresudoku.ui.AppViewModel
 import com.puresudoku.ui.WinSummary
-import com.puresudoku.ui.components.ActionRow
 import com.puresudoku.ui.components.Confetti
 import com.puresudoku.ui.components.Dot
 import com.puresudoku.ui.components.HSpace
-import com.puresudoku.ui.components.LogoGrid
-import com.puresudoku.ui.components.NumberPad
 import com.puresudoku.ui.components.StatusBar
-import com.puresudoku.ui.components.SudokuBoard
+import com.puresudoku.ui.games.GameDef
+import com.puresudoku.ui.games.Games
+import com.puresudoku.ui.session.Outcome
+import com.puresudoku.ui.session.Session
 import com.puresudoku.ui.theme.accent
 
+/** The shell around every game: top bar (with How to play), status bar, pause and end screens. */
 @Composable
-fun GameScreen(vm: GameViewModel) {
-    val phase = vm.phase
+fun PlayScreen(vm: AppViewModel) {
+    val session = vm.session ?: return
+    val def = Games.of(session.kind)
+    val outcome = session.outcome
+    val playing = outcome == Outcome.PLAYING
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Top bar
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = vm::goHome) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Home")
+                IconButton(onClick = vm::leaveGame) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to ${session.kind.title}")
                 }
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Dot(vm.difficulty.accent())
+                    Dot(session.difficulty.accent())
                     HSpace(8)
-                    Text(vm.difficulty.label, style = MaterialTheme.typography.headlineSmall)
+                    Text("${session.kind.title} · ${session.difficulty.label}", style = MaterialTheme.typography.titleLarge, maxLines = 1)
                 }
-                IconButton(onClick = { if (phase == Phase.PAUSED) vm.unpause() else vm.pause() }, enabled = phase == Phase.PLAYING || phase == Phase.PAUSED) {
-                    Icon(if (phase == Phase.PAUSED) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = "Pause")
+                IconButton(onClick = { vm.openTutorial(session.kind) }) {
+                    Icon(Icons.Outlined.Info, contentDescription = "How to play")
+                }
+                IconButton(onClick = { if (vm.paused) vm.unpause() else vm.pause() }, enabled = playing) {
+                    Icon(if (vm.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = "Pause")
                 }
             }
-            StatusBar(vm.score, vm.strikes, vm.elapsedMs, Modifier.padding(horizontal = 6.dp, vertical = 10.dp))
+            StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp, vertical = 10.dp))
 
-            Box(Modifier.widthIn(max = 520.dp)) {
-                SudokuBoard(vm)
-                // Pause hides the board so the clock can't be cheated.
-                androidx.compose.animation.AnimatedVisibility(phase == Phase.PAUSED, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                def.Play(session)
+                // Pause hides the puzzle so the clock can't be cheated.
+                androidx.compose.animation.AnimatedVisibility(vm.paused, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
                     Box(
-                        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                             .clickable(remember { MutableInteractionSource() }, null) { vm.unpause() },
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Paused", style = MaterialTheme.typography.headlineMedium)
                             Spacer(Modifier.height(4.dp))
-                            Text(formatTime(vm.elapsedMs), fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatTime(session.elapsedMs), fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = vm::unpause) { Text("Resume") }
                         }
                     }
                 }
             }
-
-            Spacer(Modifier.weight(1f))
-            ActionRow(vm.canUndo, vm.notesMode, vm::undo, vm::erase, vm::toggleNotesMode)
-            Spacer(Modifier.height(10.dp))
-            @Suppress("UNUSED_VARIABLE") val v = vm.boardVersion
-            NumberPad(vm::remaining, vm.notesMode, vm::input)
-            Spacer(Modifier.height(14.dp))
         }
 
         // End-of-game overlays
-        if (phase == Phase.WON) Confetti()
-        AnimatedVisibility(
-            phase == Phase.WON || phase == Phase.LOST,
-            enter = fadeIn(tween(400, delayMillis = 650)),
-            exit = fadeOut(),
-        ) {
+        if (outcome == Outcome.WON) Confetti()
+        AnimatedVisibility(!playing, enter = fadeIn(tween(400, delayMillis = 650)), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
         }
         AnimatedVisibility(
-            phase == Phase.WON || phase == Phase.LOST,
+            !playing,
             Modifier.align(Alignment.Center),
             enter = fadeIn(tween(300, delayMillis = 700)) +
                 scaleIn(spring(0.6f, Spring.StiffnessMediumLow), initialScale = 0.7f) +
@@ -129,7 +124,7 @@ fun GameScreen(vm: GameViewModel) {
             exit = fadeOut() + scaleOut(targetScale = 0.9f),
         ) {
             val summary = vm.winSummary
-            if (phase == Phase.WON && summary != null) WinCard(vm, summary) else LostCard(vm)
+            if (outcome == Outcome.WON && summary != null) WinCard(vm, session, def, summary) else LostCard(vm, session)
         }
     }
 }
@@ -146,51 +141,47 @@ private fun EndCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun WinCard(vm: GameViewModel, s: WinSummary) {
+private fun WinCard(vm: AppViewModel, session: Session, def: GameDef, s: WinSummary) {
     EndCard {
-        LogoGrid(64.dp, introDelayMs = 750)
+        def.Icon(64.dp)
         Spacer(Modifier.height(12.dp))
-        Text("Solved!", style = MaterialTheme.typography.headlineMedium)
+        Text(session.wonTitle, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(14.dp))
         Text("SOLVE TIME", fontSize = 11.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(formatTime(s.timeMs), fontSize = 44.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-        if (s.record.newBestTime) Badge("New fastest ${vm.difficulty.label} time!")
+        if (s.record.newBestTime) Badge("New fastest ${session.difficulty.label} time!")
         Spacer(Modifier.height(16.dp))
-        StatLine("Time bonus", "+${s.bonus.timeBonus}")
-        StatLine("Strikes left bonus", "+${s.bonus.livesBonus}")
+        for (b in s.bonus) StatLine(b.label, "+${b.value}")
         StatLine("Final score", s.score.toString(), bold = true)
         if (s.record.newBestScore) Badge("New high score!")
         Spacer(Modifier.height(10.dp))
         StatLine("Best time", formatTime(s.record.stats.bestTimeMs))
         StatLine("Average time", formatTime(s.record.stats.averageTimeMs))
-        StatLine("${vm.difficulty.label} solves", s.record.stats.wins.toString())
+        StatLine("${session.difficulty.label} solves", s.record.stats.wins.toString())
         Spacer(Modifier.height(20.dp))
-        EndButtons(vm)
+        EndButtons(vm, session)
     }
 }
 
 @Composable
-private fun LostCard(vm: GameViewModel) {
+private fun LostCard(vm: AppViewModel, session: Session) {
     EndCard {
-        Text("Game over", style = MaterialTheme.typography.headlineMedium)
+        Text(session.lostTitle, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(6.dp))
-        Text(
-            "Three strikes. This puzzle's save slot has been cleared.",
-            textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(session.lostMessage, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        StatLine("Time played", formatTime(vm.elapsedMs))
-        StatLine("Score", vm.score.toString(), bold = true)
+        StatLine("Time played", formatTime(session.elapsedMs))
+        StatLine("Score", session.score.toString(), bold = true)
         Spacer(Modifier.height(20.dp))
-        EndButtons(vm)
+        EndButtons(vm, session)
     }
 }
 
 @Composable
-private fun EndButtons(vm: GameViewModel) {
+private fun EndButtons(vm: AppViewModel, session: Session) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = vm::goHome) { Text("Home") }
-        Button(onClick = vm::playAgain) { Text("New ${vm.difficulty.label}") }
+        OutlinedButton(onClick = vm::leaveGame) { Text("Menu") }
+        Button(onClick = vm::playAgain) { Text("New ${session.difficulty.label}") }
     }
 }
 

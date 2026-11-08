@@ -54,25 +54,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.puresudoku.core.Game
+import com.puresudoku.core.MAX_STRIKES
+import com.puresudoku.ui.session.MiddleStat
+import com.puresudoku.ui.tutorial.DemoTargets
+import com.puresudoku.ui.tutorial.demoTarget
 import com.puresudoku.core.formatTime
 import com.puresudoku.ui.theme.LocalBoardColors
 import com.puresudoku.ui.theme.Poppins
 
-/** Score, strikes and the solve timer. */
+/** Score, strikes (or a game-specific counter) and the solve timer. */
 @Composable
-fun StatusBar(score: Int, strikes: Int, elapsedMs: Long, modifier: Modifier = Modifier) {
+fun StatusBar(score: Int, middle: MiddleStat, elapsedMs: Long, modifier: Modifier = Modifier, targets: DemoTargets? = null) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).demoTarget(targets, "score")) {
             Label("SCORE")
             val shown by animateIntAsState(score, tween(450), label = "score")
             Text(shown.toString(), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace)
         }
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Label("STRIKES")
-            Strikes(strikes)
+        Column(Modifier.weight(1f).demoTarget(targets, "middle"), horizontalAlignment = Alignment.CenterHorizontally) {
+            when (middle) {
+                is MiddleStat.Strikes -> { Label("STRIKES"); Strikes(middle.used) }
+                is MiddleStat.Counter -> {
+                    Label(middle.label.uppercase())
+                    AnimatedContent(
+                        middle.value, label = "counter",
+                        transitionSpec = { (slideInVertically { -it } + fadeIn()) togetherWith (slideOutVertically { it } + fadeOut()) },
+                    ) { v -> Text(v, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace) }
+                }
+            }
         }
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+        Column(Modifier.weight(1f).demoTarget(targets, "time"), horizontalAlignment = Alignment.End) {
             Label("TIME")
             Text(formatTime(elapsedMs), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace)
         }
@@ -92,7 +103,7 @@ private fun Label(text: String) {
 fun Strikes(strikes: Int, size: Int = 24) {
     val error = LocalBoardColors.current.error
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.height((size + 6).dp)) {
-        for (k in 0 until Game.MAX_STRIKES) {
+        for (k in 0 until MAX_STRIKES) {
             val lost = k < strikes
             val jolt = remember { Animatable(0f) }
             val lostAtStart = remember { lost }
@@ -123,11 +134,12 @@ fun ActionRow(
     onUndo: () -> Unit,
     onErase: () -> Unit,
     onNotes: () -> Unit,
+    targets: DemoTargets? = null,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        ActionButton(Icons.AutoMirrored.Outlined.Undo, "Undo", enabled = canUndo, onClick = onUndo)
-        ActionButton(Icons.AutoMirrored.Outlined.Backspace, "Erase", onClick = onErase)
-        Box {
+        ActionButton(Icons.AutoMirrored.Outlined.Undo, "Undo", enabled = canUndo, onClick = onUndo, modifier = Modifier.demoTarget(targets, "undo"))
+        ActionButton(Icons.AutoMirrored.Outlined.Backspace, "Erase", onClick = onErase, modifier = Modifier.demoTarget(targets, "erase"))
+        Box(Modifier.demoTarget(targets, "notes")) {
             ActionButton(Icons.Outlined.Edit, "Notes", active = notesMode, onClick = onNotes)
             val badgeColor by animateColorAsState(
                 if (notesMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
@@ -149,7 +161,7 @@ fun ActionRow(
 }
 
 @Composable
-private fun ActionButton(icon: ImageVector, label: String, enabled: Boolean = true, active: Boolean = false, onClick: () -> Unit) {
+fun ActionButton(icon: ImageVector, label: String, enabled: Boolean = true, active: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.88f else 1f, spring(0.5f, Spring.StiffnessHigh), label = "press")
@@ -166,7 +178,7 @@ private fun ActionButton(icon: ImageVector, label: String, enabled: Boolean = tr
     )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
+        modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(16.dp))
             .background(bg)
@@ -179,12 +191,18 @@ private fun ActionButton(icon: ImageVector, label: String, enabled: Boolean = tr
     }
 }
 
-/** 1-9 keys with how many of each digit are still left to place. */
+/** 1..[maxDigit] keys, optionally with how many of each digit are still left to place. */
 @Composable
-fun NumberPad(remaining: (Int) -> Int, notesMode: Boolean, onDigit: (Int) -> Unit) {
+fun NumberPad(
+    maxDigit: Int,
+    remaining: ((Int) -> Int)?,
+    notesMode: Boolean,
+    onDigit: (Int) -> Unit,
+    targets: DemoTargets? = null,
+) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (d in 1..9) {
-            val left = remaining(d)
+        for (d in 1..maxDigit) {
+            val left = remaining?.invoke(d) ?: -1
             val done = left == 0
             val source = remember { MutableInteractionSource() }
             val pressed by source.collectIsPressedAsState()
@@ -201,6 +219,7 @@ fun NumberPad(remaining: (Int) -> Int, notesMode: Boolean, onDigit: (Int) -> Uni
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .weight(1f)
+                    .demoTarget(targets, "key-$d")
                     .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surface)
@@ -211,8 +230,8 @@ fun NumberPad(remaining: (Int) -> Int, notesMode: Boolean, onDigit: (Int) -> Uni
                     d.toString(), fontSize = if (notesMode) 22.sp else 27.sp,
                     fontWeight = FontWeight.Medium, color = digitColor, fontFamily = Poppins,
                 )
-                Text(
-                    if (done) "✓" else left.toString(), fontSize = 11.sp,
+                if (remaining != null) Text(
+                    if (done) "✓" else left.coerceAtLeast(0).toString(), fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
