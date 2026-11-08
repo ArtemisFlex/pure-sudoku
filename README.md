@@ -1,51 +1,46 @@
-# Pure Sudoku
+# Pure Puzzles
 
-An offline, single-player Sudoku for Android (Kotlin + Jetpack Compose). No internet permission, no ads, no accounts.
+Nine offline, single-player brain games for Android (Kotlin + Jetpack Compose). No internet permission, no ads, no accounts.
 
-## Get the APK on your phone (no computer needed)
+| Game | Skill | What you do |
+|---|---|---|
+| Sudoku | Logic | Fill the grid so every row, column and box holds 1–9 |
+| Cage Math | Arithmetic | Latin square where every outlined cage hits its target with + − × ÷ |
+| Kakuro | Arithmetic | Crossword of sums; no repeats within a run |
+| Picture Logic | Deduction | Nonogram: row/column clues reveal a hidden picture |
+| Hashi | Logic | Connect islands with the right number of bridges, no crossings |
+| Grid Recall | Memory | Memorize numbers on a grid, then put them back (in order from Expert up) |
+| Code Breaker | Reasoning | Crack a hidden colour code from exact/near clues |
+| Lumen | Puzzle | Lights-out: switch every light off in as few moves as possible |
+| Sliding Tiles | Spatial | Slide the tiles back into order, 3×3 up to 6×6 |
 
-1. Create an empty repository on GitHub and push this project to it (or let Claude push it for you).
-2. The included workflow (`.github/workflows/build-apk.yml`) builds the APK automatically, in about 5 minutes.
-3. On your phone, open the repository's **Releases** page, tap **PureSudoku.apk**, then open the download. Allow "Install unknown apps" for your browser when Android asks.
+## Get the APK on your phone
 
-Every push builds a fresh release. You can also rebuild by hand from the Actions tab ("Build APK" → "Run workflow").
+Every push to `main` builds an APK with GitHub Actions (`.github/workflows/build-apk.yml`) and publishes it on the **Releases** page. Open the latest release on your phone, tap **PurePuzzles.apk**, and allow "Install unknown apps" for your browser when asked. Installing over an older version keeps your saves.
 
-## Run it from Android Studio
+To build locally: open the folder in Android Studio and press Run, or run `./gradlew assembleRelease` (APK lands in `app/build/outputs/apk/release/`). The release build is signed with the debug key so it installs directly; use your own key before publishing anywhere. Requires Android 8.0 (API 26) or newer.
 
-1. Open this folder in **Android Studio** (Ladybug or newer). Let Gradle sync.
-2. Pick a device or emulator and press **Run**.
+## Shared features
 
-Or from a terminal: `./gradlew installDebug` (device connected), or `./gradlew assembleRelease` for a release APK in `app/build/outputs/apk/release/`. The release build is signed with the debug key so it installs directly; use your own key before publishing anywhere.
+- **Six levels per game**: Easy, Medium, Hard, Expert, Master, Extreme.
+- **3 save slots per game**, saved on every move, every few seconds and when the app goes to the background. Saves from the original Pure Sudoku carry over.
+- **3-strike game over** wherever mistakes are possible (Code Breaker uses a guess limit; Lumen and Sliding Tiles count moves against par).
+- **Time to solve** with best and average times, solve counts and best scores per game and level.
+- **Scoring**: points for correct moves with a streak bonus, bonuses for completing lines/cages/islands/rounds, and on finishing a time bonus plus hearts-left, guesses-left or par bonus.
+- **How to play**: every game has an animated card deck. Each card plays a scripted clip on the real game board (a finger shows each tap and drag) next to the instruction it illustrates. It opens automatically the first time you play a game and from the ⓘ button in the game's top bar at any time.
+- **Appearance**: System / Light / Dark, from the gear on the home screen.
 
-Requires Android 8.0 (API 26) or newer.
+## Puzzle generators (`app/src/main/java/com/puresudoku/core`)
 
-## Features
+Every puzzle is generated fresh on the device, and every logic puzzle is checked to have exactly one answer.
 
-- **Six difficulties**: Easy, Medium, Hard, Expert, Master, Extreme.
-- **3 save slots**. Games autosave on every move, every few seconds, and when the app goes to the background. When all three are full, starting a new game asks which one to replace.
-- **3-strike game over**. A wrong number is rejected, shakes red and costs a heart. The third strike ends the game and clears its slot.
-- **Time to solve**. The clock runs only while you're playing (it stops when paused or when the app is in the background, and pausing hides the board). Each solve records your time; the home screen shows solves, best time, average time and best score per difficulty, and the win screen flags new records.
-- **Scoring**: points per correct number (higher on harder levels) with a small streak bonus, a bonus for each row/column/box completed, a penalty for mistakes, and on finishing a time bonus (beat the par time) plus a bonus for strikes left.
-- **Notes** (pencil marks), undo and erase for notes. Placing a number clears it from neighbouring notes.
-- **Animations**: board build-in cascade, number pop, floating points, completion ripple across finished rows/columns/boxes, error shake, heart loss, win wave with confetti, animated screen transitions.
+- **Sudoku**: random solved grid (randomized backtracking + symmetry scrambles), clues removed while the solution stays unique, graded by the human techniques required.
+- **Cage Math**: random Latin square, random cages and operations, exact solver; any cell where two answers differ is split off as a given until the answer is unique.
+- **Kakuro**: random symmetric layouts (runs of 2+ cells, all white cells connected), random fills, run-sum-pruned solver; ambiguity is repaired with a new fill or a revealed cell.
+- **Picture Logic**: random noise smoothed into shapes, adjusted until line logic alone solves it — so it never needs a guess.
+- **Hashi**: networks grown bridge by bridge with extra loop bridges, kept only when a propagating solver proves one solution.
+- **Grid Recall / Code Breaker**: random patterns and codes from a secure seed.
+- **Lumen**: boards built by random presses (always solvable); par is the true minimum, found by solving the press equations over GF(2).
+- **Sliding Tiles**: random solvable arrangements (parity-checked) or scrambles; exact par on 3×3 by breadth-first search.
 
-## Logo and fonts
-
-The launcher icon is the grid from the Pure Sudoku logo, recoloured to the app theme (`res/drawable/ic_launcher_foreground.xml`, plus a monochrome version for Android 13 themed icons). In the app, the same grid is drawn live (`ui/components/Logo.kt`) so it can animate: digits pop in on the home screen, the highlight sweeps while a puzzle is built, and a small copy tops the win card. Text uses Poppins, the logo's typeface, licensed under the SIL Open Font License 1.1.
-
-## The puzzle generator (`app/src/main/java/com/puresudoku/core`)
-
-1. A new solved grid comes from randomized backtracking, then is scrambled with validity-preserving transforms (digit relabelling, row/column swaps within bands, band/stack swaps, transpose). Seeds come from `SecureRandom`.
-2. Clues are removed in random order (mirrored pairs on the easier grades); a removal is kept only if the puzzle still has exactly **one** solution.
-3. `LogicGrader` solves the puzzle like a person would and records the hardest technique required. A puzzle is accepted only if it genuinely needs that difficulty's techniques:
-
-| Level   | Clues | Required techniques |
-|---------|-------|---------------------|
-| Easy    | 38–42 | singles only |
-| Medium  | 32–36 | singles (up to locked candidates) |
-| Hard    | 28–32 | locked candidates or pairs |
-| Expert  | 25–29 | pairs, triples or X-Wing |
-| Master  | 23–27 | triples/X-Wing up to Swordfish, XY-Wing, XYZ-Wing |
-| Extreme | 20–25 | beyond all of the above |
-
-In testing (360 puzzles, 60 per level) every puzzle was unique and landed in its grade, with generation averaging under 25 ms.
+Text uses Poppins (SIL Open Font License 1.1).

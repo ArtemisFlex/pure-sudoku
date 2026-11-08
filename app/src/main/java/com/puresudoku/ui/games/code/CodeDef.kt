@@ -278,7 +278,7 @@ private fun CodeLayout(s: CodeSession, targets: DemoTargets?, status: Boolean = 
             val fx = s.rejectFx
             var show by remember { mutableStateOf(false) }
             LaunchedEffect(fx?.id) { if (fx != null) { show = true; delay(2200); show = false } }
-            AnimatedVisibility(show, enter = fadeIn(), exit = fadeOut()) {
+            androidx.compose.animation.AnimatedVisibility(show, enter = fadeIn(), exit = fadeOut()) {
                 Text(fx?.text ?: "", color = LocalBoardColors.current.error, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
