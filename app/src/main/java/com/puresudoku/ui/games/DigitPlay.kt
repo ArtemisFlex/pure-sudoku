@@ -31,13 +31,18 @@ fun DigitPlay(
 ) {
     @Suppress("UNUSED_VARIABLE") val v = session.boardVersion
     val spec = session.spec
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Fit the board above the controls, whatever its shape.
+    val aspect = spec.width / spec.height.toFloat()
+    val boardW = min(min(maxWidth, 520.dp), (maxHeight - 150.dp) * aspect)
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.widthIn(max = 520.dp)) { DigitBoard(session, decoration = decoration, blocked = blocked) }
+        DigitBoard(session, Modifier.width(boardW), decoration = decoration, blocked = blocked)
         Spacer(Modifier.weight(1f))
         ActionRow(session.canUndo, session.notesMode, session::undo, session::erase, session::toggleNotesMode)
         Spacer(Modifier.height(10.dp))
         NumberPad(spec.maxDigit, if (spec.showRemaining) session::remaining else null, session.notesMode, session::input)
         Spacer(Modifier.height(14.dp))
+    }
     }
 }
 

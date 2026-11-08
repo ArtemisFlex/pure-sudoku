@@ -38,6 +38,8 @@ object Games {
     val all: List<GameDef> by lazy {
         listOf(
             com.puresudoku.ui.games.sudoku.SudokuDef,
+            com.puresudoku.ui.games.cagemath.CageMathDef,
+            com.puresudoku.ui.games.kakuro.KakuroDef,
         )
     }
 
