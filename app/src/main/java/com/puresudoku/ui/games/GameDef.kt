@@ -42,6 +42,10 @@ object Games {
             com.puresudoku.ui.games.kakuro.KakuroDef,
             com.puresudoku.ui.games.picture.PictureDef,
             com.puresudoku.ui.games.hashi.HashiDef,
+            com.puresudoku.ui.games.recall.RecallDef,
+            com.puresudoku.ui.games.code.CodeDef,
+            com.puresudoku.ui.games.lumen.LumenDef,
+            com.puresudoku.ui.games.sliding.SlidingDef,
         )
     }
 
