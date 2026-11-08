@@ -40,6 +40,8 @@ object Games {
             com.puresudoku.ui.games.sudoku.SudokuDef,
             com.puresudoku.ui.games.cagemath.CageMathDef,
             com.puresudoku.ui.games.kakuro.KakuroDef,
+            com.puresudoku.ui.games.picture.PictureDef,
+            com.puresudoku.ui.games.hashi.HashiDef,
         )
     }
 
