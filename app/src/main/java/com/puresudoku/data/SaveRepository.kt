@@ -98,6 +98,19 @@ class SaveRepository(context: Context) {
         return SolveRecord(updated, newBestTime && old.wins > 0, newBestScore && old.wins > 0)
     }
 
+    // ---------------- keepsakes ----------------
+
+    fun keepsakes(kind: GameKind): List<String> = runCatching {
+        val a = org.json.JSONArray(prefs.getString("keep_${kind.name}", "[]"))
+        List(a.length()) { a.getString(it) }
+    }.getOrDefault(emptyList())
+
+    fun addKeepsakes(kind: GameKind, items: List<String>) {
+        if (items.isEmpty()) return
+        val all = (items.reversed() + keepsakes(kind)).take(30)
+        prefs.edit().putString("keep_${kind.name}", org.json.JSONArray(all).toString()).apply()
+    }
+
     // ---------------- settings ----------------
 
     fun themeMode(): ThemeMode =

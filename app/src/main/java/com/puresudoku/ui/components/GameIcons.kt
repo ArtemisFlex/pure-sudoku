@@ -48,6 +48,14 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.CODE_BREAKER -> code(colors, o, inner)
             GameKind.LUMEN -> lumen(colors, o, inner)
             GameKind.SLIDING_TILES -> sliding(colors, tm, o, inner)
+            GameKind.CROSSWORD -> crossword(colors, tm, o, inner)
+            GameKind.WORD_SEARCH -> wordSearch(colors, tm, o, inner)
+            GameKind.HAIKU -> haiku(colors, o, inner)
+            GameKind.ALLITERATION -> letters(colors, tm, o, inner, listOf("B", "B", "K"), strong = 2)
+            GameKind.SYNONYMS -> letters(colors, tm, o, inner, listOf("A", "=", "A"), strong = 1)
+            GameKind.RHYME_TIME -> rhyme(colors, tm, o, inner)
+            GameKind.WORD_LADDER -> ladder(colors, tm, o, inner)
+            GameKind.WORD_WHEEL -> wheel(colors, tm, o, inner)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),
@@ -177,4 +185,80 @@ private fun DrawScope.sliding(c: BoardColors, tm: TextMeasurer, o: Float, inner:
         label(tm, "$k", o + (col + 0.5f) * cell, o + (r + 0.5f) * cell, cell * 0.5f, if (strong) c.boardBg else c.given, center = true)
         k++
     }
+}
+
+
+private fun DrawScope.crossword(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float) {
+    val cell = inner / 3
+    cell(o, cell, 0, 2, c.thickLine); cell(o, cell, 2, 0, c.thickLine)
+    cell(o, cell, 1, 1, c.entered)
+    gridLines(c, o, inner, 3, inner * 0.012f)
+    val grid = listOf("CA ", "ORE", " TO")
+    for (r in 0..2) for (col in 0..2) {
+        val ch = grid[r][col]
+        if (ch != ' ') label(tm, "$ch", o + (col + 0.5f) * cell, o + (r + 0.5f) * cell, cell * 0.5f, if (r == 1 && col == 1) c.boardBg else c.given, center = true)
+    }
+}
+
+private fun DrawScope.wordSearch(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float) {
+    val cell = inner / 3
+    drawRoundRect(c.sameDigit, Offset(o + cell * 0.12f, o + cell * 1.14f), Size(inner - cell * 0.24f, cell * 0.72f), CornerRadius(cell * 0.36f))
+    val grid = listOf("QZE", "OWL", "JRK")
+    for (r in 0..2) for (col in 0..2) {
+        label(tm, "${grid[r][col]}", o + (col + 0.5f) * cell, o + (r + 0.5f) * cell, cell * 0.48f, if (r == 1) c.given else c.note, center = true)
+    }
+}
+
+private fun DrawScope.haiku(c: BoardColors, o: Float, inner: Float) {
+    val counts = intArrayOf(5, 7, 5)
+    for (r in 0..2) {
+        val y = o + inner * (0.25f + r * 0.25f)
+        val gap = inner / 8.5f
+        val start = o + (inner - gap * (counts[r] - 1)) / 2
+        for (k in 0 until counts[r]) drawCircle(if (r == 1) c.entered else c.thickLine, inner * 0.045f, Offset(start + k * gap, y))
+    }
+}
+
+private fun DrawScope.letters(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float, ls: List<String>, strong: Int) {
+    val cell = inner / 3
+    for ((k, l) in ls.withIndex()) {
+        val pad = cell * 0.1f
+        drawRoundRect(if (k == strong) c.entered else c.related, Offset(o + k * cell + pad, o + cell + pad), Size(cell - pad * 2, cell - pad * 2), CornerRadius(cell * 0.16f))
+        label(tm, l, o + (k + 0.5f) * cell, o + 1.5f * cell, cell * 0.5f, if (k == strong) c.boardBg else c.given, center = true)
+    }
+}
+
+private fun DrawScope.rhyme(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float) {
+    val cell = inner / 3
+    for ((r, w) in listOf("CAT", "HAT").withIndex()) for (k in 0..2) {
+        val pad = cell * 0.1f
+        val y = o + cell * (0.5f + r)
+        drawRoundRect(if (k > 0) (if (r == 0) c.entered else c.sameDigit) else c.related, Offset(o + k * cell + pad, y + pad), Size(cell - pad * 2, cell - pad * 2), CornerRadius(cell * 0.16f))
+        label(tm, "${w[k]}", o + (k + 0.5f) * cell, y + cell / 2, cell * 0.48f, if (r == 0 && k > 0) c.boardBg else c.given, center = true)
+    }
+}
+
+private fun DrawScope.ladder(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float) {
+    val cell = inner / 3
+    val words = listOf("CAT", "COT", "DOT")
+    for ((r, w) in words.withIndex()) for (k in 0..2) {
+        val changed = (r == 1 && k == 1) || (r == 2 && k == 0)
+        if (changed) cell(o, cell, r, k, if (r == 1) c.entered else c.sameDigit)
+        label(tm, "${w[k]}", o + (k + 0.5f) * cell, o + (r + 0.5f) * cell, cell * 0.5f, if (r == 1 && k == 1) c.boardBg else c.given, center = true)
+    }
+    gridLines(c, o, inner, 3, inner * 0.012f)
+}
+
+private fun DrawScope.wheel(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float) {
+    val cx = o + inner / 2; val cy = o + inner / 2
+    val rad = inner * 0.3f
+    val letters = "PLANETS"
+    for (k in 0 until 6) {
+        val a = Math.toRadians(60.0 * k - 90).toFloat()
+        val p = Offset(cx + rad * kotlin.math.cos(a), cy + rad * kotlin.math.sin(a))
+        drawCircle(c.related, inner * 0.13f, p)
+        label(tm, "${letters[k + 1]}", p.x, p.y, inner * 0.14f, c.given, center = true)
+    }
+    drawCircle(c.entered, inner * 0.15f, Offset(cx, cy))
+    label(tm, "A", cx, cy, inner * 0.16f, c.boardBg, center = true)
 }

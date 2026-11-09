@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.puresudoku.core.words.WordData.init { name -> assets.open("words/$name").reader() }
+        Thread { runCatching { com.puresudoku.core.words.WordData.lexicon; com.puresudoku.core.words.WordData.clues } }.start()
         enableEdgeToEdge()
 
         // The solve clock only runs while the app is on screen; leaving autosaves.

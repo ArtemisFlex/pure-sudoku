@@ -49,6 +49,14 @@ object Games {
             com.puresudoku.ui.games.code.CodeDef,
             com.puresudoku.ui.games.lumen.LumenDef,
             com.puresudoku.ui.games.sliding.SlidingDef,
+            com.puresudoku.ui.games.crossword.CrosswordDef,
+            com.puresudoku.ui.games.wordsearch.WordSearchDef,
+            com.puresudoku.ui.games.haiku.HaikuDef,
+            com.puresudoku.ui.games.quiz.AlliterationDef,
+            com.puresudoku.ui.games.quiz.SynonymsDef,
+            com.puresudoku.ui.games.quiz.RhymeDef,
+            com.puresudoku.ui.games.wordplay.LadderDef,
+            com.puresudoku.ui.games.wordplay.WheelDef,
         )
     }
 

@@ -114,6 +114,18 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
             }
             Spacer(Modifier.height(24.dp))
             Records(vm, kind)
+            val keep = remember(kind, vm.stats) { vm.keepsakes(kind) }
+            if (keep.isNotEmpty()) {
+                Spacer(Modifier.height(24.dp))
+                Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+                    Text(if (kind == GameKind.HAIKU) "Your haiku" else "Keepsakes", style = MaterialTheme.typography.titleLarge)
+                    for (k in keep) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                            Text(k, Modifier.padding(16.dp), fontFamily = com.puresudoku.ui.theme.Poppins, lineHeight = 24.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 }

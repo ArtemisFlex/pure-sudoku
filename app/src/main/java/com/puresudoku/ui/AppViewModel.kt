@@ -57,6 +57,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var timerJob: Job? = null
     private var generateJob: Job? = null
 
+    fun keepsakes(kind: GameKind): List<String> = repo.keepsakes(kind)
+
     // ---------------- settings ----------------
 
     fun updateThemeMode(m: ThemeMode) { themeMode = m; repo.setThemeMode(m) }
@@ -164,6 +166,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stopTimer()
         repo.clear(s.kind, activeSlot)
         if (outcome == Outcome.WON) {
+            repo.addKeepsakes(s.kind, s.keepsakes)
             val record = repo.recordSolve(s.kind, s.difficulty, s.score, s.elapsedMs)
             winSummary = WinSummary(s.elapsedMs, s.score, s.bonusLines, record)
         }

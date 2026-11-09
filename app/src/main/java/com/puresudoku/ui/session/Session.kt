@@ -53,6 +53,9 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     /** Set by the host: called once when the game is won or lost. */
     var onFinished: (Outcome) -> Unit = {}
 
+    /** Things worth keeping after a win (e.g. the haiku you wrote). */
+    open val keepsakes: List<String> get() = emptyList()
+
     open val usesStrikes: Boolean get() = true
     open val middleStat: MiddleStat get() = MiddleStat.Strikes(strikes)
     abstract val progress: Float

@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.puresudoku.core.GameCategory
 import com.puresudoku.data.ThemeMode
 import com.puresudoku.ui.AppViewModel
 import com.puresudoku.ui.components.HSpace
@@ -71,12 +72,19 @@ fun HubScreen(vm: AppViewModel) {
                     Spacer(Modifier.height(16.dp))
                     Wordmark(36.sp)
                     Text(
-                        "${Games.all.size} puzzles. Every game fresh.",
+                        "${Games.all.size} games for your brain. Every one fresh.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                     )
                 }
             }
-            itemsIndexed(Games.all, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
+            for (cat in GameCategory.entries) {
+                val games = Games.all.filter { it.kind.category == cat }
+                if (games.isEmpty()) continue
+                item(span = { GridItemSpan(maxLineSpan) }, key = "h-${cat.name}") {
+                    Text(cat.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 10.dp, start = 4.dp))
+                }
+                itemsIndexed(games, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
+            }
         }
         IconButton(
             onClick = { showAppearance = true },
