@@ -241,20 +241,22 @@ private fun LadderLayout(s: LadderSession, targets: DemoTargets?, status: Boolea
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val colors = LocalBoardColors.current
     val goal = s.puzzle.end
-    val list = rememberLazyListState()
-    LaunchedEffect(s.rungs.size) { list.animateScrollToItem(s.rungs.size) }
+    val scroll = rememberScrollState()
+    LaunchedEffect(s.rungs.size) { scroll.animateScrollTo(scroll.maxValue) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         if (status) StatusBar(s.score, s.middleStat, s.elapsedMs, targets = targets)
         Row(Modifier.demoTarget(targets, "goal"), verticalAlignment = Alignment.CenterVertically) {
             Text("GOAL  ", fontSize = 12.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             WordTiles(goal, 34.dp, highlight = goal.indices.toSet(), strong = true)
-            Text("   ${s.steps} steps · par ${s.puzzle.par}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("   ${s.steps} step${if (s.steps == 1) "" else "s"} · par ${s.puzzle.par}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(10.dp))
-        LazyColumn(Modifier.weight(1f), state = list, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(s.rungs.size) { k ->
-                @Suppress("UNUSED_VARIABLE") val ver = s.version
-                val w = s.rungs.getOrNull(k) ?: return@items
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            for (k in s.rungs.indices) {
+                val w = s.rungs[k]
                 val isCurrent = k == s.rungs.lastIndex
                 val match = w.indices.filter { w[it] == goal[it] }.toSet()
                 if (!isCurrent) WordTiles(w, 38.dp, highlight = match, dim = true)

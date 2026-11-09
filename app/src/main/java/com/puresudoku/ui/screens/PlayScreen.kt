@@ -84,10 +84,16 @@ fun PlayScreen(vm: AppViewModel) {
                 IconButton(onClick = vm::leaveGame) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to ${session.kind.title}")
                 }
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Dot(session.difficulty.accent())
-                    HSpace(8)
-                    Text("${session.kind.title} · ${session.difficulty.label}", style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        session.kind.title, style = MaterialTheme.typography.titleLarge, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Dot(session.difficulty.accent(), 8)
+                        HSpace(6)
+                        Text(session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 IconButton(onClick = { vm.openTutorial(session.kind) }) {
                     Icon(Icons.Outlined.Info, contentDescription = "How to play")

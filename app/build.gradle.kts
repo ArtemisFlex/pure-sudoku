@@ -38,6 +38,13 @@ android {
     }
 }
 
+// Game state lives in plain arrays inside session objects, so screens must redraw
+// whenever their parent does. Strong skipping (on by default since Kotlin 2.0.20)
+// skips those redraws, which left moves invisible; turn it off app-wide.
+composeCompiler {
+    featureFlags.add(org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag.StrongSkipping.disabled())
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
