@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -149,6 +151,8 @@ object LumenDef : GameDef {
     override fun levelInfo(d: Difficulty) = LumenRules.config(d).let {
         "${it.n}×${it.n}" + when (it.pattern) { LumenRules.Pattern.PLUS -> ""; LumenRules.Pattern.CROSS -> " · diagonals"; LumenRules.Pattern.KING -> " · all around" }
     }
+
+    override fun hint(d: Difficulty): String = when (LumenRules.config(d).pattern) { LumenRules.Pattern.PLUS -> "Tapping a tile flips it and the tiles above, below, left and right. Turn every light off."; LumenRules.Pattern.CROSS -> "Tapping a tile flips it and its four diagonal neighbours. Turn every light off."; LumenRules.Pattern.KING -> "Tapping a tile flips it and all eight tiles around it. Turn every light off." }
 
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A tiny board to learn the moves."
@@ -277,24 +281,41 @@ private fun LumenGrid(s: LumenSession, side: Dp, targets: DemoTargets?) {
     }
 }
 
+private val LIT = Color(0xFFFFC93C)
+private val LIT_GLOW = Color(0xFFFFF1B8)
+
 @Composable
 private fun LumenTile(s: LumenSession, i: Int, modifier: Modifier, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
+    @Suppress("UNUSED_VARIABLE") val v = s.version
     val n = s.n
     val on = s.lit(i)
-    val won = s.outcome == Outcome.WON
-    val face by animateColorAsState(if (on) colors.wave else colors.related, tween(260), label = "lumen")
-    val glow by animateColorAsState(if (on) colors.entered else colors.related, tween(260), label = "glow")
+    // What the tile shows; it switches at the halfway point of the flip.
+    var shown by remember { mutableStateOf(on) }
+    var flipping by remember { mutableStateOf(false) }
     val flip = remember { Animatable(0f) }
     val fx = s.flipFx
     LaunchedEffect(fx?.id) {
         if (fx != null && i in fx.cells) {
-            val dist = max(abs(fx.origin / n - i / n), abs(fx.origin % n - i % n))
-            delay(dist * 55L)
-            flip.snapTo(0f)
-            flip.animateTo(1f, tween(if (won) 520 else 380, easing = FastOutSlowInEasing))
+            flipping = true
+            try {
+                val dist = max(abs(fx.origin / n - i / n), abs(fx.origin % n - i % n))
+                delay(dist * 35L)
+                flip.snapTo(0f)
+                flip.animateTo(0.5f, tween(95, easing = FastOutSlowInEasing))
+                shown = s.lit(i)
+                flip.animateTo(1f, tween(110, easing = FastOutSlowInEasing))
+            } finally {
+                flip.snapTo(0f)
+                shown = s.lit(i)
+                flipping = false
+            }
         }
     }
+    LaunchedEffect(on) { if (!flipping) shown = on }
+    val press = remember { MutableInteractionSource() }
+    val pressed by press.collectIsPressedAsState()
+    val face = if (shown) LIT else colors.related
     Box(
         modifier
             .fillMaxSize()
@@ -302,14 +323,14 @@ private fun LumenTile(s: LumenSession, i: Int, modifier: Modifier, targets: Demo
             .graphicsLayer {
                 rotationY = flip.value * 180f
                 cameraDistance = 12f * density
-                val k = 1f - 0.08f * kotlin.math.sin(flip.value * Math.PI).toFloat()
+                val k = (if (pressed) 0.92f else 1f) - 0.06f * kotlin.math.sin(flip.value * Math.PI).toFloat()
                 scaleX = k; scaleY = k
             }
             .clip(RoundedCornerShape(14.dp))
             .background(face)
             .drawBehind {
-                if (on) drawRect(Brush.radialGradient(listOf(glow.copy(alpha = 0.55f), glow.copy(alpha = 0f)), radius = size.minDimension * 0.7f))
+                if (shown) drawRect(Brush.radialGradient(listOf(LIT_GLOW.copy(alpha = 0.9f), LIT_GLOW.copy(alpha = 0f)), radius = size.minDimension * 0.6f))
             }
-            .clickable(remember { MutableInteractionSource() }, null) { s.press(i) },
+            .clickable(press, null) { s.press(i) },
     )
 }

@@ -79,6 +79,8 @@ object CageMathDef : GameDef {
         return "${c.n}×${c.n} · " + c.ops.map { op -> when (op) { '+' -> "+"; '-' -> "−"; 'x' -> "×"; else -> "÷" } }.joinToString(" ")
     }
 
+    override fun hint(d: Difficulty): String = "Each row and column uses every number once. A cage's numbers must make its target."
+
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "Small grid, adding only."
         Difficulty.MEDIUM -> "Adding and subtracting."

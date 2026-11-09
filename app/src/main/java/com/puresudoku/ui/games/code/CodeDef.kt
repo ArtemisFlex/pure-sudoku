@@ -2,6 +2,7 @@ package com.puresudoku.ui.games.code
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
@@ -12,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,8 +88,6 @@ private val SYMBOL_COLORS = listOf(
     Color(0xFF7A4FD0), Color(0xFFD9619F), Color(0xFF8C6A4F), Color(0xFF5E6672),
 )
 
-data class RejectFx(val id: Long, val text: String)
-
 class CodeSession(
     difficulty: Difficulty,
     val secret: IntArray,
@@ -98,7 +98,6 @@ class CodeSession(
     val current = IntArray(cfg.length)
 
     var version by mutableIntStateOf(0); private set
-    var rejectFx by mutableStateOf<RejectFx?>(null); private set
 
     override val usesStrikes get() = false
     override val middleStat get() = MiddleStat.Counter("Guesses", "${history.size}/${cfg.guesses}")
@@ -112,7 +111,7 @@ class CodeSession(
     fun pick(sym: Int) {
         if (outcome != Outcome.PLAYING) return
         val k = current.indexOfFirst { it == 0 }
-        if (k < 0) return
+        if (k < 0) { nudge("Row is full — tap Guess, or tap a colour in the row to remove it"); return }
         current[k] = sym; version++
     }
 
@@ -124,10 +123,11 @@ class CodeSession(
     }
 
     fun submit() {
-        if (outcome != Outcome.PLAYING || !full) return
+        if (outcome != Outcome.PLAYING) return
+        if (!full) { nudge("Fill every slot before you guess"); return }
         val guess = current.copyOf()
         if (cfg.strict && !CodeRules.consistent(guess, history)) {
-            rejectFx = RejectFx(FxIds.next(), "That guess doesn't fit the clues so far")
+            nudge("That can't be the code — it doesn't match your earlier clues")
             return
         }
         val fb = CodeRules.feedback(secret, guess)
@@ -164,6 +164,8 @@ object CodeDef : GameDef {
     }
 
     override fun levelInfo(d: Difficulty) = CodeRules.config(d).let { "${it.length} of ${it.symbols} · ${it.guesses} tries" }
+
+    override fun hint(d: Difficulty): String = "Tap colours to fill the row, then Guess. ● = right place, ○ = in the code but elsewhere."
 
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "Short code, no repeats."
@@ -267,6 +269,7 @@ private fun CodeLayout(s: CodeSession, targets: DemoTargets?, status: Boolean = 
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(cfg.guesses) { row ->
+                @Suppress("UNUSED_VARIABLE") val ver = s.version
                 val done = row < s.history.size
                 val isCurrent = row == s.history.size && s.outcome == Outcome.PLAYING
                 val guess = when { done -> s.history[row].first; isCurrent -> s.current; else -> null }
@@ -275,7 +278,7 @@ private fun CodeLayout(s: CodeSession, targets: DemoTargets?, status: Boolean = 
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.height(22.dp), contentAlignment = Alignment.Center) {
-            val fx = s.rejectFx
+            val fx = if (targets != null) s.nudgeFx else null
             var show by remember { mutableStateOf(false) }
             LaunchedEffect(fx?.id) { if (fx != null) { show = true; delay(2200); show = false } }
             androidx.compose.animation.AnimatedVisibility(show, enter = fadeIn(), exit = fadeOut()) {
@@ -286,8 +289,12 @@ private fun CodeLayout(s: CodeSession, targets: DemoTargets?, status: Boolean = 
         // palette
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (sym in 1..cfg.symbols) {
+                val src = remember { MutableInteractionSource() }
+                val pressed by src.collectIsPressedAsState()
+                val k by animateFloatAsState(if (pressed) 0.82f else 1f, spring(0.5f, Spring.StiffnessHigh), label = "sym")
                 SymbolDot(sym, if (cfg.symbols > 7) 34.dp else 40.dp, Modifier.demoTarget(targets, "sym-$sym")
-                    .clickable(remember { MutableInteractionSource() }, null) { s.pick(sym) })
+                    .graphicsLayer { scaleX = k; scaleY = k }
+                    .clickable(src, null) { s.pick(sym) })
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -295,7 +302,7 @@ private fun CodeLayout(s: CodeSession, targets: DemoTargets?, status: Boolean = 
             OutlinedButton(onClick = s::backspace) {
                 Icon(Icons.AutoMirrored.Outlined.Backspace, contentDescription = "Delete", modifier = Modifier.size(18.dp))
             }
-            Button(onClick = s::submit, enabled = s.full, modifier = Modifier.demoTarget(targets, "submit").width(140.dp)) { Text("Guess") }
+            Button(onClick = s::submit, enabled = s.outcome == Outcome.PLAYING, modifier = Modifier.demoTarget(targets, "submit").width(140.dp)) { Text("Guess") }
         }
         Spacer(Modifier.height(if (targets == null) 16.dp else 4.dp))
     }
@@ -306,8 +313,9 @@ private fun GuessRow(
     s: CodeSession, row: Int, guess: IntArray?, fb: Pair<Int, Int>?, isCurrent: Boolean, slot: Dp, targets: DemoTargets?,
 ) {
     val colors = LocalBoardColors.current
+    @Suppress("UNUSED_VARIABLE") val v = s.version
     val shake = remember { Animatable(0f) }
-    val rfx = s.rejectFx
+    val rfx = s.nudgeFx
     LaunchedEffect(rfx?.id) {
         if (rfx != null && isCurrent) shake.animateTo(0f, keyframes { durationMillis = 380; -10f at 50; 9f at 110; -7f at 170; 4f at 240; 0f at 380 })
     }
@@ -326,7 +334,10 @@ private fun GuessRow(
                 val m = if (isCurrent) Modifier.demoTarget(targets, "slot-$k")
                     .clickable(remember { MutableInteractionSource() }, null) { s.clearSlot(k) } else Modifier
                 if (sym == 0) {
-                    Box(m.size(slot).clip(CircleShape).border(1.6.dp, if (isCurrent) colors.thickLine.copy(alpha = 0.5f) else colors.thinLine, CircleShape))
+                    // the next slot to fill is outlined in blue
+                    val next = isCurrent && k == s.current.indexOfFirst { it == 0 }
+                    Box(m.size(slot).clip(CircleShape).border(if (next) 2.4.dp else 1.6.dp,
+                        if (next) colors.entered else if (isCurrent) colors.thickLine.copy(alpha = 0.5f) else colors.thinLine, CircleShape))
                 } else {
                     val pop = remember(sym) { Animatable(if (isCurrent) 0.5f else 1f) }
                     LaunchedEffect(sym) { pop.animateTo(1f, spring(0.45f, Spring.StiffnessMedium)) }

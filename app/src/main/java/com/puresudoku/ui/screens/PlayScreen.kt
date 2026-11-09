@@ -37,7 +37,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.puresudoku.ui.theme.LocalBoardColors
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -87,10 +96,17 @@ fun PlayScreen(vm: AppViewModel) {
                     Icon(if (vm.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = "Pause")
                 }
             }
-            StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp, vertical = 10.dp))
+            StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
+            Text(
+                def.hint(session.difficulty),
+                fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            )
 
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 def.Play(session)
+                NudgePill(session, Modifier.align(Alignment.TopCenter))
                 // Pause hides the puzzle so the clock can't be cheated.
                 androidx.compose.animation.AnimatedVisibility(vm.paused, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
                     Box(
@@ -126,6 +142,40 @@ fun PlayScreen(vm: AppViewModel) {
             val summary = vm.winSummary
             if (outcome == Outcome.WON && summary != null) WinCard(vm, session, def, summary) else LostCard(vm, session)
         }
+    }
+}
+
+/** Shows why a move did nothing, with a short buzz. Strikes buzz too. */
+@Composable
+private fun NudgePill(session: Session, modifier: Modifier) {
+    val haptics = LocalHapticFeedback.current
+    val fx = session.nudgeFx
+    var shown by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(fx?.id) {
+        if (fx != null) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            shown = fx.text
+            delay(2000)
+            shown = null
+        }
+    }
+    var lastStrikes by remember { mutableIntStateOf(session.strikes) }
+    LaunchedEffect(session.strikes) {
+        if (session.strikes > lastStrikes) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        lastStrikes = session.strikes
+    }
+    AnimatedVisibility(
+        shown != null, modifier.padding(top = 4.dp),
+        enter = fadeIn(tween(150)) + slideInVertically(tween(220)) { -it },
+        exit = fadeOut(tween(250)),
+    ) {
+        Text(
+            shown ?: "",
+            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+            modifier = Modifier
+                .background(LocalBoardColors.current.error.copy(alpha = 0.95f), RoundedCornerShape(50))
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
 }
 

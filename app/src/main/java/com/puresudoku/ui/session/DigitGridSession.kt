@@ -59,7 +59,13 @@ abstract class DigitGridSession(kind: GameKind, difficulty: Difficulty, val game
 
     fun input(digit: Int) {
         val cell = selected
-        if (outcome != Outcome.PLAYING || cell < 0) return
+        if (outcome != Outcome.PLAYING) return
+        if (cell < 0) { nudge("Tap a square first, then a number"); return }
+        if (game.values[cell] != 0) {
+            errorFx = ErrorFx(FxIds.next(), cell, 0)
+            nudge(if (game.isGiven(cell)) "That number is part of the puzzle" else "That square is already solved")
+            return
+        }
         val result = if (notesMode) game.toggleNote(cell, digit) else game.place(cell, digit, elapsedMs)
         when (result) {
             MoveResult.Ignored -> return
@@ -89,7 +95,9 @@ abstract class DigitGridSession(kind: GameKind, difficulty: Difficulty, val game
     }
 
     fun erase() {
-        if (outcome != Outcome.PLAYING || selected < 0) return
+        if (outcome != Outcome.PLAYING) return
+        if (selected < 0) { nudge("Tap a square first"); return }
+        if (game.values[selected] != 0) { errorFx = ErrorFx(FxIds.next(), selected, 0); nudge("Erase only clears notes"); return }
         if (game.erase(selected) != MoveResult.Ignored) { sync(); changed() }
     }
 

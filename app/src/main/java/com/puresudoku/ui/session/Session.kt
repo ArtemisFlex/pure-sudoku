@@ -21,6 +21,9 @@ sealed interface MiddleStat {
 
 data class BonusLine(val label: String, val value: Int)
 
+/** A short message explaining why a move did nothing. */
+data class Nudge(val id: Long, val text: String)
+
 /** Unique ids for one-shot animation triggers, shared by every game. */
 object FxIds {
     private val next = AtomicLong(1)
@@ -39,6 +42,11 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     var outcome by mutableStateOf(Outcome.PLAYING); private set
     var bonusLines by mutableStateOf<List<BonusLine>>(emptyList()); private set
     var startedAt: Long = System.currentTimeMillis(); private set
+
+    /** Latest "that didn't work" message; the play screen shows it with a buzz. */
+    var nudgeFx by mutableStateOf<Nudge?>(null); private set
+
+    fun nudge(text: String) { nudgeFx = Nudge(FxIds.next(), text) }
 
     /** Set by the host: called after any change worth saving. */
     var onChanged: () -> Unit = {}

@@ -53,6 +53,8 @@ object SudokuDef : GameDef {
 
     override fun levelInfo(d: Difficulty) = "${d.minClues}–${d.maxClues} clues"
 
+    override fun hint(d: Difficulty): String = "Tap a square, then a number. Every row, column and 3×3 box needs 1–9 once."
+
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "Relaxed. Plenty of numbers to start."
         Difficulty.MEDIUM -> "Fewer clues to work from."

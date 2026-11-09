@@ -159,9 +159,11 @@ class RecallSession(
     fun skipShow() { if (phase == RecallPhase.SHOW) { phase = RecallPhase.RECALL; phaseMs = 0; version++ } }
 
     fun tapCell(cell: Int) {
-        if (outcome != Outcome.PLAYING || phase != RecallPhase.RECALL) return
+        if (outcome != Outcome.PLAYING) return
+        if (phase == RecallPhase.SHOW) { nudge("Memorize now — your turn starts when the numbers hide"); return }
+        if (phase != RecallPhase.RECALL) return
         val item = cells.indexOf(cell)
-        if (item >= 0 && found[item]) return
+        if (item >= 0 && found[item]) { nudge("You've already placed that one"); return }
         if (item < 0 || (cfg.ordered && item != nextOrder)) { mistake(cell); return }
         selectedItem = item
     }
@@ -169,7 +171,7 @@ class RecallSession(
     fun input(digit: Int) {
         if (outcome != Outcome.PLAYING || phase != RecallPhase.RECALL) return
         val item = selectedItem
-        if (item < 0) return
+        if (item < 0) { nudge("Tap a square first, then its number"); return }
         if (digits[item] != digit) { mistake(cells[item]); return }
         found[item] = true
         selectedItem = -1
@@ -219,6 +221,8 @@ object RecallDef : GameDef {
     }
 
     override fun levelInfo(d: Difficulty) = RecallRules.config(d).let { "${it.n}×${it.n} · ${it.rounds} rounds" }
+
+    override fun hint(d: Difficulty): String = if (RecallRules.config(d).ordered) "Watch the order, then tap each square in turn and enter its number." else "Memorize the numbers. Then tap each square and enter its number."
 
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A few numbers, plenty of time."
@@ -386,6 +390,7 @@ private fun RecallGrid(s: RecallSession, side: Dp, targets: DemoTargets?) {
 @Composable
 private fun RecallTile(s: RecallSession, i: Int, size: Dp, modifier: Modifier, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
+    @Suppress("UNUSED_VARIABLE") val v = s.version
     val item = s.cells.indexOf(i)
     val n = s.cfg.n
     val showing = item >= 0 && when (s.phase) {

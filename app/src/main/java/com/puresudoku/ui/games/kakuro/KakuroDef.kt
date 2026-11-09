@@ -74,6 +74,8 @@ object KakuroDef : GameDef {
         return "${c.w}×${c.h} board"
     }
 
+    override fun hint(d: Difficulty): String = "Each run of white squares must add up to its clue, with no repeats."
+
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A small board with short runs."
         Difficulty.MEDIUM -> "More runs to cross-check."

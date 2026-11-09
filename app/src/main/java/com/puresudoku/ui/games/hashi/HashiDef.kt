@@ -122,7 +122,11 @@ class HashiSession(
     fun bridge(a: Int, b: Int) {
         if (outcome != Outcome.PLAYING) return
         val e = edgeBetween(a, b)
-        if (e < 0) return
+        if (e < 0) {
+            errorFx = IslandFx(FxIds.next(), setOf(a, b))
+            nudge("Bridges only run straight across or down, to the nearest island")
+            return
+        }
         if (placed[e] >= puzzle.solution[e]) {
             errorFx = IslandFx(FxIds.next(), setOf(a, b))
             streak = 0
@@ -172,6 +176,8 @@ object HashiDef : GameDef {
     }
 
     override fun levelInfo(d: Difficulty) = HashiRules.config(d).let { "${it.islands} islands" }
+
+    override fun hint(d: Difficulty): String = "Drag from island to island to build bridges. Each number is how many bridges it needs."
 
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A few islands to connect."
@@ -349,12 +355,15 @@ private fun HashiBoard(s: HashiSession, maxW: Dp, maxH: Dp, targets: DemoTargets
                     dragFrom = -1
                     val end = islandAt(last)
                     if (moved && start >= 0 && end >= 0 && end != start) { s.clearSelection(); s.bridge(start, end) }
+                    else if (moved && start >= 0 && end < 0) s.nudge("Drag all the way onto another island")
+                    else if (!moved && start < 0 && s.selected >= 0) s.nudge("Tap an island in line with the selected one")
                     else if (!moved && start >= 0) s.tapIsland(start)
                     else if (!moved) s.clearSelection()
                 }
             },
     ) {
         Canvas(Modifier.matchParentSize()) {
+            @Suppress("UNUSED_VARIABLE") val ver = s.version // redraw bridges on every change
             // sea grid dots
             for (r in 0 until p.h) for (c in 0 until p.w) {
                 drawCircle(colors.thinLine, 1.6.dp.toPx(), Offset((c + 0.5f) * cellPx, (r + 0.5f) * cellPx))
@@ -392,6 +401,7 @@ private fun HashiBoard(s: HashiSession, maxW: Dp, maxH: Dp, targets: DemoTargets
 @Composable
 private fun IslandView(s: HashiSession, i: Int, cell: Dp, radius: Dp, isSelected: Boolean, isCandidate: Boolean, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
+    @Suppress("UNUSED_VARIABLE") val v = s.version
     val isl = s.puzzle.islands[i]
     val done = s.complete(i)
     val bg by animateColorAsState(

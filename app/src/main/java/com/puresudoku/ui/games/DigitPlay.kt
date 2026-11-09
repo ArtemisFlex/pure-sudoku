@@ -40,7 +40,7 @@ fun DigitPlay(
         Spacer(Modifier.weight(1f))
         ActionRow(session.canUndo, session.notesMode, session::undo, session::erase, session::toggleNotesMode)
         Spacer(Modifier.height(10.dp))
-        NumberPad(spec.maxDigit, if (spec.showRemaining) session::remaining else null, session.notesMode, session::input)
+        NumberPad(spec.maxDigit, if (spec.showRemaining) (1..spec.maxDigit).map(session::remaining) else null, session.notesMode, session::input)
         Spacer(Modifier.height(14.dp))
     }
     }
@@ -67,7 +67,7 @@ fun DigitDemoLayout(
             if (showStatus) StatusBar(session.score, session.middleStat, session.elapsedMs, targets = targets)
             DigitBoard(session, Modifier.width(boardW), targets = targets, decoration = decoration, blocked = blocked)
             if (showActions) ActionRow(session.canUndo, session.notesMode, session::undo, session::erase, session::toggleNotesMode, targets = targets)
-            if (showPad) NumberPad(spec.maxDigit, if (spec.showRemaining) session::remaining else null, session.notesMode, session::input, targets = targets)
+            if (showPad) NumberPad(spec.maxDigit, if (spec.showRemaining) (1..spec.maxDigit).map(session::remaining) else null, session.notesMode, session::input, targets = targets)
         }
     }
 }

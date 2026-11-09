@@ -6,6 +6,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -58,6 +59,7 @@ import com.puresudoku.ui.components.GameIcon
 import com.puresudoku.ui.components.StatusBar
 import com.puresudoku.ui.games.GameDef
 import com.puresudoku.ui.session.BonusLine
+import com.puresudoku.ui.session.ErrorFx
 import com.puresudoku.ui.session.FxIds
 import com.puresudoku.ui.session.MiddleStat
 import com.puresudoku.ui.session.Outcome
@@ -91,6 +93,8 @@ class SlidingSession(
     var version by mutableIntStateOf(0); private set
     var moves by mutableIntStateOf(moves); private set
     var winFx by mutableStateOf<WaveFx?>(null); private set
+    /** Tile that was tapped but can't move. */
+    var errorFx by mutableStateOf<ErrorFx?>(null); private set
 
     /** Position (index) of each tile number. */
     fun positionOf(tile: Int) = tiles.indexOf(tile)
@@ -105,7 +109,13 @@ class SlidingSession(
     fun slideAt(i: Int) {
         if (outcome != Outcome.PLAYING) return
         val m = SlidingRules.slide(tiles, n, i)
-        if (m == 0) return
+        if (m == 0) {
+            if (tiles[i] != 0) {
+                errorFx = ErrorFx(FxIds.next(), tiles[i], 0)
+                nudge("Only tiles in the same row or column as the gap can slide")
+            }
+            return
+        }
         moves += m
         version++
         if (SlidingRules.isSolved(tiles)) {
@@ -144,6 +154,8 @@ object SlidingDef : GameDef {
     }
 
     override fun levelInfo(d: Difficulty) = SlidingRules.config(d).let { "${it.n}×${it.n} tiles" }
+
+    override fun hint(d: Difficulty): String = "Tap a tile in the same row or column as the gap to slide it. Order them 1, 2, 3… with the gap last."
 
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "Lightly shuffled 3×3."
@@ -192,12 +204,14 @@ object SlidingDef : GameDef {
         },
         TutorialStep(
             "Slide a tile",
-            "Tap or swipe a tile next to the empty space to slide it in. Tap a tile further along the same row or column to slide the whole line at once.",
+            "Tap or swipe a tile in the same row or column as the empty space and it slides in, pushing any tiles between. Tiles elsewhere can't move — they shake red.",
         ) { active ->
             var s by remember { mutableStateOf(demo(LINE)) }
             DemoStage(active, script = {
                 s = demo(LINE)
                 wait(500)
+                tap("tile-5") { s.slideTile(5) }
+                wait(700)
                 tap("tile-2") { s.slideTile(2) }
                 wait(500)
                 tap("tile-3") { s.slideTile(3) }
@@ -274,15 +288,8 @@ private fun SlidingBoard(s: SlidingSession, side: Dp, targets: DemoTargets?) {
                     }
                     val i = at(down.position)
                     if (i < 0) return@awaitEachGesture
-                    val d = last - down.position
-                    if (d.getDistance() < cellPx * 0.25f) { s.slideAt(i); return@awaitEachGesture }
-                    // swipe: only slides if it points toward the gap
-                    val g = s.positionOf(0)
-                    val towardGap = when {
-                        abs(d.x) > abs(d.y) -> i / n == g / n && (g % n - i % n) * d.x > 0
-                        else -> i % n == g % n && (g / n - i / n) * d.y > 0
-                    }
-                    if (towardGap) s.slideAt(i)
+                    // A tap or a swipe both slide the touched tile (if it's in line with the gap).
+                    s.slideAt(i)
                 }
             },
     ) {
@@ -297,11 +304,22 @@ private fun SlidingBoard(s: SlidingSession, side: Dp, targets: DemoTargets?) {
 @Composable
 private fun SlidingTile(s: SlidingSession, tile: Int, cell: Dp, pad: Dp, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
+    @Suppress("UNUSED_VARIABLE") val v = s.version
     val n = s.n
     val pos = s.positionOf(tile)
     val density = LocalDensity.current
     val target = with(density) { IntOffset((pad + cell * (pos % n)).roundToPx(), (pad + cell * (pos / n)).roundToPx()) }
-    val offset by animateIntOffsetAsState(target, spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow), label = "tile")
+    val offset by animateIntOffsetAsState(target, tween(130, easing = FastOutSlowInEasing), label = "tile")
+    val shake = remember { Animatable(0f) }
+    val err = remember { Animatable(0f) }
+    val efx = s.errorFx
+    LaunchedEffect(efx?.id) {
+        if (efx != null && efx.cell == tile) {
+            err.snapTo(1f)
+            shake.animateTo(0f, keyframes { durationMillis = 360; -9f at 45; 8f at 100; -6f at 160; 3f at 230; 0f at 360 })
+            err.animateTo(0f, tween(350))
+        }
+    }
     val inPlace = s.inPlace(tile)
     val won = s.outcome == Outcome.WON
     val bg by animateColorAsState(
@@ -319,15 +337,16 @@ private fun SlidingTile(s: SlidingSession, tile: Int, cell: Dp, pad: Dp, targets
     val fs = with(density) { (cell * if (n >= 5) 0.38f else 0.44f).toSp() }
     Box(
         Modifier
-            .offset { offset }
+            .offset { offset + IntOffset(shake.value.dp.roundToPx(), 0) }
             .size(cell)
             .padding(3.dp)
             .demoTarget(targets, "tile-$tile")
             .graphicsLayer { val k = 1f + 0.1f * wave.value; scaleX = k; scaleY = k }
             .clip(RoundedCornerShape(cell * 0.16f))
-            .background(bg),
+            .background(if (err.value > 0f) colors.errorBg else bg),
         contentAlignment = Alignment.Center,
     ) {
-        Text("$tile", fontSize = fs, fontFamily = Poppins, fontWeight = FontWeight.Bold, color = if (won) colors.boardBg else colors.given)
+        Text("$tile", fontSize = fs, fontFamily = Poppins, fontWeight = FontWeight.Bold,
+            color = if (err.value > 0f) colors.error else if (won) colors.boardBg else colors.given)
     }
 }

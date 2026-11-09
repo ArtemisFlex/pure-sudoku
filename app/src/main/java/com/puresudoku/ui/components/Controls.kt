@@ -195,14 +195,14 @@ fun ActionButton(icon: ImageVector, label: String, enabled: Boolean = true, acti
 @Composable
 fun NumberPad(
     maxDigit: Int,
-    remaining: ((Int) -> Int)?,
+    remaining: List<Int>?,
     notesMode: Boolean,
     onDigit: (Int) -> Unit,
     targets: DemoTargets? = null,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (d in 1..maxDigit) {
-            val left = remaining?.invoke(d) ?: -1
+            val left = remaining?.getOrNull(d - 1) ?: -1
             val done = left == 0
             val source = remember { MutableInteractionSource() }
             val pressed by source.collectIsPressedAsState()

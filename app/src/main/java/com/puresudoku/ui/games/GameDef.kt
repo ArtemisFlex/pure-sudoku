@@ -24,6 +24,9 @@ interface GameDef {
     /** One-line description of what the level is like. */
     fun levelBlurb(d: Difficulty): String
 
+    /** One-line reminder of how to play, shown under the status bar. */
+    fun hint(d: Difficulty): String
+
     /** The play area under the status bar. */
     @Composable
     fun Play(session: Session)

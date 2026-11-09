@@ -177,6 +177,8 @@ object PictureDef : GameDef {
 
     override fun levelInfo(d: Difficulty) = NonogramRules.config(d).let { "${it.w}×${it.h} picture" }
 
+    override fun hint(d: Difficulty): String = "Fill squares to match the clues. Switch to ✕ to mark squares you know are empty."
+
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A tiny picture to warm up."
         Difficulty.MEDIUM -> "A small picture, simple clues."
@@ -445,6 +447,7 @@ private fun PictureBoard(s: PictureSession, maxW: Dp, maxH: Dp, targets: DemoTar
 @Composable
 private fun PictureCell(s: PictureSession, i: Int, size: Dp, won: Boolean, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
+    @Suppress("UNUSED_VARIABLE") val v = s.version
     val st = s.state(i)
     val fill by animateFloatAsState(if (st == NonogramRules.FILLED) 1f else 0f, spring(0.55f, Spring.StiffnessMedium), label = "fill")
     val xAlpha by animateFloatAsState(if (st == NonogramRules.EMPTY && !won) 1f else 0f, tween(200), label = "x")
