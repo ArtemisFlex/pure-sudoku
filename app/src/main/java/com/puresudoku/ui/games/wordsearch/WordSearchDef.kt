@@ -344,8 +344,8 @@ private fun SearchGrid(s: WordSearchSession, side: Dp, targets: DemoTargets?) {
                 drawLine(colors.entered.copy(alpha = 0.35f), center(pv[0]), center(pv[1]), stroke, StrokeCap.Round)
             }
             efx?.let { e ->
-                if (shake.value != 0f) drawLine(colors.error.copy(alpha = 0.35f), center(e.cells.first()) + Offset(shake.value * density, 0f),
-                    center(e.cells.last()) + Offset(shake.value * density, 0f), stroke, StrokeCap.Round)
+                if (shake.value != 0f) drawLine(colors.error.copy(alpha = 0.35f), center(e.cells.first()) + Offset(shake.value.dp.toPx(), 0f),
+                    center(e.cells.last()) + Offset(shake.value.dp.toPx(), 0f), stroke, StrokeCap.Round)
             }
         }
         Column {
