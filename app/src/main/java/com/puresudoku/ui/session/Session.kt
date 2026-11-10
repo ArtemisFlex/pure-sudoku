@@ -45,6 +45,20 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     /** Training-wheels game: fixed start, gentler opponent, never recorded. */
     open var training = false
 
+    /** A scripted lesson: each step waits for [LessonStep.done] (or a tap on Next when it's null). */
+    var lesson: List<LessonStep>? = null
+    var lessonAt by mutableIntStateOf(0)
+    val lessonStep: LessonStep? get() = lesson?.getOrNull(lessonAt)
+    fun lessonNext() { if (lessonStep != null && lessonStep?.done == null) lessonAt++ }
+    /** Advances past every step whose goal is now met. */
+    fun checkLesson() {
+        while (true) {
+            val st = lessonStep ?: return
+            val d = st.done ?: return
+            if (runCatching { d(this) }.getOrDefault(false)) lessonAt++ else return
+        }
+    }
+
     /** Latest "that didn't work" message; the play screen shows it with a buzz. */
     var nudgeFx by mutableStateOf<Nudge?>(null); private set
 
@@ -74,7 +88,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     /** Adds a strike; returns true if that ended the game. */
     protected fun addStrike(): Boolean {
         strikes++
-        if (strikes >= MAX_STRIKES) { finish(false); return true }
+        if (strikes >= MAX_STRIKES && !training) { finish(false); return true }
         return false
     }
 
@@ -120,3 +134,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
         return this
     }
 }
+
+
+/** One scripted lesson step: what the coach says, and the goal that moves the lesson on (null = Next button). */
+class LessonStep(val text: String, val done: ((Session) -> Boolean)? = null)

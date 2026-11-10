@@ -135,6 +135,17 @@ object KakuroDef : GameDef {
         return KakuroSession(Difficulty.EASY, p, DigitGame(KakuroRules.spec(p, Difficulty.EASY), IntArray(16), DEMO_SOL))
     }
 
+    override fun lesson(): Pair<com.puresudoku.ui.session.Session, List<com.puresudoku.ui.session.LessonStep>> {
+        val givens = DEMO_SOL.copyOf().also { it[7] = 0; it[14] = 0; it[15] = 0 }
+        val p = KakuroPuzzle(4, 4, DEMO_WHITE, DEMO_SOL, givens, DEMO_ACROSS, DEMO_DOWN)
+        return KakuroSession(Difficulty.EASY, p, DigitGame(KakuroRules.spec(p, Difficulty.EASY), givens, DEMO_SOL)) to listOf(
+            com.puresudoku.ui.session.LessonStep("Each clue is the total of the run of white cells next to it: across clues to the right, down clues below. No digit repeats inside one run."),
+            com.puresudoku.ui.session.LessonStep("Top run must total 6. It already has 1 and 3, so the gap is 6 − 1 − 3 = 2. Enter 2.", { (it as com.puresudoku.ui.session.DigitGridSession).value(7) == 2 }),
+            com.puresudoku.ui.session.LessonStep("Third column must total 19. It has 3 and 9, so the bottom cell is 19 − 3 − 9 = 7.", { (it as com.puresudoku.ui.session.DigitGridSession).value(14) == 7 }),
+            com.puresudoku.ui.session.LessonStep("Bottom run totals 13: 2 + 7 + ? = 13. Finish it.", { (it as com.puresudoku.ui.session.DigitGridSession).value(15) == 4 }),
+        )
+    }
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Sums across",

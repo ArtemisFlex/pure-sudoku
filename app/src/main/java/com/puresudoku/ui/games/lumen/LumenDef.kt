@@ -179,6 +179,12 @@ object LumenDef : GameDef {
         return LumenSession(d, cfg, lights, LumenRules.minimumPresses(n, pattern, lights) ?: presses.size)
     }
 
+    override fun lesson() = demoFrom(3, LumenRules.Pattern.PLUS, listOf(4, 0)) to listOf(
+        com.puresudoku.ui.session.LessonStep("Turn every light off. A tap flips the tile you touch plus the ones directly above, below, left and right."),
+        com.puresudoku.ui.session.LessonStep("Start in the top-left corner: tap it. Watch which tiles flip, and notice the shape it leaves.", { val s = it as LumenSession; (0 until 9).all { i -> s.lit(i) == (i in setOf(1, 3, 4, 5, 7)) } }),
+        com.puresudoku.ui.session.LessonStep("What's left is a plus sign. One tap in its middle clears it. Tapping a tile twice undoes it, so each tile needs at most one tap.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Flip the lights",

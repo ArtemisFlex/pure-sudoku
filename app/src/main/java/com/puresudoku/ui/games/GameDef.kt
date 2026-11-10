@@ -37,6 +37,9 @@ interface GameDef {
     /** Optional full-screen pixel-art backdrop (drawable id) for the current moment of play; 0 = none. */
     fun background(session: Session): Int = 0
 
+    /** A fixed Easy training game with a scripted lesson, or null to use the coached game. */
+    fun lesson(): Pair<Session, List<com.puresudoku.ui.session.LessonStep>>? = null
+
     val tutorial: List<TutorialStep>
 }
 

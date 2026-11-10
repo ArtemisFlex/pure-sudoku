@@ -138,6 +138,14 @@ object CageMathDef : GameDef {
         return CageMathSession(Difficulty.EASY, p, DigitGame(CageMathRules.spec(4, Difficulty.EASY), givens, DEMO_SOL))
     }
 
+    override fun lesson() = demo((4 until 16).associateWith { DEMO_SOL[it] }) to listOf(
+        com.puresudoku.ui.session.LessonStep("Each row and column holds 1 to 4 once. Each outlined cage shows a target and an operation: its digits must make that number."),
+        com.puresudoku.ui.session.LessonStep("Top-left cage: 3+ across two cells. Only 1 + 2 makes 3. The column below already has 3, 4 and 2, so the corner is 1. Enter 1.", { (it as com.puresudoku.ui.session.DigitGridSession).value(0) == 1 }),
+        com.puresudoku.ui.session.LessonStep("That leaves 2 for its partner. Enter 2.", { (it as com.puresudoku.ui.session.DigitGridSession).value(1) == 2 }),
+        com.puresudoku.ui.session.LessonStep("Top-right cage: 12× across two cells. Only 3 × 4 makes 12. Check the third column: 4 is already used there, so this cell is 3.", { (it as com.puresudoku.ui.session.DigitGridSession).value(2) == 3 }),
+        com.puresudoku.ui.session.LessonStep("And the last cell is 4. Cages plus row and column rules always narrow things down.", { (it as com.puresudoku.ui.session.DigitGridSession).value(3) == 4 }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "The grid",

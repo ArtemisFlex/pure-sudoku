@@ -217,6 +217,14 @@ object HashiDef : GameDef {
 
     private fun demo() = HashiSession(Difficulty.EASY, demoPuzzle())
 
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("Each island's number is how many bridges touch it. Bridges run straight, never cross, and at most two join any pair. Tap an island, then a neighbour, to add a bridge."),
+        com.puresudoku.ui.session.LessonStep("The 4 in the top-right corner only has two neighbours, so it needs two bridges to each. Put a double bridge from it to the 3 on its left.", { val h = it as HashiSession; h.placed(h.edgeBetween(0, 1)) == 2 }),
+        com.puresudoku.ui.session.LessonStep("And a double bridge down to the 3 below it.", { val h = it as HashiSession; h.placed(h.edgeBetween(1, 5)) == 2 }),
+        com.puresudoku.ui.session.LessonStep("The top-left 3 has two bridges already. It needs one more, and the only way left is down. Add a single bridge.", { val h = it as HashiSession; h.placed(h.edgeBetween(0, 2)) == 1 }),
+        com.puresudoku.ui.session.LessonStep("Now finish: every island must reach its number and all islands must link into one group.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Islands",

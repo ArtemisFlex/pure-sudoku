@@ -193,6 +193,14 @@ object CodeDef : GameDef {
         wait(900)
     }
 
+    override fun lesson() = CodeSession(Difficulty.EASY, intArrayOf(2, 5, 1)) to listOf(
+        com.puresudoku.ui.session.LessonStep("A three-colour code is hidden. After each guess you get clues: a solid dot for a right colour in the right place, a hollow dot for a right colour in the wrong place."),
+        com.puresudoku.ui.session.LessonStep("Start by testing colours, not positions. Guess 1 red, 1 red, 2 orange, then tap Guess.", { (it as CodeSession).history.size >= 1 }),
+        com.puresudoku.ui.session.LessonStep("Two hollow dots: red and orange are both in the code, just not where you put them. Now test two new colours: 3 green, 3 green, 4 teal.", { (it as CodeSession).history.size >= 2 }),
+        com.puresudoku.ui.session.LessonStep("No dots, so green and teal are out. Try orange first and red last: 2 orange, 1 red, 1 red.", { (it as CodeSession).history.size >= 3 }),
+        com.puresudoku.ui.session.LessonStep("Two solid dots: orange is first and red is last. The middle is blue or purple. Guess 2 orange, 5 blue, 1 red.", { it.outcome != com.puresudoku.ui.session.Outcome.PLAYING }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Crack the code",

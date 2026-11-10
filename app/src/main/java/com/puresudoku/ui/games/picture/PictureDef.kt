@@ -220,6 +220,13 @@ object PictureDef : GameDef {
         })
     }
 
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("The numbers beside each row and above each column are the lengths of the filled runs in that line, in order. This one draws a small picture."),
+        com.puresudoku.ui.session.LessonStep("Row 2 says 5 and the row is 5 wide, so every cell is filled. Fill the whole second row.", { (it as PictureSession).rowDone(1) }),
+        com.puresudoku.ui.session.LessonStep("Row 3 also says 5. Fill it all.", { (it as PictureSession).rowDone(2) }),
+        com.puresudoku.ui.session.LessonStep("Now use the columns: a run that's long compared to the line forces its middle cells. Work line by line to finish the picture. Mark cells you know are empty to keep track.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Number clues",

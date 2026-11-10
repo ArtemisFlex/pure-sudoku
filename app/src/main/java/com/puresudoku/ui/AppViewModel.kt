@@ -182,11 +182,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
             val started = SystemClock.elapsedRealtime()
-            val s = withContext(Dispatchers.Default) {
+            val scripted = if (d == Difficulty.EASY) runCatching { Games.of(kind).lesson() }.getOrNull() else null
+            val s = scripted?.first ?: withContext(Dispatchers.Default) {
                 val def = Games.of(kind)
                 val start = repo.trainingStart(kind, d) ?: def.generate(d).toJson().also { repo.saveTrainingStart(kind, d, it) }
                 runCatching { def.restore(start) }.getOrElse { def.generate(d) }
             }
+            scripted?.let { s.lesson = it.second; s.lessonAt = 0 }
             (s as? com.puresudoku.ui.games.board.DuelSession)?.cancelThinking()
             s.training = true
             if (d == Difficulty.EASY) com.puresudoku.core.board.BoardScripts.of(kind)?.let { steps -> (s as? com.puresudoku.ui.games.board.DuelSession)?.startGuide(steps) }

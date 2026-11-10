@@ -69,6 +69,9 @@ fun CoachPanel(session: Session, open: Boolean, onToggle: () -> Unit, modifier: 
     val pages = remember(session.kind, session.difficulty) { Lessons.pages(session.kind, session.difficulty) }
     var page by remember { mutableIntStateOf(0) }
     val duel = session as? DuelSession
+    if (session.lesson != null) LaunchedEffect(session) {
+        while (true) { kotlinx.coroutines.delay(250); session.checkLesson() }
+    }
     if (duel != null) LaunchedEffect(duel.moves) { if (duel.guideStep == null) { duel.coachTip = null; duel.coachFrom = -1; duel.coachTo = -1 } }
     Box(modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.BottomEnd) {
         AnimatedContent(open, label = "coach") { isOpen ->
@@ -90,6 +93,20 @@ fun CoachPanel(session: Session, open: Boolean, onToggle: () -> Unit, modifier: 
                         Spacer(Modifier.height(10.dp))
                         if (step.info) Button(onClick = duel::guideNext, modifier = Modifier.align(Alignment.End)) { Text("Next") }
                         else Text("Make the move ringed in gold.", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    }
+                } else if (session.lessonStep != null) Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth()) {
+                    val ls = session.lessonStep!!
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(session.difficulty.accent()))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Lesson · step ${session.lessonAt + 1} of ${session.lesson?.size ?: 0}", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                            TextButton(onClick = onToggle) { Text("Hide") }
+                        }
+                        Column(Modifier.heightIn(max = 200.dp).verticalScroll(rememberScrollState())) { Text(ls.text, fontSize = 15.sp, lineHeight = 21.sp) }
+                        Spacer(Modifier.height(10.dp))
+                        if (ls.done == null) Button(onClick = session::lessonNext, modifier = Modifier.align(Alignment.End)) { Text("Next") }
+                        else Text("Do it on the board to continue.", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     }
                 } else Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {

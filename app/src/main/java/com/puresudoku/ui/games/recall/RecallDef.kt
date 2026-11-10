@@ -261,6 +261,13 @@ object RecallDef : GameDef {
         }
     }
 
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("Numbers will flash on the grid for a few seconds, then hide. Your job is to put each one back where it was. Tap Next, then watch closely."),
+        com.puresudoku.ui.session.LessonStep("Memorise the three numbers and their cells. Tip: say them aloud as a little story, like ‘7 at the top, 3 and 5 at the bottom’.", { (it as RecallSession).phase != RecallPhase.SHOW }),
+        com.puresudoku.ui.session.LessonStep("Now tap each cell you remember and enter its number. A wrong guess costs a heart, but training never ends early.", { (it as RecallSession).round > 0 || it.outcome != com.puresudoku.ui.session.Outcome.PLAYING }),
+        com.puresudoku.ui.session.LessonStep("Rounds get longer as you go. Group numbers by row or shape to hold more at once. Keep going to the end.", { it.outcome != com.puresudoku.ui.session.Outcome.PLAYING }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Memorize",

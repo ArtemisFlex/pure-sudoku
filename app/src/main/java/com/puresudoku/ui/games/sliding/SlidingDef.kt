@@ -187,6 +187,12 @@ object SlidingDef : GameDef {
     // Gap at top-left for a whole-line slide
     private val LINE = intArrayOf(0, 1, 2, 4, 5, 3, 7, 8, 6)
 
+    override fun lesson() = demo(NEAR) to listOf(
+        com.puresudoku.ui.session.LessonStep("Put the tiles in order 1 to 8, gap last. Tap a tile next to the gap to slide it in."),
+        com.puresudoku.ui.session.LessonStep("The gap is bottom-left. Tap 7 to slide it left into place.", { (it as SlidingSession).tileAt(6) == 7 }),
+        com.puresudoku.ui.session.LessonStep("Now tap 8. Solve bigger boards row by row from the top, and save the last two rows for last.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "Put them in order",

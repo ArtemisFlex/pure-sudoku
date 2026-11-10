@@ -88,6 +88,15 @@ object SudokuDef : GameDef {
 
     private val SCATTER = listOf(2, 6, 10, 15, 21, 25, 29, 33, 37, 43, 47, 51, 56, 59, 64, 68, 72, 77)
 
+    override fun lesson() = demo(listOf(4, 22, 40, 58, 76)) to listOf(
+        com.puresudoku.ui.session.LessonStep("Every row, column and 3×3 box needs 1 to 9 once each. This board is almost full: five cells are empty, all in the middle column."),
+        com.puresudoku.ui.session.LessonStep("Look at the top row. Eight digits are already there. The only one missing is 7, so tap the empty cell in that row and enter 7. A row with one gap is called a full house.", { (it as com.puresudoku.ui.session.DigitGridSession).value(4) == 7 }),
+        com.puresudoku.ui.session.LessonStep("Third row: which digit is missing? Count 1 to 9 along it. It's 4. Fill it in.", { (it as com.puresudoku.ui.session.DigitGridSession).value(22) == 4 }),
+        com.puresudoku.ui.session.LessonStep("Middle row: find the missing digit and enter it.", { (it as com.puresudoku.ui.session.DigitGridSession).value(40) == 5 }),
+        com.puresudoku.ui.session.LessonStep("Seventh row: same trick. If you're unsure, check the column too: the digit you pick can't already be in the middle column.", { (it as com.puresudoku.ui.session.DigitGridSession).value(58) == 3 }),
+        com.puresudoku.ui.session.LessonStep("Last gap. Rows, columns and boxes all agree on one digit here. Finish the puzzle.", { (it as com.puresudoku.ui.session.DigitGridSession).value(76) == 8 }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep(
             "The goal",
