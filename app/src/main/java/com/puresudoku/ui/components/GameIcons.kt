@@ -56,6 +56,15 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.RHYME_TIME -> rhyme(colors, tm, o, inner)
             GameKind.WORD_LADDER -> ladder(colors, tm, o, inner)
             GameKind.WORD_WHEEL -> wheel(colors, tm, o, inner)
+            GameKind.SOLITAIRE -> { mini(colors, tm, o, inner, 0.08f, 0.10f, "K♥", red = true); mini(colors, tm, o, inner, 0.26f, 0.26f, "Q♠"); mini(colors, tm, o, inner, 0.44f, 0.42f, "J♥", red = true, strong = true) }
+            GameKind.BLACKJACK -> { mini(colors, tm, o, inner, 0.1f, 0.18f, "A♠"); mini(colors, tm, o, inner, 0.42f, 0.30f, "K♥", red = true, strong = true) }
+            GameKind.GO_FISH -> { mini(colors, tm, o, inner, 0.06f, 0.24f, "7♣"); mini(colors, tm, o, inner, 0.26f, 0.2f, "7♦", red = true); mini(colors, tm, o, inner, 0.46f, 0.24f, "7♠", strong = true) }
+            GameKind.SCOUNDREL -> { mini(colors, tm, o, inner, 0.1f, 0.2f, "9♦", red = true); mini(colors, tm, o, inner, 0.42f, 0.28f, "Q♠", strong = true) }
+            GameKind.CUTTLE -> { mini(colors, tm, o, inner, 0.1f, 0.26f, "5♥", red = true); mini(colors, tm, o, inner, 0.4f, 0.16f, "8♠", strong = true) }
+            GameKind.PYRAMID -> pyramid(colors, o, inner)
+            GameKind.REGICIDE -> mini(colors, tm, o, inner, 0.24f, 0.16f, "K♣", strong = true, big = true)
+            GameKind.DUNGEON_SOLITAIRE -> { mini(colors, tm, o, inner, 0.1f, 0.22f, "A♣"); mini(colors, tm, o, inner, 0.4f, 0.22f, "K♦", red = true, strong = true) }
+            GameKind.JAILBREAK -> jail(colors, tm, o, inner)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),
@@ -261,4 +270,38 @@ private fun DrawScope.wheel(c: BoardColors, tm: TextMeasurer, o: Float, inner: F
     }
     drawCircle(c.entered, inner * 0.15f, Offset(cx, cy))
     label(tm, "A", cx, cy, inner * 0.16f, c.boardBg, center = true)
+}
+
+
+/** A small playing card inside an icon; x/y are fractions of the inner area. */
+private fun DrawScope.mini(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float, x: Float, y: Float, text: String,
+                           red: Boolean = false, strong: Boolean = false, big: Boolean = false) {
+    val w = inner * (if (big) 0.52f else 0.42f); val h = w * 1.4f
+    val tl = Offset(o + inner * x, o + inner * y)
+    drawRoundRect(if (strong) c.entered else c.boardBg, tl, Size(w, h), CornerRadius(w * 0.14f))
+    drawRoundRect(c.thickLine, tl, Size(w, h), CornerRadius(w * 0.14f), style = Stroke(inner * 0.025f))
+    val col = if (strong) c.boardBg else if (red) Color(0xFFD03A3A) else c.given
+    label(tm, text, tl.x + w / 2, tl.y + h / 2, w * 0.36f, col, center = true)
+}
+
+private fun DrawScope.pyramid(c: BoardColors, o: Float, inner: Float) {
+    val w = inner * 0.19f; val h = w * 1.3f
+    for (r in 0..2) for (k in 0..r) {
+        val x = o + inner / 2 - (r + 1) * w * 0.55f + k * w * 1.1f
+        val y = o + inner * 0.12f + r * h * 0.85f
+        drawRoundRect(if (r == 0) c.entered else if (r == 2 && k == 1) c.sameDigit else c.boardBg, Offset(x, y), Size(w, h), CornerRadius(w * 0.15f))
+        drawRoundRect(c.thickLine, Offset(x, y), Size(w, h), CornerRadius(w * 0.15f), style = Stroke(inner * 0.02f))
+    }
+}
+
+private fun DrawScope.jail(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float) {
+    val cell = inner / 3
+    for (r in 0..2) for (k in 0..2) {
+        if (r == 1 && k == 1) continue
+        val pad = cell * 0.14f
+        drawRoundRect(if ((r + k) % 2 == 1) c.related else c.thinLine, Offset(o + k * cell + pad, o + r * cell + pad), Size(cell - pad * 2, cell - pad * 2), CornerRadius(cell * 0.14f))
+    }
+    val pad = cell * 0.06f
+    drawRoundRect(c.entered, Offset(o + cell + pad, o + cell + pad), Size(cell - pad * 2, cell - pad * 2), CornerRadius(cell * 0.16f))
+    label(tm, "★", o + cell * 1.5f, o + cell * 1.5f, cell * 0.55f, c.boardBg, center = true)
 }

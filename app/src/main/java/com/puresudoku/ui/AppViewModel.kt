@@ -9,7 +9,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameKind
+import com.puresudoku.core.GameCategory
 import com.puresudoku.data.DifficultyStats
+import com.puresudoku.data.LeaderEntry
 import com.puresudoku.data.SaveRepository
 import com.puresudoku.data.SlotSummary
 import com.puresudoku.data.SolveRecord
@@ -27,6 +29,7 @@ import kotlinx.coroutines.withContext
 
 sealed interface Screen {
     data object Hub : Screen
+    data class Category(val category: GameCategory) : Screen
     data class Menu(val kind: GameKind) : Screen
     data class PickLevel(val kind: GameKind) : Screen
     /** Continue list; when [replaceFor] is set, the player is choosing a slot to overwrite. */
@@ -35,7 +38,7 @@ sealed interface Screen {
     data object Playing : Screen
 }
 
-data class WinSummary(val timeMs: Long, val score: Int, val bonus: List<BonusLine>, val record: SolveRecord)
+data class WinSummary(val timeMs: Long, val score: Int, val bonus: List<BonusLine>, val record: SolveRecord, val rank: Int = 0)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = SaveRepository(app)
@@ -65,6 +68,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------- navigation ----------------
 
+    fun openCategory(c: GameCategory) { screen = Screen.Category(c) }
+    fun leaderboard(kind: GameKind) = repo.leaderboard(kind)
+
     fun openGame(kind: GameKind) { activeKind = kind; refreshMeta(); screen = Screen.Menu(kind) }
     fun openLevelPicker(kind: GameKind) { screen = Screen.PickLevel(kind) }
     fun openSlots(kind: GameKind) { refreshMeta(); screen = Screen.Slots(kind) }
@@ -73,7 +79,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (tutorialFor != null) { closeTutorial(); return }
         when (val s = screen) {
             Screen.Hub -> Unit
-            is Screen.Menu -> screen = Screen.Hub
+            is Screen.Category -> screen = Screen.Hub
+            is Screen.Menu -> screen = Screen.Category(s.kind.category)
             is Screen.PickLevel -> screen = Screen.Menu(s.kind)
             is Screen.Slots -> screen = if (s.replaceFor != null) Screen.PickLevel(s.kind) else Screen.Menu(s.kind)
             is Screen.Generating -> { generateJob?.cancel(); screen = Screen.PickLevel(s.kind) }
@@ -168,7 +175,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (outcome == Outcome.WON) {
             repo.addKeepsakes(s.kind, s.keepsakes)
             val record = repo.recordSolve(s.kind, s.difficulty, s.score, s.elapsedMs)
-            winSummary = WinSummary(s.elapsedMs, s.score, s.bonusLines, record)
+            val rank = repo.addToLeaderboard(s.kind, LeaderEntry(s.score, s.difficulty, s.elapsedMs, System.currentTimeMillis()))
+            winSummary = WinSummary(s.elapsedMs, s.score, s.bonusLines, record, rank)
         }
         refreshMeta()
     }

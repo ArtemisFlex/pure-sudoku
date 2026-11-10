@@ -5,6 +5,9 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -54,36 +57,28 @@ import com.puresudoku.ui.games.GameDef
 import com.puresudoku.ui.games.Games
 import kotlinx.coroutines.delay
 
-/** Home: every game as a card. */
+/** Landing page: the three collections. */
 @Composable
 fun HubScreen(vm: AppViewModel) {
     var showAppearance by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 160.dp),
-            modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-            contentPadding = PaddingValues(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Column(
+            Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    LogoGrid(96.dp, introDelayMs = 150)
-                    Spacer(Modifier.height(16.dp))
-                    Wordmark(36.sp)
-                    Text(
-                        "${Games.all.size} games for your brain. Every one fresh.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                    )
-                }
-            }
-            for (cat in GameCategory.entries) {
+            Spacer(Modifier.height(24.dp))
+            LogoGrid(96.dp, introDelayMs = 150)
+            Spacer(Modifier.height(16.dp))
+            Wordmark(36.sp)
+            Text(
+                "${Games.all.size} games for your brain. Every one fresh.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(28.dp))
+            GameCategory.entries.forEachIndexed { idx, cat ->
                 val games = Games.all.filter { it.kind.category == cat }
-                if (games.isEmpty()) continue
-                item(span = { GridItemSpan(maxLineSpan) }, key = "h-${cat.name}") {
-                    Text(cat.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 10.dp, start = 4.dp))
-                }
-                itemsIndexed(games, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
+                if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx)
+                Spacer(Modifier.height(14.dp))
             }
         }
         IconButton(
@@ -92,6 +87,54 @@ fun HubScreen(vm: AppViewModel) {
         ) { Icon(Icons.Outlined.Settings, contentDescription = "Appearance") }
     }
     if (showAppearance) AppearanceDialog(vm.themeMode, onPick = vm::updateThemeMode, onDismiss = { showAppearance = false })
+}
+
+@Composable
+private fun CategoryCard(vm: AppViewModel, cat: GameCategory, games: List<GameDef>, index: Int) {
+    val enter = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { delay(150L + index * 90L); enter.animateTo(1f, spring(0.7f, Spring.StiffnessMediumLow)) }
+    val saved = games.sumOf { g -> vm.slots[g.kind]?.count { it != null } ?: 0 }
+    Surface(
+        onClick = { vm.openCategory(cat) },
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().graphicsLayer {
+            alpha = enter.value.coerceIn(0f, 1f)
+            translationY = (1f - enter.value) * 60.dp.toPx()
+        },
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (g in games.take(4)) g.Icon(46.dp)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(cat.title, style = MaterialTheme.typography.headlineSmall)
+            Text(cat.blurb, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "${games.size} games" + if (saved > 0) " · $saved saved" else "",
+                fontSize = 12.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/** One collection's games. */
+@Composable
+fun CategoryScreen(vm: AppViewModel, cat: GameCategory) {
+    val games = Games.all.filter { it.kind.category == cat }
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+        TopBar(cat.title, vm::back)
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 160.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            itemsIndexed(games, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
+        }
+    }
 }
 
 @Composable

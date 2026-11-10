@@ -19,6 +19,9 @@ data class DifficultyStats(
 
 data class SolveRecord(val stats: DifficultyStats, val newBestTime: Boolean, val newBestScore: Boolean)
 
+/** One finished game on a personal leaderboard. */
+data class LeaderEntry(val score: Int, val difficulty: Difficulty, val timeMs: Long, val date: Long)
+
 /** Lightweight view of a save, for the slot list (no need to rebuild the game). */
 data class SlotSummary(
     val difficulty: Difficulty,
@@ -96,6 +99,25 @@ class SaveRepository(context: Context) {
             .putLong(statKey("total_time", kind, d), updated.totalTimeMs)
             .apply()
         return SolveRecord(updated, newBestTime && old.wins > 0, newBestScore && old.wins > 0)
+    }
+
+    // ---------------- personal leaderboard ----------------
+
+    fun leaderboard(kind: GameKind): List<LeaderEntry> = runCatching {
+        val a = org.json.JSONArray(prefs.getString("board_${kind.name}", "[]"))
+        List(a.length()) { k ->
+            val o = a.getJSONObject(k)
+            LeaderEntry(o.getInt("s"), Difficulty.valueOf(o.getString("d")), o.getLong("t"), o.getLong("at"))
+        }
+    }.getOrDefault(emptyList())
+
+    /** Adds a win; returns its place (1 = best) or 0 if it didn't make the top 10. */
+    fun addToLeaderboard(kind: GameKind, e: LeaderEntry): Int {
+        val all = (leaderboard(kind) + e).sortedWith(compareByDescending<LeaderEntry> { it.score }.thenBy { it.timeMs }).take(10)
+        val a = org.json.JSONArray()
+        all.forEach { a.put(JSONObject().put("s", it.score).put("d", it.difficulty.name).put("t", it.timeMs).put("at", it.date)) }
+        prefs.edit().putString("board_${kind.name}", a.toString()).apply()
+        return all.indexOf(e) + 1
     }
 
     // ---------------- keepsakes ----------------

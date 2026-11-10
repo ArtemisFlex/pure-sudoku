@@ -49,6 +49,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -113,6 +115,8 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                 }
             }
             Spacer(Modifier.height(24.dp))
+            Leaderboard(vm, kind)
+            Spacer(Modifier.height(24.dp))
             Records(vm, kind)
             val keep = remember(kind, vm.stats) { vm.keepsakes(kind) }
             if (keep.isNotEmpty()) {
@@ -125,6 +129,39 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Your top 10 wins for this game. */
+@Composable
+private fun Leaderboard(vm: AppViewModel, kind: GameKind) {
+    val board = remember(kind, vm.stats) { vm.leaderboard(kind) }
+    val fmt = remember { java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()) }
+    Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+        Text("Your leaderboard", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        if (board.isEmpty()) {
+            Text("Win a game to claim the top spot.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+        board.forEachIndexed { i, e ->
+            val medal = when (i) { 0 -> Color(0xFFE8B931); 1 -> Color(0xFFAEB6C2); 2 -> Color(0xFFC98A4B); else -> MaterialTheme.colorScheme.surfaceVariant }
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (i < 3) MaterialTheme.colorScheme.surface else Color.Transparent).padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(medal), contentAlignment = Alignment.Center) {
+                    Text("${i + 1}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (i < 3) Color(0xFF1F2A37) else MaterialTheme.colorScheme.onSurface)
+                }
+                HSpace(12)
+                Text(e.score.toString(), Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Dot(e.difficulty.accent(), 8); HSpace(4)
+                Text(e.difficulty.label, Modifier.width(64.dp), fontSize = 13.sp)
+                Text(formatTime(e.timeMs), Modifier.width(56.dp), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                Text(fmt.format(java.util.Date(e.date)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

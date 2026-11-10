@@ -57,6 +57,15 @@ object Games {
             com.puresudoku.ui.games.quiz.RhymeDef,
             com.puresudoku.ui.games.wordplay.LadderDef,
             com.puresudoku.ui.games.wordplay.WheelDef,
+            com.puresudoku.ui.games.cards.SolitaireDef,
+            com.puresudoku.ui.games.cards.PyramidDef,
+            com.puresudoku.ui.games.cards.BlackjackDef,
+            com.puresudoku.ui.games.cards.GoFishDef,
+            com.puresudoku.ui.games.cards.ScoundrelDef,
+            com.puresudoku.ui.games.cards.CuttleDef,
+            com.puresudoku.ui.games.cards.RegicideDef,
+            com.puresudoku.ui.games.cards.DungeonDef,
+            com.puresudoku.ui.games.cards.JailbreakDef,
         )
     }
 

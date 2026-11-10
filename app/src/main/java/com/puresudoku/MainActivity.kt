@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                     ) { s ->
                         when (s) {
                             Screen.Hub -> HubScreen(vm)
+                            is Screen.Category -> com.puresudoku.ui.screens.CategoryScreen(vm, s.category)
                             is Screen.Menu -> GameMenuScreen(vm, s.kind)
                             is Screen.PickLevel -> LevelScreen(vm, s.kind)
                             is Screen.Slots -> SlotsScreen(vm, s.kind, s.replaceFor)
