@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -384,6 +386,17 @@ class PyramidSession(
         pick(i)
     }
 
+    /** What to do next, in plain words. */
+    val prompt: String
+        get() {
+            if (selected >= 0) {
+                val c = cardOf(selected)
+                val need = 13 - Cards.rank(c)
+                return "${Cards.label(c)} picked: now tap ${if (need == 1 || need == 8) "an" else "a"} ${Cards.rankName(need)} to make 13 (or tap it again to cancel)"
+            }
+            return "Tap two uncovered cards that add up to 13 · Kings clear alone · tap the deck for more cards"
+        }
+
     fun tapWaste() { val w = wasteTop; if (w >= 0 && outcome == Outcome.PLAYING) pick(100 + w) }
 
     private fun pick(sel: Int) {
@@ -531,6 +544,9 @@ private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
         }
         Spacer(Modifier.height(6.dp))
         TableMessage(s.message)
+        Spacer(Modifier.height(4.dp))
+        Text(s.prompt, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = 8.dp))
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val cw = min(maxWidth / 7.4f, (maxHeight - 10.dp) / (cardHeight(1.dp).value * (6 * 0.5f + 1) + 1.6f) )
             val ch = cardHeight(cw)
@@ -541,6 +557,11 @@ private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
             val wasteX = maxWidth / 2 + 8.dp
             Box(Modifier.offset(stockX, stockY).demoTarget(targets, "stock").clickable(remember { MutableInteractionSource() }, null) { s.draw() }) {
                 CardSlot(cw, label = if (s.torchesLeft > 0) "🔥" else "")
+            }
+            Text(if (s.pos < 24) "Deck · tap" else if (s.torchesLeft > 0) "Relight" else "Empty",
+                Modifier.offset(stockX, stockY + ch + 2.dp).width(cw), fontSize = 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier) {
             }
             val cards = ArrayList<Placed>(52)
             for (i in 0 until 28) {

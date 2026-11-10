@@ -172,7 +172,8 @@ fun MovingCard(
     }
     PlayingCard(
         card, faceUp, width,
-        modifier.zIndex(z).offset { IntOffset((anim.value.x + shake.dp).roundToPx(), anim.value.y.roundToPx()) },
+        // offset first, so taps and tutorial pointers land where the card is drawn
+        Modifier.zIndex(z).offset { IntOffset((anim.value.x + shake.dp).roundToPx(), anim.value.y.roundToPx()) }.then(modifier),
         highlight = highlight, dim = dim, error = error,
     )
 }
