@@ -80,13 +80,10 @@ fun PlayScreen(vm: AppViewModel) {
         val backdrop = def.background(session)
         if (backdrop != 0) {
             androidx.compose.animation.Crossfade(backdrop, animationSpec = androidx.compose.animation.core.tween(700), label = "backdrop") { res ->
-                Box(Modifier.fillMaxSize()) {
-                    Backdrop(res)
-                    // a scrim keeps text and cards readable over the art
-                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.42f)))
-                }
+                Backdrop(res)
             }
         }
+        ShadowedText(backdrop != 0) {
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -141,6 +138,7 @@ fun PlayScreen(vm: AppViewModel) {
                     }
                 }
             }
+        }
         }
 
         // End-of-game overlays
@@ -291,5 +289,30 @@ private fun Backdrop(res: Int) {
             androidx.compose.ui.res.painterResource(res), null, Modifier.fillMaxSize(),
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
         )
+    }
+}
+
+
+/**
+ * Over a backdrop, every piece of game text gets a soft halo in the page colour, so it reads
+ * on any scene without dimming the art.
+ */
+@Composable
+private fun ShadowedText(enabled: Boolean, content: @Composable () -> Unit) {
+    if (!enabled) { content(); return }
+    val halo = androidx.compose.ui.graphics.Shadow(MaterialTheme.colorScheme.background.copy(alpha = 0.95f), androidx.compose.ui.geometry.Offset(0f, 1f), 8f)
+    val t = MaterialTheme.typography
+    fun androidx.compose.ui.text.TextStyle.h() = copy(shadow = halo)
+    val typography = t.copy(
+        displayLarge = t.displayLarge.h(), displayMedium = t.displayMedium.h(), displaySmall = t.displaySmall.h(),
+        headlineLarge = t.headlineLarge.h(), headlineMedium = t.headlineMedium.h(), headlineSmall = t.headlineSmall.h(),
+        titleLarge = t.titleLarge.h(), titleMedium = t.titleMedium.h(), titleSmall = t.titleSmall.h(),
+        bodyLarge = t.bodyLarge.h(), bodyMedium = t.bodyMedium.h(), bodySmall = t.bodySmall.h(),
+        labelLarge = t.labelLarge.h(), labelMedium = t.labelMedium.h(), labelSmall = t.labelSmall.h(),
+    )
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme, typography = typography, shapes = MaterialTheme.shapes) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.LocalTextStyle.current.copy(shadow = halo),
+        ) { content() }
     }
 }
