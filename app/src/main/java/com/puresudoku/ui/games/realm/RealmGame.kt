@@ -583,14 +583,6 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 val cf = s.coachFrom
                 if (cf >= 0) coachRings(listOf(when { cf >= 200 -> geo.hex(cf - 200); cf >= 100 -> geo.edgeMid(cf - 100); else -> geo.vert(cf) }), u * 0.4f)
             }
-            Column(Modifier.align(Alignment.TopEnd).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for ((label, act) in listOf<Pair<String, () -> Unit>>("+" to { zoomBy(1.4f) }, "−" to { zoomBy(1 / 1.4f) }, "⤢" to { zoom = 1f; pan = Offset.Zero })) {
-                    if (label == "⤢" && zoom <= 1.01f) continue
-                    Box(Modifier.size(36.dp).clip(CircleShape).wood(CircleShape).clickable(onClick = act), contentAlignment = Alignment.Center) {
-                        Text(label, color = PARCH_TOP, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = SERIF)
-                    }
-                }
-            }
             if (targets != null) {
                 val geo = RGeo(wPx, hPx)
                 val r = geo.unit * 0.3f
