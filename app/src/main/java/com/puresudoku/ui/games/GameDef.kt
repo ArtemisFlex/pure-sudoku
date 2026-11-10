@@ -64,6 +64,7 @@ object Games {
             com.puresudoku.ui.games.cards.PyramidDef,
             com.puresudoku.ui.games.cards.BlackjackDef,
             com.puresudoku.ui.games.cards.GoFishDef,
+            com.puresudoku.ui.games.cards.CrazyEightsDef,
             com.puresudoku.ui.games.cards.ScoundrelDef,
             com.puresudoku.ui.games.cards.CuttleDef,
             com.puresudoku.ui.games.cards.RegicideDef,

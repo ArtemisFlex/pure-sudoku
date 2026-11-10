@@ -524,6 +524,20 @@ def tictactoe_bg(a):
     a.path("M40,560 C100,520 160,600 220,560 S320,520 340,560", stroke="#90A4AE", sw=2, salpha=0.5)
 
 
+@scene("vbg_crazy_eights")
+def crazy_eights_bg(a):
+    a.bg(a.lin(0, 0, W, H, (0, "#5E35B1"), (1, "#1A0E3A")))
+    for (cx, cy, r, c) in ((60, 110, 140, "#E91E63"), (320, 420, 170, "#3949AB"), (120, 600, 120, "#F57C00")):
+        a.path(circle(cx, cy, r), a.rad(cx, cy, r, (0, c + "55"), (1, c + "00")))
+    cols = ["#FFD54F", "#E91E63", "#4FC3F7", "#81C784", "#FF8A65", "#FFFFFF"]
+    for i in range(70):
+        x, y = a.rng.uniform(0, W), a.rng.uniform(0, H); c = cols[i % len(cols)]
+        if i % 3 == 0: a.path(circle(x, y, a.rng.uniform(2, 4)), c, 0.8)
+        else: a.path(rrect_rot(x, y, a.rng.uniform(5, 9), a.rng.uniform(2.5, 4), a.rng.uniform(0, 180)), c, 0.8)
+    for (x, y, rr) in ((270, 120, 30), (70, 470, 34)):
+        a.path(f"M{x},{y - rr} a{rr * 0.55},{rr * 0.5} 0 1,0 0.1,0z M{x},{y} a{rr * 0.7},{rr * 0.62} 0 1,0 0.1,0z", stroke="#FFD54F", sw=6, salpha=0.25)
+
+
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "vbg"
     os.makedirs(out, exist_ok=True)

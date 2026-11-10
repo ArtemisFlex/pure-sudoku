@@ -63,6 +63,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.SOLITAIRE -> { mini(colors, tm, o, inner, 0.08f, 0.10f, "K♥", red = true); mini(colors, tm, o, inner, 0.26f, 0.26f, "Q♠"); mini(colors, tm, o, inner, 0.44f, 0.42f, "J♥", red = true, strong = true) }
             GameKind.BLACKJACK -> { mini(colors, tm, o, inner, 0.1f, 0.18f, "A♠"); mini(colors, tm, o, inner, 0.42f, 0.30f, "K♥", red = true, strong = true) }
             GameKind.GO_FISH -> { mini(colors, tm, o, inner, 0.06f, 0.24f, "7♣"); mini(colors, tm, o, inner, 0.26f, 0.2f, "7♦", red = true); mini(colors, tm, o, inner, 0.46f, 0.24f, "7♠", strong = true) }
+            GameKind.CRAZY_EIGHTS -> { mini(colors, tm, o, inner, 0.1f, 0.26f, "5♣"); mini(colors, tm, o, inner, 0.42f, 0.16f, "8♥", strong = true) }
             GameKind.SCOUNDREL -> { mini(colors, tm, o, inner, 0.1f, 0.2f, "9♦", red = true); mini(colors, tm, o, inner, 0.42f, 0.28f, "Q♠", strong = true) }
             GameKind.CUTTLE -> { mini(colors, tm, o, inner, 0.1f, 0.26f, "5♥", red = true); mini(colors, tm, o, inner, 0.4f, 0.16f, "8♠", strong = true) }
             GameKind.PYRAMID -> pyramid(colors, o, inner)

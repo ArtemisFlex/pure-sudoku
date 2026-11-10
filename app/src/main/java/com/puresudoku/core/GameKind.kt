@@ -29,6 +29,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     SOLITAIRE("Solitaire", "Patience", "Classic Klondike: build the suits from Ace to King.", GameCategory.CARDS),
     BLACKJACK("Blackjack", "Odds", "Beat the dealer to 21 and grow your chips.", GameCategory.CARDS),
     GO_FISH("Go Fish", "Memory", "Ask for cards, collect books of four.", GameCategory.CARDS),
+    CRAZY_EIGHTS("Crazy Eights", "Strategy", "Match suit or rank, eights are wild. Go out first.", GameCategory.CARDS),
     SCOUNDREL("Scoundrel", "Roguelike", "Fight your way through a dungeon made of cards.", GameCategory.CARDS),
     CUTTLE("Cuttle", "Combat", "Race to 21 points while wrecking your rival's.", GameCategory.CARDS),
     PYRAMID("Dungeon Delver", "Patience", "Pyramid solitaire, floor by floor into the deep.", GameCategory.CARDS),

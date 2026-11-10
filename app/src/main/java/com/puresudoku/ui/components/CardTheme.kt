@@ -43,6 +43,10 @@ object CardThemes {
     val GO_FISH = CardTheme(c(0xFFF2FBFF), c(0xFF9CCFE6), listOf(c(0xFF00897B), c(0xFFF4511E), c(0xFFE91E63), c(0xFF1A3E8C)),
         c(0xFF1E88C8), c(0xFFBFE9FF), BackPattern.WAVES)
 
+    /** Crazy Eights: party colours on white, confetti dots on the back. */
+    val CRAZY_EIGHTS = CardTheme(c(0xFFFFFFFF), c(0xFFD1C4E9), listOf(c(0xFF2E9E55), c(0xFFF57C00), c(0xFFE91E63), c(0xFF3949AB)),
+        c(0xFF6A3FB0), c(0xFFFFD54F), BackPattern.DOTS, joker = c(0xFFE91E63))
+
     /** Scoundrel: dungeon parchment; monsters in shadow, weapons in steel, potions in blood. */
     val SCOUNDREL = CardTheme(c(0xFFEFE3C8), c(0xFF9C8458), listOf(c(0xFF2B2234), c(0xFF3D5A80), c(0xFFA4161A), c(0xFF2B2234)),
         c(0xFF4A2E1E), c(0xFFC9A26B), BackPattern.BRICKS, FontFamily.Serif)
