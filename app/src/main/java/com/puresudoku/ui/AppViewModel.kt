@@ -182,7 +182,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
             val started = SystemClock.elapsedRealtime()
-            val scripted = if (d == Difficulty.EASY) runCatching { Games.of(kind).lesson() }.getOrNull() else null
+            val scripted = if (d == Difficulty.EASY) withContext(Dispatchers.Default) { runCatching { Games.of(kind).lesson() }.getOrNull() } else null
             val s = scripted?.first ?: withContext(Dispatchers.Default) {
                 val def = Games.of(kind)
                 val start = repo.trainingStart(kind, d) ?: def.generate(d).toJson().also { repo.saveTrainingStart(kind, d, it) }

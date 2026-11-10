@@ -194,6 +194,7 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
 }
 
 object CrazyEightsDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.crazyEights()
     override val kind = GameKind.CRAZY_EIGHTS
     override fun generate(d: Difficulty): Session = CrazyEightsSession(d, CrazyEights.newGame(d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = CrazyEightsSession.restore(o).also { it.resume() }

@@ -193,6 +193,7 @@ class ScoundrelSession(difficulty: Difficulty, val g: Scoundrel) : Session(GameK
 }
 
 object ScoundrelDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.scoundrel()
     /** A King or Ace monster in the room turns the hall into the beast's lair. */
     override fun background(session: Session): Int {
         val s = session as ScoundrelSession
@@ -414,6 +415,7 @@ class RegicideSession(difficulty: Difficulty, val g: Regicide) : Session(GameKin
 }
 
 object RegicideDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.regicide()
     /** Gatehouse for the Jacks, royal hall for the Queens, throne room for the Kings. */
     override fun background(session: Session): Int {
         val s = session as RegicideSession
@@ -597,6 +599,7 @@ class DungeonSession(difficulty: Difficulty, val g: DungeonSolitaire) : Session(
 }
 
 object DungeonDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.dungeon()
     override fun background(session: Session): Int {
         val s = session as DungeonSession
         @Suppress("UNUSED_VARIABLE") val v = s.version
@@ -809,6 +812,7 @@ class JailbreakSession(difficulty: Difficulty, val g: Jailbreak) : Session(GameK
 }
 
 object JailbreakDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.jailbreak()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_jailbreak
     override val kind = GameKind.JAILBREAK
     private val rng = Random(SecureRandom().nextLong())

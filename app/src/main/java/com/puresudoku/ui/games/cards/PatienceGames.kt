@@ -197,6 +197,7 @@ class SolitaireSession(difficulty: Difficulty, var k: Klondike, moves: Int = 0) 
 }
 
 object SolitaireDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.solitaire()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_solitaire
     override val kind = GameKind.SOLITAIRE
     private val rng = Random(SecureRandom().nextLong())
@@ -464,6 +465,7 @@ class PyramidSession(
 }
 
 object PyramidDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.pyramid()
     override fun background(session: Session): Int {
         val s = session as PyramidSession
         val f = s.floor; val n = s.floors.size

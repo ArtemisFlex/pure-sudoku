@@ -190,6 +190,7 @@ class BlackjackSession(difficulty: Difficulty, val t: BlackjackTable, chips0: In
 }
 
 object BlackjackDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.blackjack()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_blackjack
     override val kind = GameKind.BLACKJACK
     private val rng = Random(SecureRandom().nextLong())
@@ -419,6 +420,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
 }
 
 object GoFishDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.goFish()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_gofish
     override val kind = GameKind.GO_FISH
     private val rng = Random(SecureRandom().nextLong())
@@ -700,6 +702,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
 }
 
 object CuttleDef : GameDef {
+    override fun lesson() = com.puresudoku.ui.training.CardScripts.cuttle()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_cuttle
     override val kind = GameKind.CUTTLE
     private val rng = Random(SecureRandom().nextLong())

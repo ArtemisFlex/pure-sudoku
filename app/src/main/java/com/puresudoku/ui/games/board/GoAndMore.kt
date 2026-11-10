@@ -639,6 +639,22 @@ class MahjongSession(difficulty: Difficulty, val g: Mahjong) : Session(GameKind.
 }
 
 object MahjongDef : GameDef {
+    override fun lesson(): Pair<Session, List<com.puresudoku.ui.session.LessonStep>> {
+        val g = Mahjong.newGame(Difficulty.EASY, Random(20261110))
+        val (a, b) = g.hintPair()!!
+        fun face(f: Int) = when (f) {
+            in 0..8 -> "${f + 1} of dots"; in 9..17 -> "${f - 8} of bamboo"; in 18..26 -> "${f - 17} of characters"
+            in 27..30 -> listOf("East", "South", "West", "North")[f - 27] + " wind"; in 31..33 -> listOf("red", "green", "white")[f - 31] + " dragon"
+            in 34..37 -> "flower"; else -> "season"
+        }
+        val total = g.tiles.size
+        return MahjongSession(Difficulty.EASY, g) to listOf(
+            com.puresudoku.ui.session.LessonStep("Clear every tile by removing matching pairs. You can only take a free tile: nothing on top of it, and its left or right side open."),
+            com.puresudoku.ui.session.LessonStep("Look for the two ${face(a.face)} tiles. Both are free right now. Tap one, then the other.") { (it as MahjongSession).g.tiles[a.id].removed && it.g.tiles[b.id].removed },
+            com.puresudoku.ui.session.LessonStep("Tiles in the middle of a row are blocked on both sides, and tiles under others are hidden. Clear from the top and the ends inward. Stuck? Tap Hint to see a pair.") { (it as MahjongSession).g.remaining.size <= total - 4 || it.outcome != com.puresudoku.ui.session.Outcome.PLAYING },
+            com.puresudoku.ui.session.LessonStep("Any flower matches any flower, and any season matches any season. When three of a face are free, choose the pair that frees the most tiles. Shuffle if no pairs are left. Clear the board to win!"),
+        )
+    }
     override val kind = GameKind.MAHJONG
     override fun generate(d: Difficulty): Session = MahjongSession(d, Mahjong.newGame(d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = MahjongSession.restore(o)
