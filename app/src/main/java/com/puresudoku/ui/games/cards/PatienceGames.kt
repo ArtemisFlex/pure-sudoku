@@ -197,6 +197,7 @@ class SolitaireSession(difficulty: Difficulty, var k: Klondike, moves: Int = 0) 
 }
 
 object SolitaireDef : GameDef {
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_solitaire
     override val kind = GameKind.SOLITAIRE
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = SolitaireSession(d, synchronized(rng) { Klondike.deal(d, rng) })
@@ -463,6 +464,15 @@ class PyramidSession(
 }
 
 object PyramidDef : GameDef {
+    override fun background(session: Session): Int {
+        val s = session as PyramidSession
+        val f = s.floor; val n = s.floors.size
+        return when {
+            n > 1 && f == n - 1 -> com.puresudoku.R.drawable.bg_delver_3
+            f > 0 || n == 1 && s.difficulty.ordinal >= 3 -> com.puresudoku.R.drawable.bg_delver_2
+            else -> com.puresudoku.R.drawable.bg_delver_1
+        }
+    }
     override val kind = GameKind.PYRAMID
     private val rng = Random(SecureRandom().nextLong())
 

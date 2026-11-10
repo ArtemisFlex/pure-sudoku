@@ -193,6 +193,12 @@ class ScoundrelSession(difficulty: Difficulty, val g: Scoundrel) : Session(GameK
 }
 
 object ScoundrelDef : GameDef {
+    /** A King or Ace monster in the room turns the hall into the beast's lair. */
+    override fun background(session: Session): Int {
+        val s = session as ScoundrelSession
+        @Suppress("UNUSED_VARIABLE") val v = s.version
+        return if (s.g.room.any { Scoundrel.isMonster(it) && Scoundrel.value(it) >= 13 }) com.puresudoku.R.drawable.bg_scoundrel_boss else com.puresudoku.R.drawable.bg_scoundrel
+    }
     override val kind = GameKind.SCOUNDREL
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = ScoundrelSession(d, synchronized(rng) { Scoundrel.newGame(d, rng) })
@@ -408,6 +414,16 @@ class RegicideSession(difficulty: Difficulty, val g: Regicide) : Session(GameKin
 }
 
 object RegicideDef : GameDef {
+    /** Gatehouse for the Jacks, royal hall for the Queens, throne room for the Kings. */
+    override fun background(session: Session): Int {
+        val s = session as RegicideSession
+        @Suppress("UNUSED_VARIABLE") val v = s.version
+        return when (if (s.g.enemy >= 0) Cards.rank(s.g.enemy) else 13) {
+            11 -> com.puresudoku.R.drawable.bg_regicide_jack
+            12 -> com.puresudoku.R.drawable.bg_regicide_queen
+            else -> com.puresudoku.R.drawable.bg_regicide_king
+        }
+    }
     override val kind = GameKind.REGICIDE
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = RegicideSession(d, synchronized(rng) { Regicide.newGame(d, rng) })
@@ -581,6 +597,11 @@ class DungeonSession(difficulty: Difficulty, val g: DungeonSolitaire) : Session(
 }
 
 object DungeonDef : GameDef {
+    override fun background(session: Session): Int {
+        val s = session as DungeonSession
+        @Suppress("UNUSED_VARIABLE") val v = s.version
+        return if (s.g.retreating) com.puresudoku.R.drawable.bg_tomb_escape else com.puresudoku.R.drawable.bg_tomb
+    }
     override val kind = GameKind.DUNGEON_SOLITAIRE
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = DungeonSession(d, synchronized(rng) { DungeonSolitaire.newGame(d, rng) })
@@ -788,6 +809,7 @@ class JailbreakSession(difficulty: Difficulty, val g: Jailbreak) : Session(GameK
 }
 
 object JailbreakDef : GameDef {
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_jailbreak
     override val kind = GameKind.JAILBREAK
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = JailbreakSession(d, synchronized(rng) { Jailbreak.newGame(d, rng) })

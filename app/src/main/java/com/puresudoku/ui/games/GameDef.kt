@@ -34,6 +34,9 @@ interface GameDef {
     @Composable
     fun Icon(size: Dp)
 
+    /** Optional full-screen pixel-art backdrop (drawable id) for the current moment of play; 0 = none. */
+    fun background(session: Session): Int = 0
+
     val tutorial: List<TutorialStep>
 }
 

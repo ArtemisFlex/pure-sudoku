@@ -76,6 +76,19 @@ fun PlayScreen(vm: AppViewModel) {
     val outcome = session.outcome
     val playing = outcome == Outcome.PLAYING
     Box(Modifier.fillMaxSize()) {
+        val backdrop = def.background(session)
+        if (backdrop != 0) {
+            androidx.compose.animation.Crossfade(backdrop, animationSpec = androidx.compose.animation.core.tween(700), label = "backdrop") { res ->
+                Box(Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.Image(
+                        androidx.compose.ui.res.painterResource(res), null, Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = androidx.compose.ui.graphics.FilterQuality.None,
+                    )
+                    // a scrim keeps text and cards readable over the art
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.42f)))
+                }
+            }
+        }
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
