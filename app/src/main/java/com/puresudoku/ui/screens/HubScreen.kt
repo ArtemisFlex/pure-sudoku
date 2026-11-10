@@ -52,6 +52,7 @@ import com.puresudoku.data.ThemeMode
 import com.puresudoku.ui.AppViewModel
 import com.puresudoku.ui.components.HSpace
 import com.puresudoku.ui.components.LogoGrid
+import com.puresudoku.ui.components.GamesLogo
 import com.puresudoku.ui.components.Wordmark
 import com.puresudoku.ui.games.GameDef
 import com.puresudoku.ui.games.Games
@@ -67,7 +68,7 @@ fun HubScreen(vm: AppViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(24.dp))
-            LogoGrid(96.dp, introDelayMs = 150)
+            GamesLogo(104.dp, introDelayMs = 150)
             Spacer(Modifier.height(16.dp))
             Wordmark(36.sp)
             Text(

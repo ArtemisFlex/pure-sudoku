@@ -1,4 +1,4 @@
-# Pure Puzzles
+# PureGames
 
 Nine offline, single-player brain games for Android (Kotlin + Jetpack Compose). No internet permission, no ads, no accounts.
 
@@ -16,7 +16,7 @@ Nine offline, single-player brain games for Android (Kotlin + Jetpack Compose). 
 
 ## Get the APK on your phone
 
-Every push to `main` builds an APK with GitHub Actions (`.github/workflows/build-apk.yml`) and publishes it on the **Releases** page. Open the latest release on your phone, tap **PurePuzzles.apk**, and allow "Install unknown apps" for your browser when asked. Installing over an older version keeps your saves.
+Every push to `main` builds an APK with GitHub Actions (`.github/workflows/build-apk.yml`) and publishes it on the **Releases** page. Open the latest release on your phone, tap **PureGames.apk**, and allow "Install unknown apps" for your browser when asked. Installing over an older version keeps your saves.
 
 To build locally: open the folder in Android Studio and press Run, or run `./gradlew assembleRelease` (APK lands in `app/build/outputs/apk/release/`). The release build is signed with the debug key so it installs directly; use your own key before publishing anywhere. Requires Android 8.0 (API 26) or newer.
 

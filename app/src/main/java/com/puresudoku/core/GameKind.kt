@@ -6,7 +6,7 @@ enum class GameCategory(val title: String, val blurb: String) {
     CARDS("Card Games", "Solitaires, dungeon crawls and duels with a 52-card deck"),
 }
 
-/** Every game in Pure Puzzles. Order here is the order on the home screen. */
+/** Every game in PureGames. Order here is the order on the home screen. */
 enum class GameKind(val title: String, val skill: String, val tagline: String, val category: GameCategory = GameCategory.LOGIC) {
     SUDOKU("Sudoku", "Logic", "Fill the grid so every row, column and box holds 1–9."),
     CAGE_MATH("Cage Math", "Arithmetic", "Latin squares where every cage hits its target."),

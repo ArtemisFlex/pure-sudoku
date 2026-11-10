@@ -30,13 +30,18 @@ class BackupStore(private val context: Context) {
         }.getOrNull() ?: "your backup folder"
     }
 
-    private fun findFile(tree: Uri): Uri? {
+    private fun findFile(tree: Uri, forWrite: Boolean = false): Uri? {
         val parent = DocumentsContract.getTreeDocumentId(tree)
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parent)
         context.contentResolver.query(
             children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null,
         )?.use { c ->
-            while (c.moveToNext()) if (c.getString(1) == FILE_NAME) return DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0))
+            var old: Uri? = null
+            while (c.moveToNext()) {
+                if (c.getString(1) == FILE_NAME) return DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0))
+                if (c.getString(1) == OLD_FILE_NAME) old = DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0))
+            }
+            if (old != null && !forWrite) return old
         }
         return null
     }
@@ -45,7 +50,7 @@ class BackupStore(private val context: Context) {
     fun write(json: String): Boolean {
         val tree = folder ?: return false
         return runCatching {
-            val file = findFile(tree) ?: DocumentsContract.createDocument(
+            val file = findFile(tree, forWrite = true) ?: DocumentsContract.createDocument(
                 context.contentResolver,
                 DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree)),
                 "application/json", FILE_NAME,
@@ -66,6 +71,7 @@ class BackupStore(private val context: Context) {
     }.getOrNull()
 
     companion object {
-        const val FILE_NAME = "pure-puzzles-backup.json"
+        const val FILE_NAME = "puregames-backup.json"
+        const val OLD_FILE_NAME = "pure-puzzles-backup.json"
     }
 }

@@ -24,7 +24,7 @@ import com.puresudoku.ui.theme.LocalBoardColors
 import com.puresudoku.ui.theme.Poppins
 
 /**
- * Game icons in the style of the Pure Puzzles logo: a rounded tile, ink frame,
+ * Game icons in the style of the PureGames logo: a rounded tile, ink frame,
  * one strong blue accent and one pale blue accent.
  */
 @Composable

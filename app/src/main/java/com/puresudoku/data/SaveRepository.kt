@@ -196,13 +196,13 @@ class SaveRepository(context: Context) {
             } ?: continue
             items.put(k, o)
         }
-        return JSONObject().put("app", "Pure Puzzles").put("version", 1).put("savedAt", System.currentTimeMillis()).put("items", items).toString()
+        return JSONObject().put("app", "PureGames").put("version", 1).put("savedAt", System.currentTimeMillis()).put("items", items).toString()
     }
 
-    /** Replaces all local data with a backup. Returns false if the file isn't a Pure Puzzles backup. */
+    /** Replaces all local data with a backup. Returns false if the file isn't a PureGames backup. */
     fun importAll(text: String): Boolean = runCatching {
         val root = JSONObject(text)
-        if (root.optString("app") != "Pure Puzzles") return false
+        if (root.optString("app") !in BACKUP_IDS) return false
         val items = root.getJSONObject("items")
         val e = prefs.edit().clear()
         for (k in items.keys()) {
@@ -282,5 +282,7 @@ class SaveRepository(context: Context) {
     companion object {
         const val SLOT_COUNT = 3
         const val HISTORY_LIMIT = 500
+        /** Backups made before the rename say "Pure Puzzles". */
+        val BACKUP_IDS = setOf("PureGames", "Pure Puzzles")
     }
 }

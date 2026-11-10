@@ -106,8 +106,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onBackupFilePicked(uri: android.net.Uri) {
         val text = backupStore.read(uri)
-        val savedAt = text?.let { runCatching { org.json.JSONObject(it).takeIf { o -> o.optString("app") == "Pure Puzzles" }?.getLong("savedAt") }.getOrNull() }
-        if (text == null || savedAt == null) backupMessage = "That file isn't a Pure Puzzles backup"
+        val savedAt = text?.let { runCatching { org.json.JSONObject(it).takeIf { o -> o.optString("app") in com.puresudoku.data.SaveRepository.BACKUP_IDS }?.getLong("savedAt") }.getOrNull() }
+        if (text == null || savedAt == null) backupMessage = "That file isn't a PureGames backup"
         else pendingRestore = text to savedAt
     }
 
