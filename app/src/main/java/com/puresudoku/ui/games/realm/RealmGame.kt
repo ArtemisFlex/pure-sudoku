@@ -369,7 +369,7 @@ object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
 // =====================================================================  board geometry
 
 private class RGeo(val w: Float, val h: Float) {
-    val unit = min(w / 10.4f, h / 9.6f)
+    val unit = min(w, h) / 10.5f
     val cx = w / 2; val cy = h / 2
     fun pt(x: Float, y: Float) = Offset(cx + x * unit, cy + y * unit)
     fun vert(v: Int) = pt(RealmMap.vertX[v], RealmMap.vertY[v])
@@ -477,7 +477,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
     val vT = s.vertexTargets(); val eT = s.edgeTargets(); val tT = s.tileTargets()
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val wDp = maxWidth; val hDp = min(maxHeight.value, maxWidth.value * 0.93f).dp
+        val side = min(maxHeight.value, maxWidth.value).dp; val wDp = side; val hDp = side
         Box(Modifier.size(wDp, hDp)) {
             Canvas(Modifier.size(wDp, hDp).pointerInput(s, vT, eT, tT) {
                 detectTapGestures { o ->
