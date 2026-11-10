@@ -8,7 +8,7 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * Board geometry for Realmforge: 19 pointy-top hexes (radius 2), 54 corners, 72 edges.
+ * Board geometry for Eiseria: 19 pointy-top hexes (radius 2), 54 corners, 72 edges.
  * Positions are in hex-size units (centre to corner = 1), centred on the middle hex.
  */
 object RealmMap {
@@ -93,7 +93,7 @@ sealed class RAct {
 }
 
 /**
- * Realmforge: a two-player fantasy take on the settle-and-trade hex game.
+ * Eiseria: a two-player fantasy take on the settle-and-trade hex game.
  * Player 0 is you, player 1 the computer. Three twists: the Unmapped Realm (fog of war),
  * Dragon's Wake (a growing, walking dragon you can slay) and Night & Day.
  */

@@ -317,8 +317,8 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
         val g = s.g
         val twistText = when (twist) {
             Realm.FOG -> "This is the Unmapped Realm: the outer tiles are hidden in fog. Building next to one reveals it and gives you one of its resource. Some hide ruins with a free spell, and violet ley stones sit on the coast: touch two with your roads for +1 mana every turn."
-            Realm.WAKE -> "In Dragon's Wake the dragon is a boss. Every 7 makes it stronger, and each round it walks one tile toward whoever leads. Each Knight wounds it; land the final blow and you earn 2 points."
-            else -> "In Night & Day the rounds alternate. At night the crystal spires pay double mana, but the dragon raids whoever leads, landing on their best tile and burning a card."
+            Realm.WAKE -> "In Wyrmrise the dragon is a boss. Every 7 makes it stronger, and each round it walks one tile toward whoever leads. Each Knight wounds it; land the final blow and you earn 2 points."
+            else -> "In Nightfall the rounds alternate. At night the crystal spires pay double mana, but the dragon raids whoever leads, landing on their best tile and burning a card."
         }
         return s to listOf(
             LessonStep("Win the realm by reaching ${g.target} points before your rival. Villages are worth 1, towers 2. Every tile shows a number: when the dice roll it, buildings on its corners collect that resource."),

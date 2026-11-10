@@ -48,7 +48,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     GOMOKU("Gomoku", "Patterns", "Five stones in a row wins.", GameCategory.BOARD),
     MORRIS("Nine Men's Morris", "Tactics", "Form mills to take your rival's men.", GameCategory.BOARD),
     TIC_TAC_TOE("Tic-Tac-Toe", "Tactics", "Three in a row, best of five rounds.", GameCategory.BOARD),
-    REALMFORGE("Realmforge", "Exploration", "Settle a fog-covered fantasy realm before your rival does.", GameCategory.STRATEGY),
-    REALM_DRAGON("Realmforge: Dragon's Wake", "Risk", "Build your realm while a growing dragon hunts the leader.", GameCategory.STRATEGY),
-    REALM_NIGHT("Realmforge: Night & Day", "Timing", "Day and night turn the realm. The night belongs to the dragon.", GameCategory.STRATEGY),
+    REALMFORGE("Eiseria", "Exploration", "Settle a fog-covered fantasy realm before your rival does.", GameCategory.STRATEGY),
+    REALM_DRAGON("Eiseria: Wyrmrise", "Risk", "Build your realm while a growing dragon hunts the leader.", GameCategory.STRATEGY),
+    REALM_NIGHT("Eiseria: Nightfall", "Timing", "Day and night turn the realm. The night belongs to the dragon.", GameCategory.STRATEGY),
 }

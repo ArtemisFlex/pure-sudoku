@@ -4,7 +4,7 @@ import com.puresudoku.core.Difficulty
 import kotlin.random.Random
 
 /**
- * The Realmforge computer player. It picks one action at a time from the current position.
+ * The Eiseria computer player. It picks one action at a time from the current position.
  * It only uses what it could see: hidden tiles (fog) count as an average unknown tile.
  */
 object RealmAi {

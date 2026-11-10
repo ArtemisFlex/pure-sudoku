@@ -2,7 +2,7 @@ package com.puresudoku.ui.training
 
 import com.puresudoku.core.GameKind
 
-/** Coaching for the Realmforge strategy games. */
+/** Coaching for the Eiseria strategy games. */
 object StrategyLessons {
     private val basics = listOf(
         "Reach the points goal first. Villages are worth 1, towers 2, the Great Road (5+ roads in a line) 2, the Mightiest Host (3+ Knights) 2, and Relic spells 1 each.",

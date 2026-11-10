@@ -538,7 +538,7 @@ def crazy_eights_bg(a):
         a.path(f"M{x},{y - rr} a{rr * 0.55},{rr * 0.5} 0 1,0 0.1,0z M{x},{y} a{rr * 0.7},{rr * 0.62} 0 1,0 0.1,0z", stroke="#FFD54F", sw=6, salpha=0.25)
 
 
-# ============================================================ strategy (Realmforge)
+# ============================================================ strategy (Eiseria)
 
 def mountains(a, base, peaks, fill, alpha=1.0):
     pts = [(-10, base)] + peaks + [(W + 10, base), (W + 10, H + 10), (-10, H + 10)]
