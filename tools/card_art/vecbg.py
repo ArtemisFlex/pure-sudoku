@@ -202,174 +202,124 @@ def jailbreak(a):
         a.path(links, stroke="#9AA3B0", sw=3)
 
 # ============================================================ number games
+# Ambient scenes only: no grids, cells, pegs, lights, islands or tiles that could be mistaken for the game.
 
 def scatter(a, n, fn, x0=0, y0=0, x1=W, y1=H):
     return "".join(fn(a.rng.uniform(x0, x1), a.rng.uniform(y0, y1), i) for i in range(n))
 
+def ribbon(y, amp, period, phase, thick):
+    top = [(x, y + amp * math.sin(x / period * 2 * math.pi + phase)) for x in range(-10, W + 16, 8)]
+    bot = [(x, y + thick + amp * math.sin(x / period * 2 * math.pi + phase + 0.6)) for x in range(W + 10, -16, -8)]
+    return poly(top + bot)
+
+def blob(cx, cy, r, rng, k=7):
+    pts = []
+    for i in range(k * 4):
+        t = i / (k * 4) * 2 * math.pi
+        rr = r * (1 + 0.12 * math.sin(3 * t + rng.uniform(0, 0.3)) + 0.06 * math.sin(5 * t))
+        pts.append((cx + rr * math.cos(t), cy + rr * math.sin(t)))
+    return poly(pts)
+
+def gear(cx, cy, r, teeth):
+    pts = []
+    for i in range(teeth * 4):
+        t = i / (teeth * 4) * 2 * math.pi
+        rr = r if (i % 4) in (0, 1) else r * 0.84
+        pts.append((cx + rr * math.cos(t), cy + rr * math.sin(t)))
+    return poly(pts) + circle(cx, cy, r * 0.35)
+
 @scene("vbg_sudoku")
 def sudoku(a):
-    a.bg(a.lin(0, 0, W, H, (0, "#EAF1FC"), (1, "#C9DAF5")))
-    g = ""
-    for k in range(10):
-        p = 30 + k * 300 / 9
-        g += line(p, 170, p, 470) + line(30, 170 + k * 300 / 9, 330, 170 + k * 300 / 9)
-    a.path(poly(rot([(30, 170), (330, 170), (330, 470), (30, 470)], 180, 320, -8)), "#FFFFFF", 0.35)
-    a.path(" ".join(poly(rot([(x0, y0), (x1, y1)], 180, 320, -8), close=False) for x0, y0, x1, y1 in
-                    [(30 + k * 300 / 9, 170, 30 + k * 300 / 9, 470) for k in range(10)] + [(30, 170 + k * 300 / 9, 330, 170 + k * 300 / 9) for k in range(10)]),
-           stroke="#2F6FD6", sw=1.5, salpha=0.18)
-    a.path(" ".join(poly(rot([(x0, y0), (x1, y1)], 180, 320, -8), close=False) for x0, y0, x1, y1 in
-                    [(30 + k * 100, 170, 30 + k * 100, 470) for k in range(4)] + [(30, 170 + k * 100, 330, 170 + k * 100) for k in range(4)]),
-           stroke="#2F6FD6", sw=4, salpha=0.22)
-    cells = "".join(poly(rot([(30 + c * 33.33 + 3, 170 + r * 33.33 + 3), (30 + c * 33.33 + 30, 170 + r * 33.33 + 3), (30 + c * 33.33 + 30, 170 + r * 33.33 + 30), (30 + c * 33.33 + 3, 170 + r * 33.33 + 30)], 180, 320, -8))
-                    for (r, c) in [(1, 1), (2, 6), (4, 4), (6, 2), (7, 7), (0, 8), (8, 0)])
-    a.path(cells, "#2F6FD6", 0.22)
-    a.path(scatter(a, 40, lambda x, y, i: rect(x, y, 10, 10, 2)), "#2F6FD6", 0.08)
+    a.bg(a.lin(0, 0, W, H, (0, "#EEF4FD"), (1, "#C6D8F4")))
+    a.path(circle(300, 120, 150), "#2F6FD6", 0.08); a.path(circle(40, 420, 190), "#2F6FD6", 0.07); a.path(circle(260, 600, 120), "#79A8F2", 0.12)
+    for k in range(5):
+        a.path(wave(250 + k * 22, 26, 420, k * 0.5), stroke="#2F6FD6", sw=1.5, salpha=0.14)
 
 @scene("vbg_cage_math")
 def cage_math(a):
-    a.bg(a.lin(0, 0, 0, H, (0, "#FFF4E6"), (1, "#FFD9B0")))
-    syms = ""
-    for i in range(36):
-        x, y = a.rng.uniform(10, 350), a.rng.uniform(10, 630); s = a.rng.uniform(8, 18); k = i % 4
-        if k == 0: syms += plus(x, y, s, s * 0.35)
-        elif k == 1: syms += rect(x - s, y - s * 0.17, 2 * s, s * 0.35)
-        elif k == 2: syms += poly(rot([(x - s, y - s * 0.17), (x + s, y - s * 0.17), (x + s, y + s * 0.17), (x - s, y + s * 0.17)], x, y, 45)) + poly(rot([(x - s, y - s * 0.17), (x + s, y - s * 0.17), (x + s, y + s * 0.17), (x - s, y + s * 0.17)], x, y, -45))
-        else: syms += rect(x - s, y - s * 0.17, 2 * s, s * 0.35) + circle(x, y - s * 0.6, s * 0.22) + circle(x, y + s * 0.6, s * 0.22)
-    a.path(syms, "#E07A1F", 0.16)
-    cage = ""
-    for (x, y, w, h) in ((40, 120, 110, 70), (150, 120, 70, 140), (220, 120, 100, 70), (40, 190, 110, 70), (220, 190, 100, 140), (40, 260, 180, 70)):
-        for k in range(0, int(w), 14): cage += rect(x + k, y, 8, 3) + rect(x + k, y + h - 3, 8, 3)
-        for k in range(0, int(h), 14): cage += rect(x, y + k, 3, 8) + rect(x + w - 3, y + k, 3, 8)
-    a.path(cage, "#B5541A", 0.35)
-    a.path(rect(40, 120, 280, 210, 6), "#FFFFFF", 0.25)
+    a.bg(a.lin(0, 0, 0, H, (0, "#FFF4E6"), (1, "#FFD2A8")))
+    for k, (y, c, al) in enumerate(((120, "#F4A261", 0.25), (230, "#E76F51", 0.16), (390, "#F4A261", 0.2), (520, "#E9C46A", 0.3))):
+        a.path(ribbon(y, 28, 300 + k * 40, k, 46), c, al)
 
 @scene("vbg_kakuro")
 def kakuro(a):
-    a.bg(a.lin(0, 0, W, H, (0, "#FFE9D6"), (1, "#F2B98C")))
-    tri = ""
-    for r in range(18):
-        for c in range(10):
-            if (r * 7 + c * 3) % 5 == 0:
-                x, y = c * 40 - 20 + (r % 2) * 20, r * 40
-                tri += poly([(x, y), (x + 36, y), (x, y + 36)])
-    a.path(tri, "#8A3A12", 0.16)
-    grid = "".join(rect(c * 40 - 20 + (r % 2) * 20 + 2, r * 40 + 2, 32, 32, 4) for r in range(18) for c in range(10) if (r + c) % 3 == 0)
-    a.path(grid, "#FFFFFF", 0.22)
-    diag = "".join(line(c * 40 - 20 + (r % 2) * 20, r * 40, c * 40 + 16 + (r % 2) * 20, r * 40 + 36) for r in range(18) for c in range(10) if (r * 7 + c * 3) % 5 == 0)
-    a.path(diag, stroke="#FFFFFF", sw=1.5, salpha=0.5)
+    a.bg(a.lin(0, 0, 0, H, (0, "#FFE8CC"), (0.45, "#FFC8A2"), (1, "#C96F4A")))
+    a.path(circle(260, 190, 64), "#FFF1D6", 0.8)
+    a.path(band(330, 22, 360, 0.4), "#E8946A", 0.6)
+    a.path(band(420, 26, 300, 2.0), "#C9714A", 0.7)
+    a.path(band(520, 18, 260, 3.4), "#9E4F33", 0.75)
 
 @scene("vbg_picture_logic")
 def picture_logic(a):
-    a.bg(a.lin(0, 0, 0, H, (0, "#F4F0FF"), (1, "#D9CCF7")))
-    art = ["..XX...XX..", ".XXXX.XXXX.", "XXXXXXXXXXX", "XXXXXXXXXXX", ".XXXXXXXXX.", "..XXXXXXX..", "...XXXXX...", "....XXX....", ".....X....."]
-    s = 26; x0 = (W - 11 * s) / 2; y0 = 190
-    on = "".join(rect(x0 + c * s + 2, y0 + r * s + 2, s - 4, s - 4, 3) for r, row in enumerate(art) for c, ch in enumerate(row) if ch == "X")
-    off = "".join(rect(x0 + c * s + 2, y0 + r * s + 2, s - 4, s - 4, 3) for r, row in enumerate(art) for c, ch in enumerate(row) if ch != "X")
-    a.path(off, "#FFFFFF", 0.45); a.path(on, "#7C4BB0", 0.35)
-    clues = "".join(rect(x0 + c * s + 8, y0 - 40 - k * 14, 10, 8, 2) for c in range(11) for k in range(a.rng.randint(1, 3)))
-    clues += "".join(rect(x0 - 26 - k * 16, y0 + r * s + 9, 10, 8, 2) for r in range(9) for k in range(a.rng.randint(1, 3)))
-    a.path(clues, "#7C4BB0", 0.3)
-    a.path(scatter(a, 50, lambda x, y, i: rect(x, y, 12, 12, 2), 0, 480, W, H), "#7C4BB0", 0.08)
-    a.path(scatter(a, 30, lambda x, y, i: rect(x, y, 12, 12, 2), 0, 0, W, 130), "#7C4BB0", 0.08)
+    a.bg(a.lin(0, 0, 0, H, (0, "#F6F2FF"), (1, "#DCD0F6")))
+    for (x, y, r, c, al) in ((90, 140, 90, "#B39DDB", 0.35), (270, 260, 110, "#F48FB1", 0.25), (120, 430, 120, "#80DEEA", 0.25), (290, 560, 90, "#FFCC80", 0.3)):
+        a.path(blob(x, y, r, a.rng), c, al)
+    for k in range(4):
+        y = 120 + k * 140
+        a.path(f"M20,{y} C120,{y - 40} 220,{y + 50} 340,{y - 10}", stroke="#7E57C2", sw=10 - k * 2, salpha=0.12)
 
 @scene("vbg_hashi")
 def hashi(a):
-    a.bg(a.lin(0, 0, 0, H, (0, "#BDEBF7"), (1, "#3A8FC2")))
-    a.path("".join(wave(y, 4, 60, y / 30) for y in range(20, H, 34)), stroke="#FFFFFF", sw=1.5, salpha=0.25)
-    isl = [(60, 90), (200, 90), (310, 90), (60, 250), (140, 250), (310, 250), (140, 400), (250, 400), (60, 540), (250, 540), (310, 470)]
-    br = [(0, 1, 2), (1, 2, 1), (0, 3, 1), (3, 4, 2), (4, 6, 1), (6, 7, 2), (2, 5, 2), (5, 10, 1), (7, 9, 1), (3, 8, 2), (8, 9, 1)]
-    bridges = ""
-    for i, j, n in br:
-        (x0, y0), (x1, y1) = isl[i], isl[j]
-        for k in range(n):
-            o = (k - (n - 1) / 2) * 7
-            bridges += line(x0 + (o if x0 == x1 else 0), y0 + (o if y0 == y1 else 0), x1 + (o if x0 == x1 else 0), y1 + (o if y0 == y1 else 0))
-    a.path(bridges, stroke="#7A4A22", sw=4, salpha=0.7)
-    a.path("".join(circle(x, y, 22) for x, y in isl), "#F6E7C1")
-    a.path("".join(circle(x, y, 22) for x, y in isl), stroke="#7A4A22", sw=3, salpha=0.8)
-    a.path("".join(circle(x - 6, y - 6, 6) for x, y in isl), "#FFFFFF", 0.5)
+    a.bg(a.lin(0, 0, 0, 300, (0, "#FFE7C2"), (1, "#BDEBF7")))
+    a.path(circle(250, 270, 50), "#FFF4D6", 0.9)
+    a.path(rect(0, 290, W, 350), a.lin(0, 290, 0, H, (0, "#5FB3D9"), (1, "#1E5F8C")))
+    a.path("".join(wave(y, 2 + (y - 290) / 80, 50 + (y - 290) / 4, y / 13, step=4) for y in range(300, H, 18)), stroke="#FFFFFF", sw=1.5, salpha=0.3)
+    a.path(rect(200, 296, 100, 3, 1.5) + rect(215, 306, 70, 3, 1.5), "#FFF4D6", 0.7)
+    a.path(poly([(70, 286), (82, 250), (84, 286)]) + poly([(86, 286), (86, 256), (98, 286)]), "#FFFFFF", 0.85)
+    a.path(poly([(62, 288), (104, 288), (96, 296), (70, 296)]), "#6B4A2A", 0.8)
 
 @scene("vbg_grid_recall")
 def grid_recall(a):
-    a.bg(a.rad(180, 320, 520, (0, "#5B3F9E"), (1, "#1C1238")))
-    s = 52
-    for r in range(12):
-        for c in range(7):
-            x, y = c * s + 2, r * s + 8
-            lvl = a.rng.random()
-            if lvl > 0.86: a.path(rect(x + 4, y + 4, s - 8, s - 8, 10), "#FFD86E", 0.55); a.path(rect(x - 6, y - 6, s + 12, s + 12, 16), "#FFD86E", 0.08)
-            elif lvl > 0.6: a.path(rect(x + 4, y + 4, s - 8, s - 8, 10), "#B48AE6", 0.3)
-            else: a.path(rect(x + 4, y + 4, s - 8, s - 8, 10), "#FFFFFF", 0.06)
+    a.bg(a.lin(0, 0, 0, H, (0, "#1C1238"), (1, "#3B2770")))
+    a.path(ribbon(140, 40, 380, 0.5, 70), a.lin(0, 100, 0, 260, (0, "#7CF5D400"), (0.5, "#7CF5D455"), (1, "#7CF5D400")))
+    a.path(ribbon(230, 50, 320, 2.1, 90), a.lin(0, 180, 0, 360, (0, "#B48AE600"), (0.5, "#B48AE655"), (1, "#B48AE600")))
+    for _ in range(70):
+        x, y = a.rng.uniform(0, W), a.rng.uniform(0, H); r = a.rng.choice([0.8, 1, 1.2, 1.8])
+        a.path(circle(x, y, r), "#FFFFFF", a.rng.uniform(0.3, 0.8))
 
 @scene("vbg_code_breaker")
 def code_breaker(a):
-    a.bg(a.lin(0, 0, 0, H, (0, "#3A2A20"), (1, "#1E140E")))
-    a.path(rect(40, 30, 280, 580, 18), a.lin(0, 30, 0, 610, (0, "#8A5A34"), (1, "#5A3524")))
-    a.path(rect(40, 30, 280, 580, 18), stroke="#C98D52", sw=2, salpha=0.6)
-    cols = ["#E53935", "#FDD835", "#43A047", "#1E88E5", "#8E24AA", "#FB8C00"]
-    for r in range(10):
-        y = 70 + r * 52
-        for k in range(4):
-            if r < 7: a.path(circle(90 + k * 46, y, 15), cols[(r * 3 + k * 5) % 6]); a.path(circle(85 + k * 46, y - 5, 4), "#FFFFFF", 0.5)
-            else: a.path(circle(90 + k * 46, y, 9), "#2A1A10", 0.8)
-        for k in range(4):
-            px, py = 268 + (k % 2) * 16, y - 8 + (k // 2) * 16
-            if r < 7: a.path(circle(px, py, 5), ["#FFFFFF", "#111111", "#2A1A10"][(r + k) % 3])
-            else: a.path(circle(px, py, 3), "#2A1A10", 0.8)
-    a.path(rect(40, 560, 280, 50, 18), "#2A1A10", 0.6)
+    a.bg(a.rad(180, 300, 560, (0, "#1F4A4F"), (1, "#0B1E21")))
+    for (x, y, r, t, al) in ((60, 110, 90, 12, 0.10), (250, 200, 60, 9, 0.08), (300, 470, 130, 16, 0.08), (70, 560, 70, 10, 0.10)):
+        a.path(gear(x, y, r, t), stroke="#8FD3C8", sw=2, salpha=al * 2.2)
+    a.path(circle(180, 330, 52), stroke="#8FD3C8", sw=3, salpha=0.18)
+    a.path(circle(180, 318, 12) + poly([(172, 324), (188, 324), (194, 360), (166, 360)]), "#8FD3C8", 0.12)
 
 @scene("vbg_lumen")
 def lumen(a):
-    a.bg(a.lin(0, 0, 0, H, (0, "#12162A"), (1, "#05070F")))
-    s = 60
-    for r in range(11):
-        for c in range(6):
-            cx, cy = c * s + 30, r * s + 20
-            on = a.rng.random() > 0.55
-            if on:
-                a.path(circle(cx, cy, 40), a.rad(cx, cy, 40, (0, "#FFE58A88"), (1, "#FFE58A00")))
-                a.path(circle(cx, cy, 14), "#FFE58A"); a.path(circle(cx - 4, cy - 4, 5), "#FFFFFF", 0.8)
-            else:
-                a.path(circle(cx, cy, 14), "#2A3050"); a.path(circle(cx, cy, 14), stroke="#3E4670", sw=2)
+    a.bg(a.lin(0, 0, 0, H, (0, "#2A2E5A"), (1, "#0A0C1A")))
+    for (x0, w, al) in ((60, 50, 0.07), (140, 70, 0.05), (230, 40, 0.07), (300, 60, 0.05)):
+        a.path(poly([(x0, -10), (x0 + w, -10), (x0 + w * 2.2, H), (x0 - w * 0.6, H)]), "#FFE9A8", al)
+    a.path(circle(180, -40, 160), a.rad(180, -40, 160, (0, "#FFE9A855"), (1, "#FFE9A800")))
+    a.path(band(560, 14, 300, 1.2), "#05060E", 0.8)
 
 @scene("vbg_sliding_tiles")
 def sliding_tiles(a):
-    a.bg(a.lin(0, 0, W, H, (0, "#D7F5EF"), (1, "#7CCFC0")))
-    s = 70
-    for r in range(10):
-        for c in range(6):
-            if (r, c) in ((3, 2), (6, 4)): continue
-            x, y = c * s - 30 + (r % 2) * 10, r * s - 20
-            a.path(rect(x + 4, y + 8, s - 10, s - 10, 12), "#0F5E52", 0.18)
-            a.path(rect(x + 4, y + 4, s - 10, s - 10, 12), "#FFFFFF", 0.45 if (r + c) % 3 else 0.7)
-    a.path(rect(2 * s - 30 + 10 + 4 + 18, 3 * s - 20 + 4, s - 10, s - 10, 12), stroke="#0F5E52", sw=3, salpha=0.35)
-    a.path(poly([(2 * s + 50, 3 * s + 15), (2 * s + 70, 3 * s + 15), (2 * s + 60, 3 * s + 5)]), "#0F5E52", 0.0)
+    a.bg(a.lin(0, 0, W, H, (0, "#DDF7F1"), (1, "#7FCFC0")))
+    for k in range(7):
+        y = -120 + k * 120
+        a.path(poly([(-20, y + 160), (W + 20, y), (W + 20, y + 46), (-20, y + 206)]), "#FFFFFF" if k % 2 else "#0F5E52", 0.12 if k % 2 else 0.06)
 
 # ============================================================ word games
 
 @scene("vbg_crossword")
 def crossword(a):
-    a.bg(a.lin(0, 0, 0, H, (0, "#F7F3EA"), (1, "#E6DCC6")))
-    s = 30
-    blk, wht = "", ""
-    for r in range(22):
-        for c in range(13):
-            x, y = c * s - 15, r * s - 10
-            if (r * 5 + c * 3 + (r * c) % 4) % 7 == 0: blk += rect(x, y, s, s)
-            else: wht += rect(x + 1, y + 1, s - 2, s - 2)
-    a.path(wht, "#FFFFFF", 0.6); a.path(blk, "#1F2A37", 0.22)
-    nums = "".join(rect(c * s - 12, r * s - 7, 5, 6) for r in range(22) for c in range(13) if (r * 3 + c * 7) % 11 == 0)
-    a.path(nums, "#1F2A37", 0.25)
-    a.path(rect(0, 0, W, H), a.lin(0, 0, 0, H, (0, "#F7F3EA00"), (0.5, "#F7F3EA66"), (1, "#F7F3EA00")))
+    a.bg(a.lin(0, 0, 0, H, (0, "#F7F3EA"), (1, "#E8DEC8")))
+    a.path("".join(line(24, y, W - 24, y) for y in range(60, H - 30, 26)), stroke="#9FB4C7", sw=1, salpha=0.35)
+    a.path(line(54, 0, 54, H), stroke="#E57373", sw=1.5, salpha=0.35)
+    for (x, y, r) in ((270, 120, 46), (90, 520, 38)):
+        a.path(circle(x, y, r), stroke="#8D6E63", sw=5, salpha=0.18); a.path(circle(x + 3, y + 2, r - 6), stroke="#8D6E63", sw=2, salpha=0.1)
+    a.path(poly(rot([(160, 330), (330, 330), (330, 342), (160, 342)], 245, 336, -28)), "#F2C24B", 0.55)
+    a.path(poly(rot([(330, 330), (348, 336), (330, 342)], 245, 336, -28)), "#5D4037", 0.6)
 
 @scene("vbg_word_search")
 def word_search(a):
-    a.bg(a.lin(0, 0, W, H, (0, "#FFF8E1"), (1, "#FFE0A3")))
-    dots = "".join(rect(c * 28 + 10, r * 28 + 12, 8, 10, 2) for r in range(23) for c in range(13))
-    a.path(dots, "#8A6A2A", 0.14)
-    for (x0, y0, x1, y1, col) in ((24, 96, 220, 96, "#FF8A65"), (66, 180, 66, 400, "#4FC3F7"), (130, 240, 300, 410, "#81C784"), (300, 120, 160, 260, "#BA68C8"),
-                                  (40, 500, 320, 500, "#FFD54F"), (250, 450, 250, 620, "#F06292")):
-        a.path(line(x0, y0, x1, y1), stroke=col, sw=22, salpha=0.4)
+    a.bg(a.lin(0, 0, W, H, (0, "#FFF8E1"), (1, "#FFDCA0")))
+    a.path(circle(170, 280, 110), stroke="#8A6A2A", sw=14, salpha=0.14)
+    a.path(circle(170, 280, 96), "#FFFFFF", 0.25)
+    a.path(poly(rot([(262, 360), (300, 360), (300, 500), (262, 500)], 281, 430, -40)), "#8A6A2A", 0.14)
+    a.path(f"M120,230 A70,70 0 0 1 180,200", stroke="#FFFFFF", sw=8, salpha=0.6)
+    a.path(scatter(a, 18, lambda x, y, i: circle(x, y, a.rng.choice([3, 5, 8]))), "#FFB74D", 0.25)
 
 @scene("vbg_haiku")
 def haiku(a):
@@ -404,10 +354,6 @@ def synonyms(a):
     a.path(poly([(0, 0), (W, 0), (0, H)]), "#E0F2F1")
     a.path(circle(140, 280, 120), "#26A69A", 0.25); a.path(circle(220, 360, 120), "#EC407A", 0.25)
     a.path(circle(140, 280, 120), stroke="#26A69A", sw=3, salpha=0.5); a.path(circle(220, 360, 120), stroke="#EC407A", sw=3, salpha=0.5)
-    a.path(rect(90, 270, 40, 10, 5) + rect(90, 290, 40, 10, 5), "#00695C", 0.45)
-    a.path(rect(230, 350, 50, 10, 5), "#AD1457", 0.45)
-    a.path(rect(250, 330, 10, 50, 5), "#AD1457", 0.0)
-    a.path(scatter(a, 30, lambda x, y, i: rect(x, y, a.rng.uniform(20, 60), 7, 3.5)), "#37474F", 0.06)
 
 @scene("vbg_rhyme_time")
 def rhyme_time(a):
@@ -433,29 +379,14 @@ def word_ladder(a):
         x = 90 + t * 140
         rungs += line(x, y, x + 80, y)
     a.path(rungs, stroke="#A1887F", sw=8)
-    a.path("".join(rect(90 + (k / 15) * 140 + 26, H + 20 - (k / 15) * (H + 40) - 26, 28, 20, 4) for k in range(1, 15, 2)), "#FFFFFF", 0.6)
 
 @scene("vbg_word_wheel")
 def word_wheel(a):
-    a.bg(a.rad(180, 320, 500, (0, "#FFF8E1"), (1, "#FFCC80")))
-    cx, cy, R, r = 180, 320, 170, 58
-    cols = ["#FFB74D", "#FFA726", "#FF9800", "#FB8C00", "#FFB74D", "#FFA726", "#FF9800"]
-    for k in range(7):
-        a0, a1 = (k / 7) * 2 * math.pi - math.pi / 2, ((k + 1) / 7) * 2 * math.pi - math.pi / 2
-        p = poly([(cx + r * math.cos(a0), cy + r * math.sin(a0)), (cx + R * math.cos(a0), cy + R * math.sin(a0))] +
-                 [(cx + R * math.cos(a0 + (a1 - a0) * t / 8), cy + R * math.sin(a0 + (a1 - a0) * t / 8)) for t in range(1, 9)] +
-                 [(cx + r * math.cos(a1), cy + r * math.sin(a1))])
-        a.path(p, cols[k], 0.45)
-        mx, my = cx + (R + r) / 2 * math.cos((a0 + a1) / 2), cy + (R + r) / 2 * math.sin((a0 + a1) / 2)
-        a.path(rect(mx - 9, my - 11, 18, 22, 4), "#FFFFFF", 0.55)
-    a.path(circle(cx, cy, R), stroke="#E65100", sw=4, salpha=0.4)
-    a.path(circle(cx, cy, r - 4), "#E65100", 0.45)
-    a.path(rect(cx - 12, cy - 14, 24, 28, 5), "#FFFFFF", 0.7)
-    for k in range(7):
-        ang = (k / 7) * 2 * math.pi - math.pi / 2
-        a.path(line(cx + r * math.cos(ang), cy + r * math.sin(ang), cx + R * math.cos(ang), cy + R * math.sin(ang)), stroke="#FFFFFF", sw=3, salpha=0.8)
-    a.path(scatter(a, 24, lambda x, y, i: circle(x, y, 3)), "#E65100", 0.2)
-
+    a.bg(a.lin(0, 0, 0, H, (0, "#FFF3D6"), (0.6, "#FFC27A"), (1, "#F08A5D")))
+    for k in range(9):
+        pts = [(180 + (20 + t * 1.1) * math.cos(t / 9 + k * 0.7), 300 + (20 + t * 1.1) * math.sin(t / 9 + k * 0.7)) for t in range(0, 260, 4)]
+        a.path(poly(pts, close=False), stroke="#FFFFFF" if k % 2 else "#E65100", sw=3, salpha=0.25 if k % 2 else 0.12)
+    a.path(circle(180, 300, 26), "#FFF8E1", 0.7)
 
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "vbg"
