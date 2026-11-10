@@ -310,6 +310,13 @@ fun LevelScreen(vm: AppViewModel, kind: GameKind) {
                         Column(Modifier.weight(1f)) {
                             Text(d.label, style = MaterialTheme.typography.titleLarge)
                             Text(def.levelBlurb(d), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                onClick = { vm.startTraining(kind, d) }, shape = RoundedCornerShape(50),
+                                color = d.accent().copy(alpha = 0.16f), contentColor = MaterialTheme.colorScheme.onSurface,
+                            ) {
+                                Text("Training wheels", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
+                            }
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(def.levelInfo(d), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

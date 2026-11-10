@@ -153,7 +153,7 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
     }
 
     private fun reply() {
-        val copy = g.copyGame(); val lvl = Chess.level(difficulty); val seed = rng.nextLong()
+        val copy = g.copyGame(); val lvl = Chess.level(aiDifficulty); val seed = rng.nextLong()
         computer(think = { val m = AlphaBeta(copy.searchable(), lvl, Random(seed)).best(); m?.let { it to copy.san(it) } }) { r ->
             if (r == null) return@computer
             message = "Computer played ${r.second}"
@@ -162,6 +162,22 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1) return null
+        val copy = g.copyGame()
+        return {
+            AlphaBeta(copy.searchable(), com.puresudoku.core.board.AiLevel(4, 1500, quiescence = true), Random(7)).best()?.let { m ->
+                val names = listOf("", "pawn", "knight", "bishop", "rook", "queen", "king")
+                fun sq(i: Int) = "${'a' + i % 8}${8 - i / 8}"
+                val victim = abs(copy.b[Chess.dst(m)])
+                val san = copy.san(m)
+                Triple("Try $san: your ${names[abs(copy.b[Chess.src(m)])]} from ${sq(Chess.src(m))} to ${sq(Chess.dst(m))}" +
+                    (if (victim != 0) ", capturing the ${names[victim]}" else "") + (if (san.endsWith("+")) ", with check" else if (san.endsWith("#")) ": checkmate!" else "") + ".",
+                    Chess.src(m), Chess.dst(m))
+            }
+        }
+    }
 
     override val drawMessage get() = "$message. This game's save slot has been cleared."
 
@@ -268,6 +284,7 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
                         if (g.b[t] != 0) drawCircle(Color(0x99000000), cs * 0.46f, c, style = Stroke(cs * 0.08f))
                         else drawCircle(Color(0x55000000), cs * 0.15f, c)
                     }
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { Offset((it % 8) * cs + cs / 2, (it / 8) * cs + cs / 2) }, cs * 0.48f)
                 }
                 val d = androidx.compose.ui.platform.LocalDensity.current
                 val cpx = with(d) { cell.toPx() }
@@ -364,11 +381,24 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
     }
 
     private fun reply() {
-        val copy = Xiangqi(); copy.load(g.state()); val lvl = Xiangqi.level(difficulty); val seed = rng.nextLong()
+        val copy = Xiangqi(); copy.load(g.state()); val lvl = Xiangqi.level(aiDifficulty); val seed = rng.nextLong()
         computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1) return null
+        val copy = Xiangqi(); copy.load(g.state())
+        return {
+            AlphaBeta(copy, com.puresudoku.core.board.AiLevel(4, 1500, quiescence = true), Random(7)).best()?.let { m ->
+                val roles = listOf("", "General", "Advisor", "Elephant", "Horse", "Chariot", "Cannon", "Soldier")
+                val f = Xiangqi.src(m); val t = Xiangqi.dst(m); val p = abs(copy.b[f]); val v = abs(copy.b[t])
+                Triple("Move your ${roles[p]} (${Xiangqi.RED_NAMES[p]}) ${directionWords(t / 9 - f / 9, t % 9 - f % 9)}" +
+                    (if (v != 0) ", capturing the ${roles[v]}" else "") + ". It's ringed in gold.", f, t)
+            }
+        }
+    }
 
     override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("lf", lastFrom).put("lt", lastTo).put("moves", moves).put("msg", message)
 
@@ -466,6 +496,7 @@ private fun XiangqiBoardUi(s: XiangqiSession, targets: DemoTargets?) {
                     }
                     for (t in targetsSet) drawCircle(if (g.b[t] != 0) Color(0xAAD32F2F) else Color(0x882F6FD6), c * if (g.b[t] != 0) 0.5f else 0.14f, pt(t / 9, t % 9),
                         style = if (g.b[t] != 0) Stroke(c * 0.07f) else androidx.compose.ui.graphics.drawscope.Fill)
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { pt(it / 9, it % 9) }, c * 0.5f)
                 }
                 val d = androidx.compose.ui.platform.LocalDensity.current
                 val cpx = with(d) { cw.toPx() }
@@ -553,11 +584,30 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
     }
 
     private fun reply() {
-        val copy = Shogi(); copy.load(g.state()); val lvl = Shogi.level(difficulty); val seed = rng.nextLong()
+        val copy = Shogi(); copy.load(g.state()); val lvl = Shogi.level(aiDifficulty); val seed = rng.nextLong()
         computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1) return null
+        val copy = Shogi(); copy.load(g.state())
+        return {
+            AlphaBeta(copy, com.puresudoku.core.board.AiLevel(3, 2000, quiescence = true), Random(7)).best()?.let { m ->
+                val names = listOf("", "Pawn", "Lance", "Knight", "Silver", "Gold", "Bishop", "Rook", "King", "Tokin", "Promoted lance", "Promoted knight", "Promoted silver", "Horse", "Dragon")
+                val t = Shogi.dst(m)
+                if (Shogi.isDrop(m)) {
+                    val p = Shogi.src(m) - Shogi.DROP
+                    Triple("Drop a ${names[p]} (${Shogi.NAMES[p]}) from your hand on the ringed square.", -1, t)
+                } else {
+                    val f = Shogi.src(m); val p = abs(copy.b[f]); val v = abs(copy.b[t])
+                    Triple("Move your ${names[p]} (${Shogi.NAMES[p]}) ${directionWords(t / 9 - f / 9, t % 9 - f % 9)}" +
+                        (if (v != 0) ", capturing the ${names[v]}" else "") + (if (Shogi.promotes(m)) " and promote it" else "") + ".", f, t)
+                }
+            }
+        }
+    }
 
     override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("lt", lastTo).put("lf", lastFrom).put("moves", moves).put("msg", message)
 
@@ -663,6 +713,7 @@ private fun ShogiBoardUi(s: ShogiSession, targets: DemoTargets?) {
                     }
                     for (t in tg) drawCircle(if (g.b[t] != 0) Color(0xAAD32F2F) else Color(0x882F6FD6), cx * if (g.b[t] != 0) 0.46f else 0.13f, cell(t),
                         style = if (g.b[t] != 0) Stroke(cx * 0.07f) else androidx.compose.ui.graphics.drawscope.Fill)
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { cell(it) }, cx * 0.5f)
                 }
                 val d = androidx.compose.ui.platform.LocalDensity.current
                 val (cxp, cyp) = with(d) { (w / 9.3f).toPx() to (h / 9.3f).toPx() }

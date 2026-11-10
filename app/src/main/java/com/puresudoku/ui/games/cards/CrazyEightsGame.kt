@@ -168,6 +168,19 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
 
     override fun resume() { if (outcome == Outcome.PLAYING && g.turn != 0) runOpponents() }
 
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 0) return null
+        val opts = g.playable(0)
+        val txt = if (opts.isEmpty()) "Nothing matches: draw from the deck."
+        else {
+            val counts = IntArray(4); for (c in g.hands[0]) counts[Cards.suit(c)]++
+            val normal = opts.filter { Cards.rank(it) != 8 }
+            if (normal.isEmpty()) "Only an 8 fits: play it and call ${Cards.suitName(g.bestSuit(0))}, your strongest suit."
+            else { val c = normal.maxBy { counts[Cards.suit(it)] * 4 + CrazyEights.value(it) }; "Play ${Cards.label(c)}: it keeps you in ${Cards.suitName(Cards.suit(c))}, where you have the most cards. Save your 8s." }
+        }
+        return { Triple(txt, -1, -1) }
+    }
+
     override fun saveState(): JSONObject = JSONObject().put("s", JSONArray().also { a -> g.state().forEach { a.put(it) } }).put("moves", moves)
 
     companion object {

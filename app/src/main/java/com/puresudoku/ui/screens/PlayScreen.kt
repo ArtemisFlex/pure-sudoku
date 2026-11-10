@@ -100,7 +100,7 @@ fun PlayScreen(vm: AppViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(session.difficulty.accent(), 8)
                         HSpace(6)
-                        Text(session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text((if (session.training) "Training wheels · " else "") + session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 IconButton(onClick = { vm.openTutorial(session.kind) }) {
@@ -118,9 +118,13 @@ fun PlayScreen(vm: AppViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             )
 
+            var coachOpen by remember(session) { mutableStateOf(session.training) }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 def.Play(session)
                 NudgePill(session, Modifier.align(Alignment.TopCenter))
+                if (session.training) com.puresudoku.ui.training.CoachPanel(
+                    session, coachOpen, onToggle = { coachOpen = !coachOpen }, modifier = Modifier.align(Alignment.BottomCenter),
+                )
                 // Pause hides the puzzle so the clock can't be cheated.
                 androidx.compose.animation.AnimatedVisibility(vm.paused, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
                     Box(
@@ -155,7 +159,8 @@ fun PlayScreen(vm: AppViewModel) {
             exit = fadeOut() + scaleOut(targetScale = 0.9f),
         ) {
             val summary = vm.winSummary
-            if (outcome == Outcome.WON && summary != null) WinCard(vm, session, def, summary) else LostCard(vm, session)
+            if (session.training) com.puresudoku.ui.training.TrainingEndCard(session, onAgain = vm::playAgain, onLeave = vm::leaveGame)
+            else if (outcome == Outcome.WON && summary != null) WinCard(vm, session, def, summary) else LostCard(vm, session)
         }
     }
 }

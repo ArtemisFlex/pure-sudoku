@@ -175,6 +175,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         startNew(kind, d, slot)
     }
 
+    /** Starts the training-wheels game for one level: always the same start, never saved or scored. */
+    fun startTraining(kind: GameKind, d: Difficulty) {
+        activeKind = kind
+        screen = Screen.Generating(kind, d)
+        generateJob?.cancel()
+        generateJob = viewModelScope.launch {
+            val started = SystemClock.elapsedRealtime()
+            val s = withContext(Dispatchers.Default) {
+                val def = Games.of(kind)
+                val start = repo.trainingStart(kind, d) ?: def.generate(d).toJson().also { repo.saveTrainingStart(kind, d, it) }
+                runCatching { def.restore(start) }.getOrElse { def.generate(d) }
+            }
+            (s as? com.puresudoku.ui.games.board.DuelSession)?.cancelThinking()
+            s.training = true
+            val wait = 700 - (SystemClock.elapsedRealtime() - started)
+            if (wait > 0) delay(wait)
+            attach(s, -1)
+            (s as? com.puresudoku.ui.games.board.DuelSession)?.resume()
+        }
+    }
+
     private fun startNew(kind: GameKind, d: Difficulty, slot: Int) {
         activeKind = kind
         screen = Screen.Generating(kind, d)
@@ -237,6 +258,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val s = session ?: return
         detach(s)
         session = null
+        if (s.training) { startTraining(s.kind, s.difficulty); return }
         refreshMeta()
         // The finished game's slot was already cleared, so the new game reuses it.
         startNew(s.kind, s.difficulty, activeSlot)
@@ -252,6 +274,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun onFinished(outcome: Outcome) {
         val s = session ?: return
         stopTimer()
+        if (s.training) return
         repo.clear(s.kind, activeSlot)
         if (outcome == Outcome.WON) {
             repo.addKeepsakes(s.kind, s.keepsakes)

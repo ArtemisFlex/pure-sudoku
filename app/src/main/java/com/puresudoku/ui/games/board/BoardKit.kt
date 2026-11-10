@@ -75,7 +75,7 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     var version by mutableIntStateOf(0); private set
     var thinking by mutableStateOf(false); protected set
     var message by mutableStateOf("")
-    protected val rng = Random(System.nanoTime())
+    protected var rng = Random(System.nanoTime())
     protected val rules = ScoreRules(difficulty.basePoints * 20, difficulty.parSeconds)
     /** Bumped whenever the session is replaced, so stale AI replies are dropped. */
     private var generation = 0
@@ -89,6 +89,32 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     override val lostMessage get() = "Better luck next game. This game's save slot has been cleared."
 
     protected fun bump() { version++ }
+
+    /** In training the computer plays a level gentler and the same way every time. */
+    override var training: Boolean = false
+        set(v) { field = v; if (v) rng = Random(20261110) }
+    val aiDifficulty: Difficulty get() = if (training) Difficulty.entries[maxOf(0, difficulty.ordinal - 1)] else difficulty
+
+    /** Coach's suggested move, as words plus squares to ring on the board (-1 = none). */
+    var coachTip by mutableStateOf<String?>(null)
+    var coachFrom by mutableIntStateOf(-1)
+    var coachTo by mutableIntStateOf(-1)
+
+    /** Background work that returns (text, from, to) for the coach, or null if this game can't suggest. */
+    open fun coachWork(): (() -> Triple<String, Int, Int>?)? = null
+
+    fun askCoach() {
+        if (thinking || outcome != Outcome.PLAYING) { coachTip = "Wait for your turn"; return }
+        val w = coachWork() ?: run { coachTip = null; return }
+        coachTip = "Coach is looking…"; coachFrom = -1; coachTo = -1
+        AiWorker.run(250, w) { r ->
+            coachTip = r?.first ?: "No good suggestion right now"
+            coachFrom = r?.second ?: -1; coachTo = r?.third ?: -1
+            bump()
+        }
+    }
+
+    protected fun clearCoach() { coachFrom = -1; coachTo = -1 }
 
     /** The computer thinks in the background, then [apply] runs on the main thread. */
     protected fun <T> computer(minMs: Long = 450, think: () -> T, apply: (T) -> Unit) {
@@ -172,3 +198,19 @@ fun ScoreChip(label: String, value: String, color: Color, active: Boolean, modif
 }
 
 fun Dp.half() = this / 2
+
+/** Gold rings marking the coach's suggested move. */
+fun DrawScope.coachRings(points: List<Offset>, r: Float) {
+    for ((k, p) in points.withIndex()) {
+        drawCircle(Color(0xFFFFC107).copy(alpha = if (k == 0 && points.size > 1) 0.6f else 0.95f), r, p, style = androidx.compose.ui.graphics.drawscope.Stroke(r * 0.16f))
+    }
+}
+
+/** Direction of a move from the mover's view (forward = up the screen). */
+fun directionWords(dr: Int, dc: Int): String {
+    val v = when { dr < 0 -> "forward"; dr > 0 -> "back"; else -> "" }
+    val h = when { dc < 0 -> "left"; dc > 0 -> "right"; else -> "" }
+    val dist = maxOf(kotlin.math.abs(dr), kotlin.math.abs(dc))
+    val dir = listOf(v, h).filter { it.isNotEmpty() }.joinToString("-")
+    return if (dist > 1 && (dr == 0 || dc == 0 || kotlin.math.abs(dr) == kotlin.math.abs(dc))) "$dist squares $dir" else dir
+}

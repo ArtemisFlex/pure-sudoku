@@ -97,7 +97,7 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
     }
 
     private fun reply() {
-        val copy = TicTacToe(g.cells.copyOf(), g.turn); val lvl = TicTacToe.level(difficulty); val seed = rng.nextLong()
+        val copy = TicTacToe(g.cells.copyOf(), g.turn); val lvl = TicTacToe.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 500, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
             if (m != null) { g.make(m); moves++; placedAt[m] = moves }
             checkRound(); changed()
@@ -137,6 +137,19 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
     override fun resume() {
         if (outcome != Outcome.PLAYING) return
         if (roundOver || g.over) { roundOver = false; nextRound() } else if (g.turn == 2) reply()
+    }
+
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1 || roundOver) return null
+        val copy = TicTacToe(g.cells.copyOf(), g.turn)
+        return {
+            AlphaBeta(copy, TicTacToe.level(Difficulty.EXTREME), Random(1)).best()?.let { m ->
+                copy.make(m); val wins = copy.winner == 1; copy.unmake()
+                val o = TicTacToe(copy.cells.copyOf().also { it[m] = 2 }, 1)
+                val blocks = o.winner == 2
+                Triple(when { wins -> "Take the ringed square: three in a row!"; blocks -> "Take the ringed square to block O's line."; m == 4 -> "Take the centre: it's on four lines."; m % 2 == 0 -> "Take the ringed corner: corners sit on three lines."; else -> "Take the ringed square." }, -1, m)
+            }
+        }
     }
 
     override fun saveState(): JSONObject = JSONObject().put("cells", g.cells.jarr()).put("turn", g.turn).put("round", round)
@@ -236,6 +249,7 @@ private fun TicTacToeUi(s: TicTacToeSession, targets: DemoTargets?) {
                         val a = Offset((l[0] % 3) * c + c / 2, (l[0] / 3) * c + c / 2); val b = Offset((l[2] % 3) * c + c / 2, (l[2] / 3) * c + c / 2)
                         drawLine(Color(0xFFFFE066), a - (b - a) * 0.15f, b + (b - a) * 0.15f, c * 0.06f, StrokeCap.Round)
                     }
+                    if (s.coachTo >= 0) coachRings(listOf(Offset((s.coachTo % 3) * c + c / 2, (s.coachTo / 3) * c + c / 2)), c * 0.4f)
                 }
                 val d = LocalDensity.current
                 val cpx = with(d) { side.toPx() } / 3f
@@ -276,13 +290,18 @@ class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKin
 
     private fun reply() {
         val copy = Gomoku(g.n); for (m in g.moves) copy.play(m)
-        val lvl = Gomoku.level(difficulty); val seed = rng.nextLong()
+        val lvl = Gomoku.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 500, think = { copy.aiMove(lvl, Random(seed)) }) { m ->
             g.play(m); moves++; message = "Your move"; end()
         }
     }
 
     override fun resume() { if (g.turn == 2 && outcome == Outcome.PLAYING) reply() }
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1) return null
+        val copy = Gomoku(g.n); for (m in g.moves) copy.play(m)
+        return { val m = copy.aiMove(Gomoku.level(Difficulty.EXTREME), Random(1)); Triple("Place your stone on the ringed point (tap it twice).", -1, m) }
+    }
     override fun saveState(): JSONObject = JSONObject().put("moves", g.moves.toIntArray().jarr())
 
     companion object {
@@ -368,6 +387,7 @@ private fun GomokuUi(s: GomokuSession, targets: DemoTargets?) {
                         else if (i == last) drawCircle(if (st == 1) Color.White else Color.Black, r * 0.22f, o, style = Stroke(c * 0.06f))
                     }
                     if (s.ghost >= 0) stone(Offset(c / 2 + (s.ghost % n) * c, c / 2 + (s.ghost / n) * c), c * 0.46f, Color(0x991D1D22), Color(0x996A6A78), Color(0x99000000), shadow = false)
+                    if (s.coachTo >= 0) coachRings(listOf(Offset(c / 2 + (s.coachTo % n) * c, c / 2 + (s.coachTo / n) * c)), c * 0.5f)
                 }
                 val cpx = with(LocalDensity.current) { side.toPx() } / n
                 CellTargets(targets, listOf(112, 7 * 15 + 9).map { "g-$it" to Rect((it % n) * cpx, (it / n) * cpx, (it % n + 1) * cpx, (it / n + 1) * cpx) })
@@ -449,11 +469,21 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
     }
 
     private fun reply() {
-        val copy = Morris(); copy.loadState(g.copyState()); val lvl = Morris.level(difficulty); val seed = rng.nextLong()
+        val copy = Morris(); copy.loadState(g.copyState()); val lvl = Morris.level(aiDifficulty); val seed = rng.nextLong()
         computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
     }
 
     override fun resume() { if (g.turn == 2 && outcome == Outcome.PLAYING) reply() }
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1 || removing != null) return null
+        val copy = Morris(); copy.loadState(g.copyState())
+        return {
+            AlphaBeta(copy, Morris.level(Difficulty.EXPERT), Random(1)).best()?.let { m ->
+                val act = if (m.from < 0) "Place a man on the ringed point" else "Move the ringed man to the ringed point"
+                Triple(act + if (m.remove >= 0) ": it forms a mill, then take a black man." else ".", m.from, m.to)
+            }
+        }
+    }
     override fun saveState(): JSONObject = JSONObject().put("s", g.copyState().jarr()).put("moves", moves)
 
     companion object {
@@ -552,6 +582,7 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
                     }
                     for (t in tg) drawCircle(if (s.removing != null) Color(0xCCD32F2F) else Color(0x882F6FD6), u * if (s.removing != null) 0.42f else 0.14f, pt(t),
                         style = if (s.removing != null) Stroke(u * 0.07f) else androidx.compose.ui.graphics.drawscope.Fill)
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { pt(it) }, u * 0.42f)
                 }
                 val u = with(LocalDensity.current) { side.toPx() } / 7f
                 CellTargets(targets, (0..23).map { i -> val p = Morris.XY[i]; "m-$i" to Rect(p[0] * u, p[1] * u, (p[0] + 1) * u, (p[1] + 1) * u) })
@@ -607,11 +638,21 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
     }
 
     private fun reply() {
-        val copy = Mancala(g.pits.copyOf(), g.turn); val lvl = Mancala.level(difficulty); val seed = rng.nextLong()
+        val copy = Mancala(g.pits.copyOf(), g.turn); val lvl = Mancala.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 700, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) sow(m) }
     }
 
     override fun resume() { if (g.turn == 1 && outcome == Outcome.PLAYING) reply() }
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 0) return null
+        val copy = Mancala(g.pits.copyOf(), 0)
+        return {
+            AlphaBeta(copy, Mancala.level(Difficulty.MASTER), Random(1)).best()?.let { m ->
+                val n = copy.pits[m]; val land = (m + n) % 13
+                Triple("Sow the ringed pit (${n} seed${if (n == 1) "" else "s"})" + if (land == 6) ": the last seed lands in your store, so you go again." else ".", -1, m)
+            }
+        }
+    }
     override fun saveState(): JSONObject = JSONObject().put("pits", g.pits.jarr()).put("turn", g.turn).put("moves", moves)
 
     companion object {
@@ -711,6 +752,7 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
                     if (g.turn == 0 && !s.thinking) for (i in 0..5) if (g.pits[i] > 0) {
                         val c = pitCenter(i); drawOval(Color(0x662F6FD6), c - Offset(u * 0.44f, size.height * 0.21f), Size(u * 0.88f, size.height * 0.42f), style = Stroke(3f))
                     }
+                    if (s.coachTo >= 0) coachRings(listOf(pitCenter(s.coachTo)), u * 0.46f)
                 }
                 val d = LocalDensity.current
                 val (upx, hpx) = with(d) { (w / 8f).toPx() to h.toPx() }
@@ -775,11 +817,20 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
     }
 
     private fun reply() {
-        val copy = Checkers(); copy.load(g.state()); val lvl = Checkers.level(difficulty); val seed = rng.nextLong()
+        val copy = Checkers(); copy.load(g.state()); val lvl = Checkers.level(aiDifficulty); val seed = rng.nextLong()
         computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1) return null
+        val copy = Checkers(); copy.load(g.state())
+        return {
+            AlphaBeta(copy, Checkers.level(Difficulty.EXPERT), Random(1)).best()?.let { m ->
+                Triple("Move the ringed piece to the ringed square" + when (m.captured.size) { 0 -> "."; 1 -> ", jumping a piece."; else -> ", jumping ${m.captured.size} pieces!" }, m.from, m.to)
+            }
+        }
+    }
     override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("moves", moves)
 
     companion object {
@@ -876,6 +927,7 @@ private fun CheckersUi(s: CheckersSession, targets: DemoTargets?) {
                         for (k in 1 until m.path.size - 1) drawCircle(Color(0x6664B5F6), c * 0.1f, Offset((m.path[k] % 8) * c + c / 2, (m.path[k] / 8) * c + c / 2))
                         drawCircle(Color(0xAA64B5F6), c * 0.16f, Offset((m.to % 8) * c + c / 2, (m.to / 8) * c + c / 2))
                     }
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { Offset((it % 8) * c + c / 2, (it / 8) * c + c / 2) }, c * 0.46f)
                 }
                 val cpx = with(LocalDensity.current) { side.toPx() } / 8f
                 CellTargets(targets, (0..63).map { "k-$it" to Rect((it % 8) * cpx, (it / 8) * cpx, (it % 8 + 1) * cpx, (it / 8 + 1) * cpx) })

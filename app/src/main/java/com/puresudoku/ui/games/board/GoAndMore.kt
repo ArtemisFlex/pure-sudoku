@@ -108,7 +108,7 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
     }
 
     private fun reply() {
-        val copy = g.copy(); val lvl = GoGame.level(difficulty); val seed = rng.nextLong()
+        val copy = g.copy(); val lvl = GoGame.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 500, think = { copy.aiMove(lvl, Random(seed)) }) { m ->
             val caps = g.play(m) ?: g.play(-1)!!
             moves++
@@ -139,6 +139,16 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
     override fun resume() {
         if (outcome != Outcome.PLAYING) return
         if (g.over) score() else if (g.turn == 2) reply()
+    }
+
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 1 || final != null) return null
+        val copy = g.copy()
+        return {
+            val m = copy.aiMove(GoGame.level(Difficulty.HARD), Random(1))
+            if (m < 0) Triple("Nothing big is left: you can pass.", -1, -1)
+            else Triple("Play on the ringed point (tap it twice).", -1, m)
+        }
     }
 
     override fun saveState(): JSONObject = JSONObject().put("n", g.n).put("cells", g.cells.jarr()).put("turn", g.turn).put("ko", g.ko).put("passes", g.passes)
@@ -236,6 +246,7 @@ private fun GoUi(s: GoSession, targets: DemoTargets?) {
                         }
                     }
                     if (s.ghost >= 0) stone(Offset(c / 2 + (s.ghost % n) * c, c / 2 + (s.ghost / n) * c), c * 0.47f, Color(0x991D1D22), Color(0x996A6A78), Color(0x99000000), shadow = false)
+                    if (s.coachTo >= 0) coachRings(listOf(Offset(c / 2 + (s.coachTo % n) * c, c / 2 + (s.coachTo / n) * c)), c * 0.5f)
                 }
                 val cpx = with(LocalDensity.current) { side.toPx() } / n
                 CellTargets(targets, (0 until n * n).map { "go-$it" to Rect((it % n) * cpx, (it / n) * cpx, (it % n + 1) * cpx, (it / n + 1) * cpx) })
@@ -325,7 +336,7 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
         g.roll(rng); rollId++
         message = "Computer rolled ${g.rolled.joinToString(" and ")}"
         bump()
-        val snap = Backgammon(); snap.load(g.state()); val lvl = Backgammon.level(difficulty); val seed = rng.nextLong()
+        val snap = Backgammon(); snap.load(g.state()); val lvl = Backgammon.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 700, think = { snap.aiSequence(lvl, Random(seed)) }) { seq -> playOut(seq, 0) }
     }
 
@@ -347,6 +358,19 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
         val pts = g.winPoints()
         if (g.winner == 0) win(if (pts > 1) listOf(BonusLine(if (pts == 3) "Backgammon" else "Gammon", rules.basePoints * 10 * (pts - 1))) else emptyList())
         else lose()
+    }
+
+    override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
+        if (g.turn != 0) return null
+        if (g.dice.isEmpty()) return { Triple("Roll the dice first.", -1, -1) }
+        val snap = Backgammon(); snap.load(g.state())
+        return {
+            val seq = snap.aiSequence(Backgammon.level(Difficulty.EXTREME), Random(1))
+            fun name(p: Int) = when (p) { Backgammon.BAR -> "the bar"; Backgammon.OFF -> "off"; else -> "point ${p + 1}" }
+            if (seq.isEmpty()) Triple("No moves this roll.", -1, -1)
+            else Triple("Play " + seq.joinToString(", ") { "${name(it.from)} → ${name(it.to)}" + if (it.hit) " (hit!)" else "" } + ".",
+                seq[0].from.takeIf { it in 0..23 } ?: -1, seq[0].to.takeIf { it in 0..23 } ?: -1)
+        }
     }
 
     override fun resume() {
@@ -503,6 +527,7 @@ private fun BackgammonUi(s: BackgammonSession, targets: DemoTargets?) {
                         }
                     }
                     if (Backgammon.OFF in dests) drawRect(Color(0xFF64B5F6), geo.offRect.topLeft, geo.offRect.size, style = Stroke(5f))
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it in 0..23 }.map { geo.pointRect(it).center }, geo.ptH * 0.5f)
                 }
                 val d = LocalDensity.current
                 val geo = with(d) { BgGeo(w.toPx(), h.toPx()) }

@@ -42,6 +42,8 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     var outcome by mutableStateOf(Outcome.PLAYING); private set
     var bonusLines by mutableStateOf<List<BonusLine>>(emptyList()); private set
     var startedAt: Long = System.currentTimeMillis(); private set
+    /** Training-wheels game: fixed start, gentler opponent, never recorded. */
+    open var training = false
 
     /** Latest "that didn't work" message; the play screen shows it with a buzz. */
     var nudgeFx by mutableStateOf<Nudge?>(null); private set

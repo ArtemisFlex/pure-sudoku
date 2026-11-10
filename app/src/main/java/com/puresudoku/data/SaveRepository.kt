@@ -135,6 +135,12 @@ class SaveRepository(context: Context) {
         return all.indexOf(e) + 1
     }
 
+    // ---------------- training wheels ----------------
+
+    /** The fixed starting position for a training game, so it's the same every time. */
+    fun trainingStart(kind: GameKind, d: Difficulty): JSONObject? = prefs.getString("train_${kind.name}_${d.name}", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+    fun saveTrainingStart(kind: GameKind, d: Difficulty, o: JSONObject) { prefs.edit().putString("train_${kind.name}_${d.name}", o.toString()).apply() }
+
     // ---------------- full history ----------------
 
     fun history(kind: GameKind): List<GameResult> = runCatching {
