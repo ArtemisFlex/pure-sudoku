@@ -69,6 +69,17 @@ object Games {
             com.puresudoku.ui.games.cards.RegicideDef,
             com.puresudoku.ui.games.cards.DungeonDef,
             com.puresudoku.ui.games.cards.JailbreakDef,
+            com.puresudoku.ui.games.board.ChessDef,
+            com.puresudoku.ui.games.board.CheckersDef,
+            com.puresudoku.ui.games.board.GoDef,
+            com.puresudoku.ui.games.board.ShogiDef,
+            com.puresudoku.ui.games.board.XiangqiDef,
+            com.puresudoku.ui.games.board.BackgammonDef,
+            com.puresudoku.ui.games.board.MancalaDef,
+            com.puresudoku.ui.games.board.MahjongDef,
+            com.puresudoku.ui.games.board.GomokuDef,
+            com.puresudoku.ui.games.board.MorrisDef,
+            com.puresudoku.ui.games.board.TicTacToeDef,
         )
     }
 

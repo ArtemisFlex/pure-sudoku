@@ -155,6 +155,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun leaveGame() {
         persist()
         stopTimer()
+        detach(session)
         session = null
         paused = false
         refreshMeta()
@@ -209,6 +210,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.addHistory(kind, com.puresudoku.data.GameResult(com.puresudoku.data.GameResult.Result.ABANDONED, sum.score, sum.difficulty, sum.elapsedMs, System.currentTimeMillis()))
     }
 
+    /** A session we leave must not report back (e.g. a computer move landing later). */
+    private fun detach(s: Session?) {
+        s ?: return
+        s.onChanged = {}; s.onFinished = {}
+        (s as? com.puresudoku.ui.games.board.DuelSession)?.cancelThinking()
+    }
+
     private fun attach(s: Session, slot: Int) {
         s.onChanged = ::persist
         s.onFinished = ::onFinished
@@ -227,6 +235,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun playAgain() {
         val s = session ?: return
+        detach(s)
         session = null
         refreshMeta()
         // The finished game's slot was already cleared, so the new game reuses it.
@@ -251,7 +260,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             winSummary = WinSummary(s.elapsedMs, s.score, s.bonusLines, record, rank)
         }
         repo.addHistory(s.kind, com.puresudoku.data.GameResult(
-            if (outcome == Outcome.WON) com.puresudoku.data.GameResult.Result.WON else com.puresudoku.data.GameResult.Result.LOST,
+            when (outcome) {
+                Outcome.WON -> com.puresudoku.data.GameResult.Result.WON
+                Outcome.DRAW -> com.puresudoku.data.GameResult.Result.DRAW
+                else -> com.puresudoku.data.GameResult.Result.LOST
+            },
             s.score, s.difficulty, s.elapsedMs, System.currentTimeMillis(),
         ))
         refreshMeta()

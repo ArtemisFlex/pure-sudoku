@@ -388,6 +388,142 @@ def word_wheel(a):
         a.path(poly(pts, close=False), stroke="#FFFFFF" if k % 2 else "#E65100", sw=3, salpha=0.25 if k % 2 else 0.12)
     a.path(circle(180, 300, 26), "#FFF8E1", 0.7)
 
+# ============================================================ board games (ambient, nothing board-like)
+
+def mountains(a, base, pts_list, col, alpha):
+    a.path(poly(pts_list + [(W + 10, H + 10), (-10, H + 10)]), col, alpha)
+
+@scene("vbg_chess")
+def chess_bg(a):
+    a.bg(a.lin(0, 0, W, H, (0, "#ECE8E1"), (1, "#C9C2B8")))
+    for k in range(9):
+        y0 = a.rng.uniform(-40, H)
+        d = f"M-20,{f(y0)} C{f(a.rng.uniform(60, 140))},{f(y0 + a.rng.uniform(-80, 80))} {f(a.rng.uniform(180, 260))},{f(y0 + a.rng.uniform(-60, 120))} {W + 20},{f(y0 + a.rng.uniform(-40, 160))}"
+        a.path(d, stroke="#8E8778", sw=a.rng.choice([1, 1.5, 2.5]), salpha=0.25)
+    a.path(rect(0, 0, W, 16), "#B8975A", 0.6); a.path(rect(0, 16, W, 3), "#E8CF8E", 0.6)
+    a.path(rect(0, H - 19, W, 3), "#E8CF8E", 0.6); a.path(rect(0, H - 16, W, 16), "#B8975A", 0.6)
+    a.path(circle(300, 90, 160), a.rad(300, 90, 160, (0, "#FFF6DC66"), (1, "#FFF6DC00")))
+
+@scene("vbg_checkers")
+def checkers_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#FFE0B2"), (1, "#E57373")))
+    for k in range(-4, 12):
+        a.path(poly([(k * 60, -10), (k * 60 + 26, -10), (k * 60 - 300, H + 10), (k * 60 - 326, H + 10)]), "#FFFFFF", 0.10)
+    for (x, y, r) in ((60, 120, 50), (300, 260, 70), (110, 520, 60)):
+        a.path(circle(x, y, r), "#C62828", 0.14); a.path(circle(x, y, r * 0.7), stroke="#FFFFFF", sw=3, salpha=0.25)
+
+@scene("vbg_go")
+def go_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#F4EFE6"), (1, "#DCD4C6")))
+    a.path(circle(255, 165, 52), "#C0392B", 0.75)
+    mountains(a, 0, [(-10, 380), (60, 300), (120, 340), (200, 250), (280, 330), (370, 290)], "#9AA0A6", 0.35)
+    mountains(a, 0, [(-10, 450), (80, 380), (160, 430), (240, 360), (370, 420)], "#6B7177", 0.4)
+    mountains(a, 0, [(-10, 540), (100, 480), (200, 520), (300, 470), (370, 500)], "#3E4347", 0.45)
+    a.path("M-10,90 C60,100 110,80 170,110", stroke="#3B2A1E", sw=6)
+    needles = ""
+    for x0, y0 in ((40, 95), (90, 92), (140, 100), (165, 108)):
+        for k in range(7):
+            ang = -math.pi / 2 + (k - 3) * 0.32
+            needles += line(x0, y0, x0 + 18 * math.cos(ang), y0 + 18 * math.sin(ang) + 4)
+    a.path(needles, stroke="#2F5D3A", sw=2.2, salpha=0.9)
+
+@scene("vbg_gomoku")
+def gomoku_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#E8F5E9"), (1, "#A5D6A7")))
+    for (x, w, al) in ((30, 16, 0.35), (80, 12, 0.25), (250, 18, 0.35), (310, 13, 0.3), (190, 9, 0.18)):
+        a.path(rect(x, -10, w, H + 20, w / 2), "#558B2F", al)
+        a.path("".join(rect(x - 1, y, w + 2, 3) for y in range(40 + int(x) % 50, H, 110)), "#33691E", al + 0.1)
+        for y in range(70 + int(x) % 60, H, 140):
+            a.path(poly([(x + w, y), (x + w + 40, y - 18), (x + w + 8, y + 4)]), "#7CB342", al + 0.15)
+
+@scene("vbg_shogi")
+def shogi_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#1E2A4A"), (1, "#0E1528")))
+    for k, r in enumerate((24, 17, 10)):
+        d = ""
+        for row in range(-1, 28):
+            for col in range(-1, 9):
+                cx = col * 48 + (24 if row % 2 else 0); cy = row * 24 + 20
+                d += f"M{f(cx - r)},{f(cy)}a{r},{r} 0 0 1 {2 * r},0"
+        a.path(d, stroke="#8FA8D8", sw=1.4, salpha=0.22 - k * 0.04)
+    a.path(circle(270, 110, 46), "#F2C24B", 0.35)
+
+@scene("vbg_xiangqi")
+def xiangqi_bg(a):
+    a.bg(a.rad(180, 260, 560, (0, "#B3261E"), (1, "#5A0E0A")))
+    for (cx, cy, s) in ((70, 130, 1.0), (280, 320, 1.3), (110, 520, 0.9)):
+        d = (f"M{f(cx - 40 * s)},{f(cy)} C{f(cx - 40 * s)},{f(cy - 22 * s)} {f(cx - 10 * s)},{f(cy - 22 * s)} {f(cx - 8 * s)},{f(cy - 6 * s)} "
+             f"C{f(cx - 6 * s)},{f(cy - 30 * s)} {f(cx + 30 * s)},{f(cy - 30 * s)} {f(cx + 26 * s)},{f(cy - 4 * s)} "
+             f"C{f(cx + 46 * s)},{f(cy - 10 * s)} {f(cx + 50 * s)},{f(cy + 12 * s)} {f(cx + 30 * s)},{f(cy + 10 * s)}")
+        a.path(d, stroke="#F2C24B", sw=3, salpha=0.4)
+    for x in (60, 300):
+        a.path(line(x, 0, x, 40), stroke="#2A0A08", sw=2)
+        a.path(f"M{x - 22},62 a22,24 0 1,0 44,0a22,24 0 1,0 -44,0z", "#E53935"); a.path(rect(x - 14, 34, 28, 6, 2) + rect(x - 14, 84, 28, 6, 2), "#F2C24B")
+        a.path(circle(x, 62, 40), a.rad(x, 62, 40, (0, "#FFB30055"), (1, "#FFB30000")))
+
+@scene("vbg_backgammon")
+def backgammon_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#0F2A3F"), (0.6, "#3A4E6B"), (1, "#C98B4B")))
+    for _ in range(40):
+        a.path(circle(a.rng.uniform(0, W), a.rng.uniform(0, 300), a.rng.choice([0.8, 1.2, 1.6])), "#FFFFFF", a.rng.uniform(0.4, 0.9))
+    a.path(circle(270, 110, 34), "#F6E7B8"); a.path(circle(284, 100, 30), "#0F2A3F")
+    a.path(band(520, 20, 360, 0.4), "#B8763A"); a.path(band(560, 14, 280, 2.2), "#8F5426")
+    for (x, h0) in ((70, 170), (300, 140)):
+        a.path(f"M{x},{560} C{x + 6},{560 - h0 / 2} {x - 4},{560 - h0 * 0.8} {x + 8},{560 - h0}", stroke="#2A1A10", sw=7)
+        for k in range(6):
+            ang = -math.pi + k * math.pi / 5
+            a.path(f"M{x + 8},{560 - h0} q{f(30 * math.cos(ang))},{f(-10 + 30 * math.sin(ang))} {f(55 * math.cos(ang))},{f(20 + 40 * math.sin(ang))}", stroke="#2A1A10", sw=5)
+
+@scene("vbg_mancala")
+def mancala_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#FFD180"), (0.55, "#FF8A50"), (1, "#7B2E14")))
+    a.path(circle(180, 330, 90), "#FFE9A8", 0.85)
+    a.path(band(470, 10, 400, 0.2), "#5A2410")
+    a.path(rect(250, 330, 10, 150, 3), "#2A0F06")
+    a.path(f"M190,340 C220,300 300,300 330,335 C300,328 220,328 190,340z", "#2A0F06")
+    a.path(f"M200,330 C230,280 290,285 320,325", stroke="#2A0F06", sw=6)
+    for (x, y) in ((40, 200), (70, 220), (300, 180)):
+        a.path(f"M{x},{y} l8,-4 l8,4", stroke="#3A1408", sw=2)
+
+@scene("vbg_mahjong")
+def mahjong_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#DDEFE3"), (1, "#8CC3A3")))
+    a.path(circle(180, 250, 130), "#F4F1E6", 0.85)
+    a.path(circle(180, 250, 130), stroke="#5B3A1E", sw=10, salpha=0.6)
+    a.path(poly([(60, 280), (120, 240), (180, 270), (240, 230), (300, 270), (300, 380), (60, 380)]), "#9AB8A8", 0.5)
+    a.path(f"M120,160 C160,150 200,170 240,150", stroke="#5B3A1E", sw=3, salpha=0.5)
+    for x in (40, 320):
+        a.path(line(x, 0, x, 90), stroke="#5B3A1E", sw=2)
+        a.path(rect(x - 16, 90, 32, 44, 12), "#C62828"); a.path(rect(x - 16, 88, 32, 5, 2) + rect(x - 16, 132, 32, 5, 2), "#3A2410")
+        a.path(circle(x, 112, 38), a.rad(x, 112, 38, (0, "#FFC10755"), (1, "#FFC10700")))
+    a.path(band(540, 8, 200, 0.5), "#5E8C73", 0.6)
+
+@scene("vbg_morris")
+def morris_bg(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#BFE3F5"), (0.55, "#E8F4D9"), (1, "#7FAE5A")))
+    a.path(circle(80, 90, 26), "#FFFFFF", 0.8); a.path(circle(110, 82, 32), "#FFFFFF", 0.8); a.path(circle(140, 92, 22), "#FFFFFF", 0.8)
+    a.path(rect(200, 220, 120, 140), "#8D8A86"); a.path("".join(rect(200 + k * 20, 206, 12, 16) for k in range(6)), "#8D8A86")
+    a.path(rect(236, 150, 48, 80), "#7A7772"); a.path("".join(rect(236 + k * 16, 138, 10, 14) for k in range(3)), "#7A7772")
+    a.path(rect(252, 300, 18, 60, 9), "#4A3B2E")
+    a.path(line(260, 138, 260, 100), stroke="#4A3B2E", sw=2); a.path(poly([(260, 100), (290, 110), (260, 120)]), "#C62828")
+    a.path(band(360, 18, 420, 0.4), "#8BC34A"); a.path(band(420, 22, 320, 2.1), "#689F38"); a.path(band(500, 16, 380, 3.3), "#558B2F")
+
+@scene("vbg_tictactoe")
+def tictactoe_bg(a):
+    a.bg(a.lin(0, 0, W, H, (0, "#FFF9E6"), (1, "#FFE0EC")))
+    for _ in range(14):
+        x, y = a.rng.uniform(20, 340), a.rng.uniform(20, 620); r = a.rng.uniform(6, 12)
+        pts = []
+        for k in range(10):
+            ang = -math.pi / 2 + k * math.pi / 5; rr = r if k % 2 == 0 else r * 0.45
+            pts.append((x + rr * math.cos(ang), y + rr * math.sin(ang)))
+        a.path(poly(pts), a.rng.choice(["#FFB74D", "#F06292", "#64B5F6", "#81C784"]), 0.45)
+    for (x, y, rot_) in ((70, 180, -20), (290, 420, 15)):
+        a.path(poly(rot([(x - 30, y), (x + 30, y - 12), (x - 10, y + 4)], x, y, rot_)), "#FFFFFF", 0.9)
+        a.path(poly(rot([(x - 30, y), (x + 30, y - 12), (x - 10, y + 4), (x - 6, y + 14)], x, y, rot_), close=False), stroke="#90A4AE", sw=1.5)
+    a.path("M40,560 C100,520 160,600 220,560 S320,520 340,560", stroke="#90A4AE", sw=2, salpha=0.5)
+
+
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "vbg"
     os.makedirs(out, exist_ok=True)

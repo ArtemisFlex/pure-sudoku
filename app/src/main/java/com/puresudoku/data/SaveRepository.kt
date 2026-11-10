@@ -24,16 +24,16 @@ data class LeaderEntry(val score: Int, val difficulty: Difficulty, val timeMs: L
 
 /** Every finished (or abandoned) game, newest first in [SaveRepository.history]. */
 data class GameResult(val result: Result, val score: Int, val difficulty: Difficulty, val timeMs: Long, val date: Long) {
-    enum class Result(val label: String) { WON("Won"), LOST("Lost"), ABANDONED("Abandoned") }
+    enum class Result(val label: String) { WON("Won"), LOST("Lost"), DRAW("Draw"), ABANDONED("Abandoned") }
 }
 
 /** Summary of everything you've played in one game. */
 data class GameStats(
-    val wins: Int, val losses: Int, val abandoned: Int,
+    val wins: Int, val losses: Int, val abandoned: Int, val draws: Int,
     val currentStreak: Int, val bestStreak: Int,
     val bestScore: Int, val fastestWinMs: Long, val averageWinMs: Long, val totalTimeMs: Long,
 ) {
-    val played get() = wins + losses + abandoned
+    val played get() = wins + losses + abandoned + draws
     val winRate get() = if (played == 0) 0 else (wins * 100 + played / 2) / played
 }
 
@@ -153,6 +153,7 @@ class SaveRepository(context: Context) {
         when (r.result) {
             GameResult.Result.LOST -> e.putInt("losses_${kind.name}", prefs.getInt("losses_${kind.name}", 0) + 1)
             GameResult.Result.ABANDONED -> e.putInt("abandons_${kind.name}", prefs.getInt("abandons_${kind.name}", 0) + 1)
+            GameResult.Result.DRAW -> e.putInt("draws_${kind.name}", prefs.getInt("draws_${kind.name}", 0) + 1)
             GameResult.Result.WON -> {}
         }
         if (r.result != GameResult.Result.WON) e.putLong("other_time_${kind.name}", prefs.getLong("other_time_${kind.name}", 0) + r.timeMs)
@@ -171,6 +172,7 @@ class SaveRepository(context: Context) {
             wins = wins,
             losses = prefs.getInt("losses_${kind.name}", 0),
             abandoned = prefs.getInt("abandons_${kind.name}", 0),
+            draws = prefs.getInt("draws_${kind.name}", 0),
             currentStreak = streakOf(h),
             bestStreak = maxOf(prefs.getInt("streak_best_${kind.name}", 0), streakOf(h)),
             bestScore = per.maxOf { it.bestScore },

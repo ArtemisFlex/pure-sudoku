@@ -234,9 +234,10 @@ private fun WinCard(vm: AppViewModel, session: Session, def: GameDef, s: WinSumm
 @Composable
 private fun LostCard(vm: AppViewModel, session: Session) {
     EndCard {
-        Text(session.lostTitle, style = MaterialTheme.typography.headlineMedium)
+        val draw = session.outcome == Outcome.DRAW
+        Text(if (draw) session.drawTitle else session.lostTitle, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(6.dp))
-        Text(session.lostMessage, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (draw) session.drawMessage else session.lostMessage, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         StatLine("Time played", formatTime(session.elapsedMs))
         StatLine("Score", session.score.toString(), bold = true)

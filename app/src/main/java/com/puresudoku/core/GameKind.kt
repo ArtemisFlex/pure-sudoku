@@ -4,6 +4,7 @@ enum class GameCategory(val title: String, val blurb: String) {
     LOGIC("Number Games", "Logic · Arithmetic · Deduction · Memory · Reasoning · Spatial"),
     WORDS("Word Games", "Vocabulary · Meaning · Sound · Wordplay · Poetry · Focus"),
     CARDS("Card Games", "Strategy · Patience · Odds · Memory · Adventure · Combat"),
+    BOARD("Board Games", "Strategy · Tactics · Territory · Planning · Patterns · Luck"),
 }
 
 /** Every game in PureGames. Order here is the order on the home screen. */
@@ -34,4 +35,15 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     REGICIDE("Regicide", "Strategy", "Defeat the twelve corrupted royals, solo.", GameCategory.CARDS),
     DUNGEON_SOLITAIRE("Dungeon Solitaire", "Adventure", "Raid the Tomb of Four Kings and escape alive.", GameCategory.CARDS),
     JAILBREAK("Joker Jailbreak", "Patience", "Break down a wall to set the Joker free.", GameCategory.CARDS),
+    CHESS("Chess", "Strategy", "Checkmate the computer's king.", GameCategory.BOARD),
+    CHECKERS("Checkers", "Tactics", "Jump and crown your way to victory.", GameCategory.BOARD),
+    GO("Go", "Territory", "Surround more of the board than your rival.", GameCategory.BOARD),
+    SHOGI("Shogi", "Strategy", "Japanese chess, where captured pieces fight for you.", GameCategory.BOARD),
+    XIANGQI("Xiangqi", "Strategy", "Chinese chess across the river.", GameCategory.BOARD),
+    BACKGAMMON("Backgammon", "Luck", "Race your checkers home and bear them off.", GameCategory.BOARD),
+    MANCALA("Mancala", "Planning", "Sow seeds and capture the most.", GameCategory.BOARD),
+    MAHJONG("Mahjong", "Patterns", "Clear the tiles by matching free pairs.", GameCategory.BOARD),
+    GOMOKU("Gomoku", "Patterns", "Five stones in a row wins.", GameCategory.BOARD),
+    MORRIS("Nine Men's Morris", "Tactics", "Form mills to take your rival's men.", GameCategory.BOARD),
+    TIC_TAC_TOE("Tic-Tac-Toe", "Tactics", "Three in a row, best of five rounds.", GameCategory.BOARD),
 }

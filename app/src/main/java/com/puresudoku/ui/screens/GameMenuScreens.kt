@@ -164,7 +164,7 @@ private fun StatsPanel(vm: AppViewModel, kind: GameKind) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "Time played ${formatTime(st.totalTimeMs)}" + if (st.abandoned > 0) " · ${st.abandoned} abandoned" else "",
+            "Time played ${formatTime(st.totalTimeMs)}" + (if (st.draws > 0) " · ${st.draws} drawn" else "") + if (st.abandoned > 0) " · ${st.abandoned} abandoned" else "",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -218,6 +218,7 @@ private fun Leaderboard(vm: AppViewModel, kind: GameKind) {
                 val (bg, fg) = when (e.result) {
                     com.puresudoku.data.GameResult.Result.WON -> Color(0xFF2E7D32) to Color.White
                     com.puresudoku.data.GameResult.Result.LOST -> Color(0xFFC62828) to Color.White
+                    com.puresudoku.data.GameResult.Result.DRAW -> Color(0xFF8D6E63) to Color.White
                     com.puresudoku.data.GameResult.Result.ABANDONED -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
                 }
                 Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {

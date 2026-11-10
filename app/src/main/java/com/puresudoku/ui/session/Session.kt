@@ -11,7 +11,7 @@ import com.puresudoku.core.MAX_STRIKES
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicLong
 
-enum class Outcome { PLAYING, WON, LOST }
+enum class Outcome { PLAYING, WON, LOST, DRAW }
 
 /** What sits in the middle of the status bar. */
 sealed interface MiddleStat {
@@ -83,6 +83,18 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
         outcome = if (won) Outcome.WON else Outcome.LOST
         onFinished(outcome)
     }
+
+    /** Ends a two-player game level: no win, no loss. */
+    protected fun finishDraw(bonus: List<BonusLine> = emptyList()) {
+        if (outcome != Outcome.PLAYING) return
+        bonusLines = bonus
+        score += bonus.sumOf { it.value }
+        outcome = Outcome.DRAW
+        onFinished(outcome)
+    }
+
+    open val drawTitle: String get() = "Draw"
+    open val drawMessage: String get() = "Nobody won this one. This game's save slot has been cleared."
 
     protected abstract fun saveState(): JSONObject
 
