@@ -253,6 +253,14 @@ object CrosswordDef : GameDef {
         return CrosswordSession(Difficulty.EASY, CrosswordPuzzle(w, h, sol, entries))
     }
 
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("Each numbered square starts a word. Tap a square to pick its word and read the clue. Tap it again to switch between across and down."),
+        com.puresudoku.ui.session.LessonStep("Tap the top-left square. Clue 1 across: ‘A small furry pet that purrs’. Type CAT.", { (it as CrosswordSession).letter(0).lowercaseChar() == 'c' && (it as CrosswordSession).letter(1).lowercaseChar() == 'a' && (it as CrosswordSession).letter(2).lowercaseChar() == 't' }),
+        com.puresudoku.ui.session.LessonStep("Now 1 down from the same square: ‘A vehicle with four wheels’. The C is already in place from CAT, which is how crosswords help you. Type CAR.", { (it as CrosswordSession).letter(5).lowercaseChar() == 'a' && (it as CrosswordSession).letter(10).lowercaseChar() == 'r' }),
+        com.puresudoku.ui.session.LessonStep("2 down starts on the T: ‘One of the digits on your foot’. You know it begins with T. Fill it in.", { (it as CrosswordSession).letter(7).lowercaseChar() == 'o' && (it as CrosswordSession).letter(12).lowercaseChar() == 'e' }),
+        com.puresudoku.ui.session.LessonStep("Last one, 3 across: ‘A bird that hoots at night’. Its first letter is shared with TOE. Solve the easy clues first, then let the crossing letters crack the hard ones.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep("Pick a clue", "Tap a square to select its word. The clue appears above the keyboard. Tap the same square again to switch between across and down.") { active ->
             var s by remember { mutableStateOf(demo()) }

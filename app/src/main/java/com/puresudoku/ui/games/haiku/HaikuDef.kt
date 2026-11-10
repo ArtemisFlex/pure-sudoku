@@ -224,6 +224,14 @@ object HaikuDef : GameDef {
             setOf("rain", "petal", "sparrow", "cherry", "blossom", "morning"), required)),
     )
 
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("A haiku has three lines of 5, 7 and 5 syllables, and names a season. Tap word tiles to add them to the highlighted line. The meter counts syllables for you."),
+        com.puresudoku.ui.session.LessonStep("Line one, 5 syllables: tap soft, rain, on, petal. ‘Pe-tal’ is two beats, so that's 1 + 1 + 1 + 2.", { (it as HaikuSession).count(0) == 5 }),
+        com.puresudoku.ui.session.LessonStep("Tap line two. It needs 7: try the, sparrow, wakes, a, morning. Clap the beats if you're unsure.", { (it as HaikuSession).count(1) == 7 }),
+        com.puresudoku.ui.session.LessonStep("Line three, 5 again: cherry, blossom, falls. Tinted tiles are season words; you need at least one somewhere.", { (it as HaikuSession).count(2) == 5 }),
+        com.puresudoku.ui.session.LessonStep("Tap Finish poem to complete the poem. Strong haiku show one moment in nature: a sound, a picture, a change.", { it.outcome != com.puresudoku.ui.session.Outcome.PLAYING }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep("5, 7, 5", "A haiku has three lines of 5, 7 and 5 syllables. Tap word tiles to add them to the highlighted line. The meter counts syllables for you.") { active ->
             var s by remember { mutableStateOf(demo()) }

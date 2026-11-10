@@ -194,6 +194,13 @@ object LadderDef : GameDef {
 
     private fun demo() = LadderSession(Difficulty.EASY, LadderPuzzle("cat", "dog", 3, listOf("cat", "cot", "dot", "dog")))
 
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("Turn CAT into DOG by changing one letter at a time. Every step must be a real word."),
+        com.puresudoku.ui.session.LessonStep("Change the middle letter first: tap the A, then type O to make COT.", { (it as LadderSession).current == "cot" }),
+        com.puresudoku.ui.session.LessonStep("Now swap the C for a D to make DOT. You're one letter from the goal.", { (it as LadderSession).current == "dot" }),
+        com.puresudoku.ui.session.LessonStep("Change the T to G. Tip: compare your word with the goal and change a letter that already matches the goal's letter in that spot.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+    )
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep("Change one letter", "Turn the top word into the goal word. Tap a letter in your word, then pick a new letter on the keyboard. Every step must be a real word.") { active ->
             var s by remember { mutableStateOf(demo()) }
@@ -406,6 +413,14 @@ object WheelDef : GameDef {
     private fun demo() = WheelSession(
         Difficulty.EASY,
         WheelPuzzle("plnets", 'a', listOf("plan", "plane", "planet", "planets", "plate", "late", "lean", "neat", "slate", "petal", "pant", "seat", "tale"), setOf("planets"), 5),
+    )
+
+    override fun lesson() = demo() to listOf(
+        com.puresudoku.ui.session.LessonStep("Make words of four or more letters from the wheel. Every word must use the centre letter, and letters can repeat. Find 5 words to win."),
+        com.puresudoku.ui.session.LessonStep("Start short. Spell PLAN and tap Enter.", { "plan" in (it as WheelSession).found }),
+        com.puresudoku.ui.session.LessonStep("Try adding letters to a word you found: PLAN becomes PLANE. Or try a new one like LATE.", { (it as WheelSession).found.size >= 2 }),
+        com.puresudoku.ui.session.LessonStep("A word using all seven letters is a pangram and scores big. Here it's a space word: PLANETS.", { "planets" in (it as WheelSession).found }),
+        com.puresudoku.ui.session.LessonStep("Keep going to 5. Try common endings like -ATE and -EAT, and tap shuffle if you get stuck: new letter orders spark new words.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
     )
 
     override val tutorial: List<TutorialStep> = listOf(

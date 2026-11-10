@@ -212,6 +212,19 @@ object WordSearchDef : GameDef {
             action = { s.select(a, b) })
     }
 
+    override fun lesson(): Pair<com.puresudoku.ui.session.Session, List<com.puresudoku.ui.session.LessonStep>> {
+        val d = demo()
+        val s = WordSearchSession(Difficulty.EASY, d.puzzle)
+        fun f(k: Int): (com.puresudoku.ui.session.Session) -> Boolean = { (it as WordSearchSession).found(k) != null }
+        return s to listOf(
+            com.puresudoku.ui.session.LessonStep("Find every hidden animal. Drag from a word's first letter to its last. Words run across, down or diagonally, and on harder levels backwards too."),
+            com.puresudoku.ui.session.LessonStep("Scan for first letters. CAT sits along the top row. Drag across it.", f(0)),
+            com.puresudoku.ui.session.LessonStep("DOG runs down the left edge. Drag from the D downwards.", f(1)),
+            com.puresudoku.ui.session.LessonStep("OWL is diagonal: it starts on the O in the second row and steps down and right.", f(2)),
+            com.puresudoku.ui.session.LessonStep("BEE is written backwards on the fifth row, so you'd read it right to left. Tip: hunt for rare letters or double letters like EE.", { it.outcome == com.puresudoku.ui.session.Outcome.WON }),
+        )
+    }
+
     override val tutorial: List<TutorialStep> = listOf(
         TutorialStep("Find the words", "Every word in the list is hidden in the grid. Drag from the first letter to the last to circle it.") { active ->
             var s by remember { mutableStateOf(demo()) }

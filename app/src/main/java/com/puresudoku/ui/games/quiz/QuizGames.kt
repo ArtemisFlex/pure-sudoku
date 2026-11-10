@@ -176,6 +176,19 @@ abstract class QuizDef : GameDef {
     @Composable
     override fun Icon(size: Dp) = GameIcon(kind, size)
 
+    /** Scripted Easy lesson: an intro, then (question, coaching) pairs. */
+    protected open val lessonIntro: String = ""
+    protected open val lessonPlan: List<Pair<QuizQuestion, String>> = emptyList()
+
+    override fun lesson(): Pair<com.puresudoku.ui.session.Session, List<com.puresudoku.ui.session.LessonStep>>? {
+        if (lessonPlan.isEmpty()) return null
+        val s = QuizSession(kind, Difficulty.EASY, lessonPlan.map { it.first })
+        val steps = listOf(com.puresudoku.ui.session.LessonStep(lessonIntro)) + lessonPlan.mapIndexed { k, (_, tip) ->
+            com.puresudoku.ui.session.LessonStep(tip) { x -> val q = x as QuizSession; q.round > k || q.outcome != com.puresudoku.ui.session.Outcome.PLAYING }
+        }
+        return s to steps
+    }
+
     protected fun demo(vararg qs: QuizQuestion) = QuizSession(kind, Difficulty.EASY, qs.toList())
 
     /** Tutorial card that answers the given demo rounds. */
@@ -197,6 +210,14 @@ abstract class QuizDef : GameDef {
 }
 
 object SynonymsDef : QuizDef() {
+    override val lessonIntro = "Each round shows a word and asks for one that means the same, or the opposite. Read the small prompt above the word first: it tells you which."
+    override val lessonPlan = listOf(
+        QuizQuestion("Same meaning as", "glad", listOf("sad", "happy", "tall"), 1, "\"happy\" means much the same as \"glad\".") to "Try each choice in a sentence. ‘I'm glad you came’ still works as ‘I'm happy you came’.",
+        QuizQuestion("Opposite of", "ancient", listOf("old", "modern", "dusty"), 1, "\"modern\" is the opposite of \"ancient\".") to "This one asks for the opposite. Watch for the trap: a word that means the same, like ‘old’, is always offered.",
+        QuizQuestion("Same meaning as", "rapid", listOf("slow", "loud", "quick"), 2, "\"quick\" means much the same as \"rapid\".") to "Back to same-meaning. The opposite (‘slow’) is the trap this time.",
+        QuizQuestion("Opposite of", "generous", listOf("selfish", "wealthy", "kind"), 0, "\"selfish\" is the opposite of \"generous\".") to "Some choices are related but not opposite: rich people can be generous or not. Look for the word that flips the meaning."
+    )
+
     override val kind = GameKind.SYNONYMS
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_synonyms
     override fun round(d: Difficulty, i: Int, used: MutableSet<String>) = QuizRules.synonymRound(d, i, rng, used)
@@ -225,6 +246,14 @@ object SynonymsDef : QuizDef() {
 }
 
 object RhymeDef : QuizDef() {
+    override val lessonIntro = "Pick the word that truly rhymes: the same sound from the last stressed vowel to the end. Spelling can fool you, so say the words in your head."
+    override val lessonPlan = listOf(
+        QuizQuestion("Which word rhymes with", "cat", listOf("cut", "hat", "cap"), 1, "\"hat\" rhymes with \"cat\".") to "Start with an easy one. ‘Cut’ changes the vowel and ‘cap’ changes the ending. Only one keeps both.",
+        QuizQuestion("Which word rhymes with", "bear", listOf("near", "beer", "hair"), 2, "\"hair\" rhymes with \"bear\". \"near\" looks similar but sounds different.") to "Look-alikes are the trap. ‘Near’ is spelled like ‘bear’ but sounds different. Listen, don't look.",
+        QuizQuestion("Which word rhymes with", "phone", listOf("done", "stone", "gone"), 1, "\"stone\" rhymes with \"phone\".") to "Three words end in -one, but they're said three different ways. Which one sounds like ‘phone’?",
+        QuizQuestion("Which word rhymes with", "through", listOf("rough", "blue", "though"), 1, "\"blue\" rhymes with \"through\".") to "The famous -ough words all sound different. The rhyme might not share any letters at all."
+    )
+
     override val kind = GameKind.RHYME_TIME
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_rhyme_time
     override fun round(d: Difficulty, i: Int, used: MutableSet<String>) = QuizRules.rhymeRound(d, i, rng, used)
@@ -253,6 +282,14 @@ object RhymeDef : QuizDef() {
 }
 
 object AlliterationDef : QuizDef() {
+    override val lessonIntro = "Alliteration is words starting with the same sound. Find the one word that breaks the pattern. It's about sound, not spelling."
+    override val lessonPlan = listOf(
+        QuizQuestion("Tap the word that breaks the alliteration", "", listOf("sun", "sand", "moon", "sea"), 2, "The others start with an \"s\" sound; \"moon\" starts with \"m\".") to "Warm-up: three words share a first sound. Find the odd one.",
+        QuizQuestion("Tap the word that breaks the alliteration", "", listOf("cat", "kite", "city", "cold"), 2, "The others start with a \"k\" sound; \"city\" starts with an \"s\" sound.") to "C can sound like K or like S. ‘Kite’ fits in with ‘cat’ even though the letter differs.",
+        QuizQuestion("Tap the word that breaks the alliteration", "", listOf("kick", "knee", "nose", "nut"), 0, "The others start with an \"n\" sound (the k in \"knee\" is silent); \"kick\" starts with \"k\".") to "Silent letters hide the real sound. Say each word: what do you actually hear first?",
+        QuizQuestion("Tap the word that breaks the alliteration", "", listOf("phone", "pie", "fish", "fun"), 1, "The others start with an \"f\" sound; \"pie\" starts with \"p\".") to "PH usually sounds like F. Which word is the odd one out now?"
+    )
+
     override val kind = GameKind.ALLITERATION
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_alliteration
     override fun round(d: Difficulty, i: Int, used: MutableSet<String>) = QuizRules.alliterationRound(d, i, rng, used)
