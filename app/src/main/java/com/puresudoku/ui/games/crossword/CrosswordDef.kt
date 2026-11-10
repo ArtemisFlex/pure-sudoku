@@ -203,6 +203,7 @@ class CrosswordSession(
 
 object CrosswordDef : GameDef {
     override val kind = GameKind.CROSSWORD
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_crossword
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session = CrosswordSession(d, synchronized(rng) { CrosswordRules.generate(d, rng) })

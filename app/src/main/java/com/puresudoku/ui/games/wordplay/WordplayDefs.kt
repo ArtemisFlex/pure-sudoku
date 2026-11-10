@@ -162,6 +162,7 @@ class LadderSession(
 
 object LadderDef : GameDef {
     override val kind = GameKind.WORD_LADDER
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_word_ladder
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session = LadderSession(d, synchronized(rng) { LadderRules.generate(d, rng) })
@@ -372,6 +373,7 @@ class WheelSession(
 
 object WheelDef : GameDef {
     override val kind = GameKind.WORD_WHEEL
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_word_wheel
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session = WheelSession(d, synchronized(rng) { WheelRules.generate(d, rng) })

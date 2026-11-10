@@ -151,6 +151,7 @@ class CodeSession(
 
 object CodeDef : GameDef {
     override val kind = GameKind.CODE_BREAKER
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_code_breaker
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session = CodeSession(d, synchronized(rng) { CodeRules.secret(CodeRules.config(d), rng) })

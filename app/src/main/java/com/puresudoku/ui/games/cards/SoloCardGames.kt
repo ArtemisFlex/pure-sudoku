@@ -809,7 +809,7 @@ class JailbreakSession(difficulty: Difficulty, val g: Jailbreak) : Session(GameK
 }
 
 object JailbreakDef : GameDef {
-    override fun background(session: Session) = com.puresudoku.R.drawable.bg_jailbreak
+    override fun background(session: Session) = com.puresudoku.R.drawable.vbg_jailbreak
     override val kind = GameKind.JAILBREAK
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = JailbreakSession(d, synchronized(rng) { Jailbreak.newGame(d, rng) })

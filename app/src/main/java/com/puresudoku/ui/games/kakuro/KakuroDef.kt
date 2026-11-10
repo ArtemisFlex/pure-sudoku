@@ -52,6 +52,7 @@ class KakuroSession(difficulty: Difficulty, val puzzle: KakuroPuzzle, game: Digi
 
 object KakuroDef : GameDef {
     override val kind = GameKind.KAKURO
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_kakuro
     private val generator = KakuroGenerator()
 
     private fun session(d: Difficulty, p: KakuroPuzzle, game: DigitGame? = null) =

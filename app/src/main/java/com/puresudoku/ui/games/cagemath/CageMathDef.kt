@@ -54,6 +54,7 @@ class CageMathSession(difficulty: Difficulty, val puzzle: CagePuzzle, game: Digi
 
 object CageMathDef : GameDef {
     override val kind = GameKind.CAGE_MATH
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_cage_math
     private val generator = CageMathGenerator()
 
     private fun session(d: Difficulty, p: CagePuzzle, game: DigitGame? = null) =

@@ -198,6 +198,7 @@ abstract class QuizDef : GameDef {
 
 object SynonymsDef : QuizDef() {
     override val kind = GameKind.SYNONYMS
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_synonyms
     override fun round(d: Difficulty, i: Int, used: MutableSet<String>) = QuizRules.synonymRound(d, i, rng, used)
     override fun hint(d: Difficulty) = "Read whether you need the same meaning or the opposite, then tap that word."
     override fun levelBlurb(d: Difficulty) = when (d) {
@@ -225,6 +226,7 @@ object SynonymsDef : QuizDef() {
 
 object RhymeDef : QuizDef() {
     override val kind = GameKind.RHYME_TIME
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_rhyme_time
     override fun round(d: Difficulty, i: Int, used: MutableSet<String>) = QuizRules.rhymeRound(d, i, rng, used)
     override fun hint(d: Difficulty) = "Say the words in your head. Pick the one whose ending sounds the same."
     override fun levelBlurb(d: Difficulty) = when (d) {
@@ -252,6 +254,7 @@ object RhymeDef : QuizDef() {
 
 object AlliterationDef : QuizDef() {
     override val kind = GameKind.ALLITERATION
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_alliteration
     override fun round(d: Difficulty, i: Int, used: MutableSet<String>) = QuizRules.alliterationRound(d, i, rng, used)
     override fun hint(d: Difficulty) = "All but one word start with the same sound. Tap the one that doesn't."
     override fun levelInfo(d: Difficulty) = QuizRules.config(d).let { "${it.rounds} rounds · ${it.options + 1} words" }

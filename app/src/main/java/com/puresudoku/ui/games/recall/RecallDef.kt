@@ -208,6 +208,7 @@ class RecallSession(
 
 object RecallDef : GameDef {
     override val kind = GameKind.GRID_RECALL
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_grid_recall
 
     override fun generate(d: Difficulty): Session = RecallSession(d)
 

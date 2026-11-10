@@ -155,6 +155,7 @@ class WordSearchSession(
 
 object WordSearchDef : GameDef {
     override val kind = GameKind.WORD_SEARCH
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_word_search
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session = WordSearchSession(d, synchronized(rng) { WordSearchRules.generate(d, rng) })

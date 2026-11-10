@@ -81,10 +81,7 @@ fun PlayScreen(vm: AppViewModel) {
         if (backdrop != 0) {
             androidx.compose.animation.Crossfade(backdrop, animationSpec = androidx.compose.animation.core.tween(700), label = "backdrop") { res ->
                 Box(Modifier.fillMaxSize()) {
-                    androidx.compose.foundation.Image(
-                        androidx.compose.ui.graphics.ImageBitmap.imageResource(res), null, Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = androidx.compose.ui.graphics.FilterQuality.None,
-                    )
+                    Backdrop(res)
                     // a scrim keeps text and cards readable over the art
                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.42f)))
                 }
@@ -273,4 +270,25 @@ private fun Badge(text: String) {
             .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 3.dp),
     )
+}
+
+
+/** Pixel-art backdrops (PNG) stay crisp with nearest-neighbour scaling; vector backdrops scale smoothly. */
+@Composable
+private fun Backdrop(res: Int) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val isBitmap = remember(res) {
+        val v = android.util.TypedValue(); ctx.resources.getValue(res, v, true); v.string?.endsWith(".png") == true
+    }
+    if (isBitmap) {
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.graphics.ImageBitmap.imageResource(res), null, Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = androidx.compose.ui.graphics.FilterQuality.None,
+        )
+    } else {
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(res), null, Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+    }
 }

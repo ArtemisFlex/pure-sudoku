@@ -164,6 +164,7 @@ class PictureSession(
 
 object PictureDef : GameDef {
     override val kind = GameKind.PICTURE_LOGIC
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_picture_logic
     private val generator = NonogramGenerator()
 
     override fun generate(d: Difficulty): Session = PictureSession(d, synchronized(generator) { generator.generate(d) })

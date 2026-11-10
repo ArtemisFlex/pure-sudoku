@@ -31,6 +31,7 @@ class SudokuSession(difficulty: Difficulty, game: DigitGame) : DigitGridSession(
 
 object SudokuDef : GameDef {
     override val kind = GameKind.SUDOKU
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_sudoku
     private val generator = SudokuGenerator()
 
     fun spec(d: Difficulty) = DigitSpec(

@@ -197,7 +197,7 @@ class SolitaireSession(difficulty: Difficulty, var k: Klondike, moves: Int = 0) 
 }
 
 object SolitaireDef : GameDef {
-    override fun background(session: Session) = com.puresudoku.R.drawable.bg_solitaire
+    override fun background(session: Session) = com.puresudoku.R.drawable.vbg_solitaire
     override val kind = GameKind.SOLITAIRE
     private val rng = Random(SecureRandom().nextLong())
     override fun generate(d: Difficulty): Session = SolitaireSession(d, synchronized(rng) { Klondike.deal(d, rng) })

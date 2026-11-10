@@ -177,6 +177,7 @@ class HaikuSession(
 
 object HaikuDef : GameDef {
     override val kind = GameKind.HAIKU
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_haiku
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session {

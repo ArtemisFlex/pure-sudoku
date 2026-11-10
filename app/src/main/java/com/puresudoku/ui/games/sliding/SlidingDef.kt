@@ -139,6 +139,7 @@ class SlidingSession(
 
 object SlidingDef : GameDef {
     override val kind = GameKind.SLIDING_TILES
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_sliding_tiles
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session {

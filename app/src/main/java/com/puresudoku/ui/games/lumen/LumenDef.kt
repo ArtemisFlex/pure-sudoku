@@ -131,6 +131,7 @@ class LumenSession(
 
 object LumenDef : GameDef {
     override val kind = GameKind.LUMEN
+    override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_lumen
     private val rng = Random(SecureRandom().nextLong())
 
     override fun generate(d: Difficulty): Session {
