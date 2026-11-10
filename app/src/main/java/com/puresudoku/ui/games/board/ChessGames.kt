@@ -133,9 +133,14 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
     fun choosePromotion(m: Int?) { promoChoices = null; if (m != null) play(m) else bump() }
 
     private fun play(m: Int) {
+        if (!guideAllows(Chess.src(m), Chess.dst(m))) { selected = -1; bump(); return }
         message = "You played ${g.san(m)}"
         apply(m)
-        if (outcome == Outcome.PLAYING) reply()
+        val code = guideDone()
+        if (outcome != Outcome.PLAYING) return
+        if (code != null) scriptedReply(code) { c ->
+            g.legalMoves().firstOrNull { Chess.src(it) == c / 100 && Chess.dst(it) == c % 100 }?.let { mv -> message = "Computer played ${g.san(mv)}"; apply(mv) }
+        } else reply()
     }
 
     private fun apply(m: Int) {
@@ -354,7 +359,16 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
         if (thinking || g.turn != 1) { nudge("The computer is thinking"); return }
         if (selected >= 0) {
             val m = legal.firstOrNull { Xiangqi.src(it) == selected && Xiangqi.dst(it) == i }
-            if (m != null) { apply(m); if (outcome == Outcome.PLAYING) reply(); return }
+            if (m != null) {
+                if (!guideAllows(Xiangqi.src(m), Xiangqi.dst(m))) { selected = -1; bump(); return }
+                apply(m)
+                val code = guideDone()
+                if (outcome == Outcome.PLAYING) {
+                    if (code != null) scriptedReply(code) { c -> g.legalMoves().firstOrNull { Xiangqi.src(it) == c / 100 && Xiangqi.dst(it) == c % 100 }?.let { apply(it) } }
+                    else reply()
+                }
+                return
+            }
         }
         if (g.b[i] > 0) {
             if (legal.none { Xiangqi.src(it) == i }) { nudge(if (g.inCheck()) "Your general is in check" else "That piece can't move"); selected = -1; bump(); return }
@@ -564,7 +578,14 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
         when (promote) { true -> play(a.first); false -> play(a.second); null -> bump() }
     }
 
-    private fun play(m: Int) { apply(m); if (outcome == Outcome.PLAYING) reply() }
+    private fun play(m: Int) {
+        if (!guideAllows(Shogi.src(m), Shogi.dst(m))) { selected = -1; bump(); return }
+        apply(m)
+        val code = guideDone()
+        if (outcome != Outcome.PLAYING) return
+        if (code != null) scriptedReply(code) { c -> g.legalMoves().firstOrNull { Shogi.src(it) == c / 100 && Shogi.dst(it) == c % 100 && !Shogi.promotes(it) }?.let { apply(it) } }
+        else reply()
+    }
 
     private fun apply(m: Int) {
         val who = if (g.turn == 1) "You" else "Computer"

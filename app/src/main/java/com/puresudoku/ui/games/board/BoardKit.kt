@@ -116,6 +116,60 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
 
     protected fun clearCoach() { coachFrom = -1; coachTo = -1 }
 
+    // ---------------- scripted lessons ----------------
+
+    var guide: List<com.puresudoku.core.board.Step>? = null
+        private set
+    var guideAt by mutableIntStateOf(0)
+        private set
+    val guideStep: com.puresudoku.core.board.Step? get() = guide?.getOrNull(guideAt)
+
+    /** Starts a scripted lesson; the board rings show each step's move. */
+    fun startGuide(steps: List<com.puresudoku.core.board.Step>) { guide = steps; guideAt = 0; syncGuide() }
+
+    private fun syncGuide() {
+        val st = guideStep
+        coachFrom = if (st != null && !st.info) st.from else -1
+        coachTo = if (st != null && !st.info) st.to else -1
+        coachTip = null
+        bump()
+    }
+
+    /** Next on an info step. */
+    fun guideNext() { if (guideStep?.info == true) { guideAt++; onGuideInfoDone(); syncGuide() } }
+
+    /** Hook for games that need to act when an info step is passed (e.g. backgammon rolls). */
+    protected open fun onGuideInfoDone() {}
+
+    /** True if this move is the one the lesson asks for (or no lesson is running). */
+    protected fun guideAllows(from: Int, to: Int): Boolean {
+        val st = guideStep ?: return true
+        if (st.info) { nudge("Read the coach, then tap Next"); return false }
+        if ((st.from < 0 || st.from == from) && (st.to < 0 || st.to == to)) return true
+        nudge("Follow the lesson: make the ringed move")
+        return false
+    }
+
+    /** Call once the player's lesson move has landed. Returns the opponent's scripted reply code, if any. */
+    protected fun guideDone(): Int? {
+        val st = guideStep ?: return null
+        if (st.info) return null
+        guideAt++
+        syncGuide()
+        return st.reply
+    }
+
+    /** Plays a scripted reply after a short pause, like the computer thinking. */
+    protected fun scriptedReply(code: Int, apply: (Int) -> Unit) {
+        thinking = true; bump()
+        AiWorker.later(800) {
+            if (outcome != Outcome.PLAYING) return@later
+            thinking = false
+            apply(code)
+            bump()
+        }
+    }
+
     /** The computer thinks in the background, then [apply] runs on the main thread. */
     protected fun <T> computer(minMs: Long = 450, think: () -> T, apply: (T) -> Unit) {
         if (outcome != Outcome.PLAYING) return

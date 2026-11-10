@@ -92,8 +92,13 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
         if (outcome != Outcome.PLAYING || roundOver) return
         if (thinking || g.turn != 1) { nudge("Wait for O"); return }
         if (g.cells[i] != 0) { nudge("That square is taken"); return }
+        if (!guideAllows(-1, i)) return
         g.make(i); moves++; placedAt[i] = moves; bump()
-        if (!checkRound()) reply()
+        val code = guideDone()
+        if (!checkRound()) {
+            if (code != null) scriptedReply(code) { c -> if (g.cells[c] == 0 && g.turn == 2) { g.make(c); moves++; placedAt[c] = moves }; checkRound(); changed() }
+            else reply()
+        }
     }
 
     private fun reply() {
@@ -276,10 +281,15 @@ class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKin
         if (outcome != Outcome.PLAYING) return
         if (thinking || g.turn != 1) { nudge("White is thinking"); return }
         if (g.cells[i] != 0) { nudge("There's already a stone there"); return }
+        if (!guideAllows(-1, i)) return
         if (ghost != i) { ghost = i; bump(); return }
         ghost = -1
         g.play(i); moves++; bump()
-        if (!end()) reply()
+        val code = guideDone()
+        if (!end()) {
+            if (code != null) scriptedReply(code) { c -> if (g.play(c)) moves++; message = "Your move"; end() }
+            else reply()
+        }
     }
 
     private fun end(): Boolean {
@@ -440,6 +450,7 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
         if (g.placing(1) || selected >= 0) {
             val ms = legal().filter { it.from == from && it.to == i }
             if (ms.isNotEmpty()) {
+                if (!guideAllows(from, i)) { selected = -1; bump(); return }
                 if (ms[0].remove >= 0) { removing = ms; lastTo = i; selected = -1; bump(); return }
                 play(ms[0]); return
             }
@@ -453,7 +464,12 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
 
     private fun play(m: Morris.Move) {
         apply(m)
-        if (outcome == Outcome.PLAYING) reply()
+        val code = guideDone()
+        if (outcome != Outcome.PLAYING) return
+        if (code != null) scriptedReply(code) { c ->
+            val f = c / 10000 - 1; val t = (c / 100) % 100; val rm = c % 100 - 1
+            g.legalMoves().firstOrNull { it.from == f && it.to == t && (rm < 0 || it.remove == rm) }?.let { apply(it) }
+        } else reply()
     }
 
     private fun apply(m: Morris.Move) {
@@ -613,7 +629,9 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
         if (thinking || g.turn != 0) { nudge("The computer is sowing"); return }
         if (i !in 0..5) { nudge("Your pits are the bottom row"); return }
         if (g.pits[i] == 0) { nudge("That pit is empty"); return }
+        if (!guideAllows(-1, i)) return
         sow(i)
+        guideDone()
     }
 
     private fun sow(i: Int) {
@@ -786,7 +804,16 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
         val ms = legal()
         if (selected >= 0) {
             val m = ms.filter { it.from == selected && it.to == i }.maxByOrNull { it.captured.size }
-            if (m != null) { apply(m); if (outcome == Outcome.PLAYING) reply(); return }
+            if (m != null) {
+                if (!guideAllows(m.from, m.to)) { selected = -1; bump(); return }
+                apply(m)
+                val code = guideDone()
+                if (outcome == Outcome.PLAYING) {
+                    if (code != null) scriptedReply(code) { c -> g.legalMoves().firstOrNull { it.from == c / 100 && it.to == c % 100 }?.let { apply(it) } }
+                    else reply()
+                }
+                return
+            }
         }
         if (g.b[i] > 0) {
             if (ms.none { it.from == i }) {

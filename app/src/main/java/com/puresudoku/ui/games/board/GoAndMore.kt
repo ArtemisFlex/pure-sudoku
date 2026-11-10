@@ -89,13 +89,16 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
         if (thinking || g.turn != 1) { nudge("White is thinking"); return }
         if (g.cells[i] != 0) { nudge("There's already a stone there"); return }
         if (!g.legal(i)) { nudge(if (i == g.ko) "Ko: you can't retake right away, play elsewhere first" else "That would be suicide: no liberties"); return }
+        if (!guideAllows(-1, i)) return
         if (ghost != i) { ghost = i; bump(); return }
         ghost = -1
         val caps = g.play(i)!!
         moves++
         message = if (caps.isNotEmpty()) "You captured ${caps.size}" else "White's turn"
         bump(); changed()
-        reply()
+        val code = guideDone()
+        if (code != null) scriptedReply(code) { c -> if (g.play(c) != null) moves++; message = "Your move"; changed() }
+        else reply()
     }
 
     fun pass() {
@@ -289,7 +292,13 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
 
     fun roll() {
         if (!needRoll) return
-        g.roll(rng); rollId++
+        val fixed = guide?.drop(guideAt)?.firstOrNull { !it.info }?.dice
+        if (guideStep?.info == true) guideNext()
+        if (fixed != null) {
+            g.rolled = intArrayOf(fixed[0], fixed[1]); g.dice.clear()
+            if (fixed[0] == fixed[1]) repeat(4) { g.dice += fixed[0] } else { g.dice += fixed[0]; g.dice += fixed[1] }
+        } else g.roll(rng)
+        rollId++
         seqs = g.sequences(dedupe = false); played.clear(); selected = -1
         message = "You rolled ${g.rolled.joinToString(" and ")}"
         bump()
@@ -308,7 +317,12 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
         nudge(if (g.bar[0] > 0) "Bring your checker in from the bar first" else if (selected != -1) "That checker can't land there" else "No legal move from there")
     }
 
+    private var cpuDice: IntArray? = null
+
     private fun step(st: Backgammon.Step) {
+        if (!guideAllows(st.from, st.to)) { selected = -1; bump(); return }
+        guideStep?.cpuDice?.let { cpuDice = it }
+        guideDone()
         g.apply(st); g.dice.remove(st.die); played += st
         seqs = seqs.filter { it.firstOrNull() == st }.map { it.drop(1) }
         selected = -1; bump()
@@ -333,7 +347,9 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
     }
 
     private fun computerTurn() {
-        g.roll(rng); rollId++
+        val fixed = cpuDice; cpuDice = null
+        if (fixed != null) { g.rolled = intArrayOf(fixed[0], fixed[1]); g.dice.clear(); g.dice += fixed[0]; g.dice += fixed[1] } else g.roll(rng)
+        rollId++
         message = "Computer rolled ${g.rolled.joinToString(" and ")}"
         bump()
         val snap = Backgammon(); snap.load(g.state()); val lvl = Backgammon.level(aiDifficulty); val seed = rng.nextLong()

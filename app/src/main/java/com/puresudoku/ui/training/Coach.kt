@@ -69,7 +69,7 @@ fun CoachPanel(session: Session, open: Boolean, onToggle: () -> Unit, modifier: 
     val pages = remember(session.kind, session.difficulty) { Lessons.pages(session.kind, session.difficulty) }
     var page by remember { mutableIntStateOf(0) }
     val duel = session as? DuelSession
-    if (duel != null) LaunchedEffect(duel.moves) { duel.coachTip = null; duel.coachFrom = -1; duel.coachTo = -1 }
+    if (duel != null) LaunchedEffect(duel.moves) { if (duel.guideStep == null) { duel.coachTip = null; duel.coachFrom = -1; duel.coachTo = -1 } }
     Box(modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.BottomEnd) {
         AnimatedContent(open, label = "coach") { isOpen ->
             if (!isOpen) {
@@ -77,7 +77,21 @@ fun CoachPanel(session: Session, open: Boolean, onToggle: () -> Unit, modifier: 
                     Text("Coach", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 }
             } else {
-                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth()) {
+                val step = duel?.guideStep
+                if (duel != null && step != null) Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(session.difficulty.accent()))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Lesson · step ${duel.guideAt + 1} of ${duel.guide?.size ?: 0}", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                            TextButton(onClick = onToggle) { Text("Hide") }
+                        }
+                        Text(step.text, fontSize = 15.sp, lineHeight = 21.sp)
+                        Spacer(Modifier.height(10.dp))
+                        if (step.info) Button(onClick = duel::guideNext, modifier = Modifier.align(Alignment.End)) { Text("Next") }
+                        else Text("Make the move ringed in gold.", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    }
+                } else Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(session.difficulty.accent()))

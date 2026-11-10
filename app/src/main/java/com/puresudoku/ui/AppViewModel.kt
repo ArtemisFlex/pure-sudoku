@@ -189,6 +189,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             (s as? com.puresudoku.ui.games.board.DuelSession)?.cancelThinking()
             s.training = true
+            if (d == Difficulty.EASY) com.puresudoku.core.board.BoardScripts.of(kind)?.let { steps -> (s as? com.puresudoku.ui.games.board.DuelSession)?.startGuide(steps) }
             val wait = 700 - (SystemClock.elapsedRealtime() - started)
             if (wait > 0) delay(wait)
             attach(s, -1)
