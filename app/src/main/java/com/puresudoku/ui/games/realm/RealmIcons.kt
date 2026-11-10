@@ -45,7 +45,8 @@ internal fun RIcon(size: Dp, modifier: Modifier = Modifier, draw: DrawScope.(Off
     Canvas(modifier.size(size)) { draw(center, this.size.minDimension) }
 }
 
-private fun poly(vararg pts: Offset) = Path().apply { pts.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }; close() }
+private fun poly(a: Offset, b: Offset, c: Offset, d: Offset? = null, e: Offset? = null, f: Offset? = null, g: Offset? = null, h: Offset? = null, i: Offset? = null, j: Offset? = null) =
+    Path().apply { listOfNotNull(a, b, c, d, e, f, g, h, i, j).forEachIndexed { k, p -> if (k == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }; close() }
 
 // =====================================================================  resource icons
 
