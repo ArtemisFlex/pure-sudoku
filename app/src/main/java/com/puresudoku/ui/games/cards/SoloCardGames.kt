@@ -90,7 +90,7 @@ import kotlin.random.Random
 /** A card that pops in when it first appears, and shakes on [fx]. */
 @Composable
 fun PopCard(card: Int, faceUp: Boolean, width: Dp, modifier: Modifier = Modifier, highlight: Boolean = false, dim: Boolean = false,
-            fx: CardFx? = null, lift: Boolean = false, onTap: (() -> Unit)? = null) {
+            fx: CardFx? = null, lift: Boolean = false, art: Int = 0, onTap: (() -> Unit)? = null) {
     val pop = remember(card) { Animatable(0.5f) }
     LaunchedEffect(card) { pop.animateTo(1f, spring(0.55f, Spring.StiffnessMediumLow)) }
     val shake = rememberShake(fx, card)
@@ -100,7 +100,7 @@ fun PopCard(card: Int, faceUp: Boolean, width: Dp, modifier: Modifier = Modifier
             .offset { IntOffset(shake.dp.roundToPx(), if (lift) (-10).dp.roundToPx() else 0) }
             .graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value.coerceIn(0f, 1f) }
             .then(if (onTap != null) Modifier.clickable(remember { MutableInteractionSource() }, null) { onTap() } else Modifier),
-        highlight = highlight, dim = dim, error = fx?.card == card && shake != 0f,
+        highlight = highlight, dim = dim, error = fx?.card == card && shake != 0f, art = art,
     )
 }
 
@@ -264,7 +264,7 @@ private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
             val cw = min((maxWidth - 30.dp) / 4, 92.dp)
             Row(Modifier.fillMaxWidth().demoTarget(targets, "room"), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
                 for (c in g.room) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    PopCard(c, true, cw, Modifier.demoTarget(targets, "c-$c"), highlight = s.choosing == c, fx = s.errorFx) { s.tap(c) }
+                    PopCard(c, true, cw, Modifier.demoTarget(targets, "c-$c"), highlight = s.choosing == c, fx = s.errorFx, art = CardArt.scoundrel(c)) { s.tap(c) }
                     Spacer(Modifier.height(4.dp))
                     Caption(when {
                         Scoundrel.isPotion(c) -> "Potion +${Scoundrel.value(c)}"
@@ -290,8 +290,8 @@ private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
         Box(Modifier.height(cardHeightFor(78.dp) + 4.dp)) {
             if (g.weapon < 0) CardSlot(78.dp, label = "—")
             else {
-                PopCard(g.weapon, true, 78.dp)
-                g.slain.forEachIndexed { i, m -> PopCard(m, true, 78.dp, Modifier.offset(x = 26.dp * (i + 1))) }
+                PopCard(g.weapon, true, 78.dp, art = CardArt.scoundrel(g.weapon))
+                g.slain.forEachIndexed { i, m -> PopCard(m, true, 78.dp, Modifier.offset(x = 26.dp * (i + 1)), art = CardArt.scoundrel(m)) }
             }
         }
         if (g.weapon >= 0) Caption(if (g.slain.isEmpty()) "Fresh: can fight anything" else "Can fight monsters below ${Scoundrel.value(g.slain.last())}")
@@ -478,7 +478,7 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         if (g.enemy >= 0) Row(Modifier.demoTarget(targets, "enemy"), verticalAlignment = Alignment.CenterVertically) {
-            PopCard(g.enemy, true, 96.dp)
+            PopCard(g.enemy, true, 96.dp, art = CardArt.regicide(g.enemy))
             HSpace(16)
             Column(Modifier.widthIn(max = 200.dp)) {
                 Text("${Cards.rankName(Cards.rank(g.enemy))} of ${Cards.suitName(Cards.suit(g.enemy))}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 17.sp)
@@ -495,7 +495,7 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
         Caption("Royals left ${g.castle.size + (if (g.enemy >= 0) 1 else 0)} · Deck ${g.tavern.size} · Discard ${g.discard.size} · Jesters " + "★".repeat(g.jesters))
         if (g.played.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy((-24).dp)) { for (c in g.played) PopCard(c, true, 52.dp) }
+            Row(horizontalArrangement = Arrangement.spacedBy((-24).dp)) { for (c in g.played) PopCard(c, true, 52.dp, art = CardArt.regicide(c)) }
         }
         Spacer(Modifier.height(10.dp))
         TableMessage(s.message)
@@ -507,7 +507,7 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
         Spacer(Modifier.height(10.dp))
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (c in g.hand.sortedBy { Regicide.value(it) * 4 + Cards.suit(it) }) {
-                PopCard(c, true, 58.dp, Modifier.demoTarget(targets, "h-$c"), highlight = c in s.selected, lift = c in s.selected, fx = s.hitFx) { s.toggle(c) }
+                PopCard(c, true, 58.dp, Modifier.demoTarget(targets, "h-$c"), highlight = c in s.selected, lift = c in s.selected, fx = s.hitFx, art = CardArt.regicide(c)) { s.toggle(c) }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -656,7 +656,7 @@ private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
         Spacer(Modifier.height(12.dp))
         val cur = g.current ?: (if (g.retreating) g.retreat else g.delve).lastOrNull()
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy((-14).dp)) {
-            for (c in cur?.cards.orEmpty()) PopCard(c, true, 66.dp, highlight = c == cur?.encounter)
+            for (c in cur?.cards.orEmpty()) PopCard(c, true, 66.dp, highlight = c == cur?.encounter, art = CardArt.dungeon(c, c == cur?.encounter))
         }
         Spacer(Modifier.height(10.dp))
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -665,10 +665,14 @@ private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
         Spacer(Modifier.height(10.dp))
         if (g.hand.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (c in g.hand) Text(
-                    if (c == JOKER) "📜 Scroll of Light" else if (Cards.rank(c) == 11) "${DungeonSolitaire.skillName(c)}" else "💰 ${Cards.label(c)}",
-                    fontSize = 12.sp, modifier = Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surface).padding(horizontal = 10.dp, vertical = 4.dp),
-                )
+                for (c in g.hand) Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surface).padding(start = 6.dp, end = 10.dp, top = 3.dp, bottom = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(CardArt.dungeon(c, false).takeIf { it != 0 } ?: CardArt.JESTER), null, Modifier.size(20.dp))
+                    HSpace(4)
+                    Text(if (c == JOKER) "Scroll of Light" else if (Cards.rank(c) == 11) DungeonSolitaire.skillName(c) else Cards.label(c), fontSize = 12.sp)
+                }
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -844,7 +848,7 @@ private fun JailbreakTable(s: JailbreakSession, targets: DemoTargets?) {
                         val c = g.cardAt(src)
                         val count = if (src == 8) g.joker.size else g.stacks[src].size
                         if (c != null) PopCard(c, true, cw, highlight = src in s.selected, fx = s.errorFx) { s.tap(src) }
-                        else if (src == 8) PopCard(JOKER, true, cw)
+                        else if (src == 8) PopCard(JOKER, true, cw, art = CardArt.JESTER)
                         else CardSlot(cw, label = if (src < 4) "✓" else "")
                         if (count > 0) Text(
                             if (src == 8) "$count/${g.jokerCap}" else "$count",
