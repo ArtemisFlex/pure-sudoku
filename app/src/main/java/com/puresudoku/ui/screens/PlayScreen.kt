@@ -81,7 +81,7 @@ fun PlayScreen(vm: AppViewModel) {
             androidx.compose.animation.Crossfade(backdrop, animationSpec = androidx.compose.animation.core.tween(700), label = "backdrop") { res ->
                 Box(Modifier.fillMaxSize()) {
                     androidx.compose.foundation.Image(
-                        androidx.compose.ui.res.painterResource(res), null, Modifier.fillMaxSize(),
+                        androidx.compose.ui.res.imageResource(androidx.compose.ui.graphics.ImageBitmap.Companion, res), null, Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = androidx.compose.ui.graphics.FilterQuality.None,
                     )
                     // a scrim keeps text and cards readable over the art
