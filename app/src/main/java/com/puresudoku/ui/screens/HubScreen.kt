@@ -80,13 +80,69 @@ fun HubScreen(vm: AppViewModel) {
                 if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx)
                 Spacer(Modifier.height(14.dp))
             }
+            if (vm.backupFolderName == null) BackupNudge(vm) { showAppearance = true }
         }
         IconButton(
             onClick = { showAppearance = true },
             modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
         ) { Icon(Icons.Outlined.Settings, contentDescription = "Appearance") }
     }
-    if (showAppearance) AppearanceDialog(vm.themeMode, onPick = vm::updateThemeMode, onDismiss = { showAppearance = false })
+    if (showAppearance) SettingsDialog(vm, onDismiss = { showAppearance = false })
+}
+
+/** Reminds you that records only live on this phone until a backup folder is set. */
+@Composable
+private fun BackupNudge(vm: AppViewModel, openSettings: () -> Unit) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Keep your records safe", fontWeight = FontWeight.SemiBold)
+            Text(
+                "Your stats and leaderboards live only in the app. Choose a backup folder on your phone and they'll be kept there, even if you uninstall.",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row {
+                TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text("Choose folder") }
+                TextButton(onClick = { vm.pickBackupFile?.invoke() }) { Text("Restore a backup") }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    val fmt = remember { java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Settings") },
+        text = {
+            Column {
+                Text("Appearance", fontWeight = FontWeight.SemiBold)
+                ThemeMode.entries.forEach { m ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { vm.updateThemeMode(m) }.padding(vertical = 4.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = m == vm.themeMode, onClick = { vm.updateThemeMode(m) })
+                        HSpace(8)
+                        Text(m.label, fontSize = 16.sp)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text("Backup", fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (vm.backupFolderName == null) "Not set up. Saves, stats and leaderboards are deleted if you uninstall."
+                    else "Saved automatically to “${vm.backupFolderName}”" + if (vm.lastBackupAt > 0) "\nLast backup ${fmt.format(java.util.Date(vm.lastBackupAt))}" else "",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row {
+                    TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text(if (vm.backupFolderName == null) "Choose folder" else "Change folder") }
+                    if (vm.backupFolderName != null) TextButton(onClick = vm::backupNow) { Text("Back up now") }
+                }
+                TextButton(onClick = { vm.pickBackupFile?.invoke() }) { Text("Restore from a backup file") }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
 }
 
 @Composable

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto Backup (Android 11 and below): keep game data, skip the backup-folder link. -->
+<full-backup-content>
+    <include domain="sharedpref" path="pure_sudoku.xml" />
+</full-backup-content>

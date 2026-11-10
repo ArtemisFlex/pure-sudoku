@@ -17,6 +17,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.DisposableEffect
@@ -46,6 +49,22 @@ class MainActivity : ComponentActivity() {
         com.puresudoku.core.words.WordData.init { name -> assets.open("words/$name").reader() }
         Thread { runCatching { com.puresudoku.core.words.WordData.lexicon; com.puresudoku.core.words.WordData.clues } }.start()
         enableEdgeToEdge()
+
+        // Backup folder lives outside the app, so it survives uninstalling.
+        val folderPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                runCatching {
+                    contentResolver.takePersistableUriPermission(uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }
+                vm.onBackupFolderPicked(uri)
+            }
+        }
+        val filePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) vm.onBackupFilePicked(uri)
+        }
+        vm.pickBackupFolder = { folderPicker.launch(null) }
+        vm.pickBackupFile = { filePicker.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")) }
 
         // The solve clock only runs while the app is on screen; leaving autosaves.
         lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -87,6 +106,24 @@ class MainActivity : ComponentActivity() {
                             is Screen.Slots -> SlotsScreen(vm, s.kind, s.replaceFor)
                             is Screen.Generating -> GeneratingScreen(s.kind, s.difficulty)
                             Screen.Playing -> PlayScreen(vm)
+                        }
+                    }
+                    vm.pendingRestore?.let { (_, at) ->
+                        val fmt = java.text.SimpleDateFormat("MMM d, yyyy h:mm a", java.util.Locale.getDefault())
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { vm.resolvePendingRestore(false) },
+                            title = { androidx.compose.material3.Text("Restore backup?") },
+                            text = { androidx.compose.material3.Text("Found a backup from ${fmt.format(java.util.Date(at))}. Restoring replaces the saves, stats and leaderboards on this phone with the ones in the backup.") },
+                            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.resolvePendingRestore(true) }) { androidx.compose.material3.Text("Restore") } },
+                            dismissButton = { androidx.compose.material3.TextButton(onClick = { vm.resolvePendingRestore(false) }) { androidx.compose.material3.Text("Keep this phone's data") } },
+                        )
+                    }
+                    vm.backupMessage?.let { msg ->
+                        androidx.compose.runtime.LaunchedEffect(msg) { kotlinx.coroutines.delay(2600); vm.backupMessage = null }
+                        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
+                            androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(50), color = MaterialTheme.colorScheme.inverseSurface) {
+                                androidx.compose.material3.Text(msg, Modifier.padding(horizontal = 18.dp, vertical = 10.dp), color = MaterialTheme.colorScheme.inverseOnSurface)
+                            }
                         }
                     }
                     androidx.compose.animation.AnimatedVisibility(

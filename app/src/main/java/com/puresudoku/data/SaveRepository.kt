@@ -22,6 +22,21 @@ data class SolveRecord(val stats: DifficultyStats, val newBestTime: Boolean, val
 /** One finished game on a personal leaderboard. */
 data class LeaderEntry(val score: Int, val difficulty: Difficulty, val timeMs: Long, val date: Long)
 
+/** Every finished (or abandoned) game, newest first in [SaveRepository.history]. */
+data class GameResult(val result: Result, val score: Int, val difficulty: Difficulty, val timeMs: Long, val date: Long) {
+    enum class Result(val label: String) { WON("Won"), LOST("Lost"), ABANDONED("Abandoned") }
+}
+
+/** Summary of everything you've played in one game. */
+data class GameStats(
+    val wins: Int, val losses: Int, val abandoned: Int,
+    val currentStreak: Int, val bestStreak: Int,
+    val bestScore: Int, val fastestWinMs: Long, val averageWinMs: Long, val totalTimeMs: Long,
+) {
+    val played get() = wins + losses + abandoned
+    val winRate get() = if (played == 0) 0 else (wins * 100 + played / 2) / played
+}
+
 /** Lightweight view of a save, for the slot list (no need to rebuild the game). */
 data class SlotSummary(
     val difficulty: Difficulty,
@@ -120,6 +135,89 @@ class SaveRepository(context: Context) {
         return all.indexOf(e) + 1
     }
 
+    // ---------------- full history ----------------
+
+    fun history(kind: GameKind): List<GameResult> = runCatching {
+        val a = org.json.JSONArray(prefs.getString("hist_${kind.name}", "[]"))
+        List(a.length()) { k ->
+            val o = a.getJSONObject(k)
+            GameResult(GameResult.Result.valueOf(o.getString("r")), o.getInt("s"), Difficulty.valueOf(o.getString("d")), o.getLong("t"), o.getLong("at"))
+        }
+    }.getOrDefault(emptyList())
+
+    fun addHistory(kind: GameKind, r: GameResult) {
+        val all = (listOf(r) + history(kind)).take(HISTORY_LIMIT)
+        val a = org.json.JSONArray()
+        all.forEach { a.put(JSONObject().put("r", it.result.name).put("s", it.score).put("d", it.difficulty.name).put("t", it.timeMs).put("at", it.date)) }
+        val e = prefs.edit().putString("hist_${kind.name}", a.toString())
+        when (r.result) {
+            GameResult.Result.LOST -> e.putInt("losses_${kind.name}", prefs.getInt("losses_${kind.name}", 0) + 1)
+            GameResult.Result.ABANDONED -> e.putInt("abandons_${kind.name}", prefs.getInt("abandons_${kind.name}", 0) + 1)
+            GameResult.Result.WON -> {}
+        }
+        if (r.result != GameResult.Result.WON) e.putLong("other_time_${kind.name}", prefs.getLong("other_time_${kind.name}", 0) + r.timeMs)
+        e.putInt("streak_best_${kind.name}", maxOf(prefs.getInt("streak_best_${kind.name}", 0), streakOf(all)))
+        e.apply()
+    }
+
+    private fun streakOf(h: List<GameResult>) = h.takeWhile { it.result == GameResult.Result.WON }.size
+
+    fun gameStats(kind: GameKind): GameStats {
+        val per = Difficulty.entries.map { stats(kind, it) }
+        val wins = per.sumOf { it.wins }
+        val h = history(kind)
+        val winTime = per.sumOf { it.totalTimeMs }
+        return GameStats(
+            wins = wins,
+            losses = prefs.getInt("losses_${kind.name}", 0),
+            abandoned = prefs.getInt("abandons_${kind.name}", 0),
+            currentStreak = streakOf(h),
+            bestStreak = maxOf(prefs.getInt("streak_best_${kind.name}", 0), streakOf(h)),
+            bestScore = per.maxOf { it.bestScore },
+            fastestWinMs = per.filter { it.bestTimeMs > 0 }.minOfOrNull { it.bestTimeMs } ?: 0,
+            averageWinMs = if (wins == 0) 0 else winTime / wins,
+            totalTimeMs = winTime + prefs.getLong("other_time_${kind.name}", 0),
+        )
+    }
+
+    // ---------------- backup ----------------
+
+    /** Everything (saves, records, history, settings) as one JSON document. */
+    fun exportAll(): String {
+        val items = JSONObject()
+        for ((k, v) in prefs.all) {
+            val o = when (v) {
+                is String -> JSONObject().put("t", "s").put("v", v)
+                is Int -> JSONObject().put("t", "i").put("v", v)
+                is Long -> JSONObject().put("t", "l").put("v", v)
+                is Boolean -> JSONObject().put("t", "b").put("v", v)
+                is Float -> JSONObject().put("t", "f").put("v", v.toDouble())
+                else -> null
+            } ?: continue
+            items.put(k, o)
+        }
+        return JSONObject().put("app", "Pure Puzzles").put("version", 1).put("savedAt", System.currentTimeMillis()).put("items", items).toString()
+    }
+
+    /** Replaces all local data with a backup. Returns false if the file isn't a Pure Puzzles backup. */
+    fun importAll(text: String): Boolean = runCatching {
+        val root = JSONObject(text)
+        if (root.optString("app") != "Pure Puzzles") return false
+        val items = root.getJSONObject("items")
+        val e = prefs.edit().clear()
+        for (k in items.keys()) {
+            val o = items.getJSONObject(k)
+            when (o.getString("t")) {
+                "s" -> e.putString(k, o.getString("v"))
+                "i" -> e.putInt(k, o.getInt("v"))
+                "l" -> e.putLong(k, o.getLong("v"))
+                "b" -> e.putBoolean(k, o.getBoolean("v"))
+                "f" -> e.putFloat(k, o.getDouble("v").toFloat())
+            }
+        }
+        e.commit()
+    }.getOrDefault(false)
+
     // ---------------- keepsakes ----------------
 
     fun keepsakes(kind: GameKind): List<String> = runCatching {
@@ -183,5 +281,6 @@ class SaveRepository(context: Context) {
 
     companion object {
         const val SLOT_COUNT = 3
+        const val HISTORY_LIMIT = 500
     }
 }

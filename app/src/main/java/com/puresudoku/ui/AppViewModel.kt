@@ -42,6 +42,7 @@ data class WinSummary(val timeMs: Long, val score: Int, val bonus: List<BonusLin
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = SaveRepository(app)
+    private val backupStore = com.puresudoku.data.BackupStore(app)
 
     var screen by mutableStateOf<Screen>(Screen.Hub); private set
     var themeMode by mutableStateOf(repo.themeMode()); private set
@@ -61,6 +62,68 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var generateJob: Job? = null
 
     fun keepsakes(kind: GameKind): List<String> = repo.keepsakes(kind)
+    fun history(kind: GameKind) = repo.history(kind)
+    fun gameStats(kind: GameKind) = repo.gameStats(kind)
+
+    // ---------------- backup ----------------
+
+    /** Set by the activity: open the system folder / file pickers. */
+    var pickBackupFolder: (() -> Unit)? = null
+    var pickBackupFile: (() -> Unit)? = null
+
+    var backupFolderName by mutableStateOf(backupStore.folderName()); private set
+    var lastBackupAt by mutableStateOf(backupStore.lastBackupAt); private set
+    /** A backup waiting for the player to confirm restoring it: (json, savedAt). */
+    var pendingRestore by mutableStateOf<Pair<String, Long>?>(null); private set
+    var backupMessage by mutableStateOf<String?>(null)
+
+    private fun autoBackup() {
+        if (backupStore.folder == null) return
+        val json = repo.exportAll()
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = backupStore.write(json)
+            withContext(Dispatchers.Main) {
+                lastBackupAt = backupStore.lastBackupAt
+                if (!ok) backupMessage = "Couldn't write to your backup folder. Choose it again in Settings."
+            }
+        }
+    }
+
+    fun backupNow() {
+        if (backupStore.folder == null) { pickBackupFolder?.invoke(); return }
+        autoBackup()
+        backupMessage = "Backed up to ${backupFolderName}"
+    }
+
+    fun onBackupFolderPicked(uri: android.net.Uri) {
+        backupStore.folder = uri
+        backupFolderName = backupStore.folderName()
+        val found = backupStore.readFromFolder(uri)
+        val savedAt = found?.let { runCatching { org.json.JSONObject(it).getLong("savedAt") }.getOrNull() }
+        if (found != null && savedAt != null) pendingRestore = found to savedAt
+        else { autoBackup(); backupMessage = "Backups will be saved to $backupFolderName" }
+    }
+
+    fun onBackupFilePicked(uri: android.net.Uri) {
+        val text = backupStore.read(uri)
+        val savedAt = text?.let { runCatching { org.json.JSONObject(it).takeIf { o -> o.optString("app") == "Pure Puzzles" }?.getLong("savedAt") }.getOrNull() }
+        if (text == null || savedAt == null) backupMessage = "That file isn't a Pure Puzzles backup"
+        else pendingRestore = text to savedAt
+    }
+
+    /** [restore] true replaces this phone's data with the backup; false keeps it (and overwrites the backup). */
+    fun resolvePendingRestore(restore: Boolean) {
+        val p = pendingRestore ?: return
+        pendingRestore = null
+        if (restore) {
+            if (repo.importAll(p.first)) {
+                themeMode = repo.themeMode()
+                refreshMeta()
+                backupMessage = "Restored your saves, records and history"
+            } else backupMessage = "That backup couldn't be read"
+        }
+        autoBackup()
+    }
 
     // ---------------- settings ----------------
 
@@ -106,6 +169,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun replaceSlot(kind: GameKind, slot: Int, d: Difficulty) {
+        recordAbandon(kind, slot)
         repo.clear(kind, slot)
         startNew(kind, d, slot)
     }
@@ -133,8 +197,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteSlot(kind: GameKind, slot: Int) {
+        recordAbandon(kind, slot)
         repo.clear(kind, slot)
         refreshMeta()
+        autoBackup()
+    }
+
+    /** A saved game thrown away unfinished counts in your history. */
+    private fun recordAbandon(kind: GameKind, slot: Int) {
+        val sum = repo.summaries(kind).getOrNull(slot) ?: return
+        repo.addHistory(kind, com.puresudoku.data.GameResult(com.puresudoku.data.GameResult.Result.ABANDONED, sum.score, sum.difficulty, sum.elapsedMs, System.currentTimeMillis()))
     }
 
     private fun attach(s: Session, slot: Int) {
@@ -178,7 +250,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val rank = repo.addToLeaderboard(s.kind, LeaderEntry(s.score, s.difficulty, s.elapsedMs, System.currentTimeMillis()))
             winSummary = WinSummary(s.elapsedMs, s.score, s.bonusLines, record, rank)
         }
+        repo.addHistory(s.kind, com.puresudoku.data.GameResult(
+            if (outcome == Outcome.WON) com.puresudoku.data.GameResult.Result.WON else com.puresudoku.data.GameResult.Result.LOST,
+            s.score, s.difficulty, s.elapsedMs, System.currentTimeMillis(),
+        ))
         refreshMeta()
+        autoBackup()
     }
 
     // ---------------- pause & timer ----------------
@@ -195,7 +272,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Called from the activity lifecycle. The clock never runs in the background. */
     fun setForeground(fg: Boolean) {
         foreground = fg
-        if (!fg) persist()
+        if (!fg) { persist(); autoBackup() }
         updateTimer()
     }
 

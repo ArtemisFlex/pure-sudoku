@@ -1,5 +1,7 @@
 package com.puresudoku.ui.screens
 
+import androidx.compose.material3.FilterChip
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -115,6 +117,8 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                 }
             }
             Spacer(Modifier.height(24.dp))
+            StatsPanel(vm, kind)
+            Spacer(Modifier.height(24.dp))
             Leaderboard(vm, kind)
             Spacer(Modifier.height(24.dp))
             Records(vm, kind)
@@ -134,35 +138,100 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
     }
 }
 
-/** Your top 10 wins for this game. */
+/** Your totals for this game. */
+@Composable
+private fun StatsPanel(vm: AppViewModel, kind: GameKind) {
+    val st = remember(kind, vm.stats) { vm.gameStats(kind) }
+    Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+        Text("Your stats", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        val tiles = listOf(
+            "Played" to st.played.toString(), "Won" to st.wins.toString(), "Lost" to st.losses.toString(),
+            "Win rate" to if (st.played == 0) "–" else "${st.winRate}%", "Streak" to st.currentStreak.toString(), "Best streak" to st.bestStreak.toString(),
+            "Best score" to if (st.wins == 0) "–" else st.bestScore.toString(), "Fastest win" to if (st.fastestWinMs == 0L) "–" else formatTime(st.fastestWinMs),
+            "Avg win" to if (st.wins == 0) "–" else formatTime(st.averageWinMs),
+        )
+        for (row in tiles.chunked(3)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((label, value) in row) Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface).padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(value, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Time played ${formatTime(st.totalTimeMs)}" + if (st.abandoned > 0) " · ${st.abandoned} abandoned" else "",
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Top 10 wins, or every game you've finished (wins, losses and abandoned saves). */
 @Composable
 private fun Leaderboard(vm: AppViewModel, kind: GameKind) {
     val board = remember(kind, vm.stats) { vm.leaderboard(kind) }
+    val history = remember(kind, vm.stats) { vm.history(kind) }
+    var tab by remember { mutableIntStateOf(0) }
+    var shown by remember { mutableIntStateOf(20) }
     val fmt = remember { java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()) }
     Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
         Text("Your leaderboard", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
-        if (board.isEmpty()) {
-            Text("Win a game to claim the top spot.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return@Column
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("Top scores") })
+            FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("All games (${history.size})") })
         }
-        board.forEachIndexed { i, e ->
-            val medal = when (i) { 0 -> Color(0xFFE8B931); 1 -> Color(0xFFAEB6C2); 2 -> Color(0xFFC98A4B); else -> MaterialTheme.colorScheme.surfaceVariant }
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp))
-                    .background(if (i < 3) MaterialTheme.colorScheme.surface else Color.Transparent).padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(medal), contentAlignment = Alignment.Center) {
-                    Text("${i + 1}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (i < 3) Color(0xFF1F2A37) else MaterialTheme.colorScheme.onSurface)
-                }
-                HSpace(12)
-                Text(e.score.toString(), Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Dot(e.difficulty.accent(), 8); HSpace(4)
-                Text(e.difficulty.label, Modifier.width(64.dp), fontSize = 13.sp)
-                Text(formatTime(e.timeMs), Modifier.width(56.dp), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                Text(fmt.format(java.util.Date(e.date)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        if (tab == 0) {
+            if (board.isEmpty()) {
+                Text("Win a game to claim the top spot.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                return@Column
             }
+            board.forEachIndexed { i, e ->
+                val medal = when (i) { 0 -> Color(0xFFE8B931); 1 -> Color(0xFFAEB6C2); 2 -> Color(0xFFC98A4B); else -> MaterialTheme.colorScheme.surfaceVariant }
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp))
+                        .background(if (i < 3) MaterialTheme.colorScheme.surface else Color.Transparent).padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(medal), contentAlignment = Alignment.Center) {
+                        Text("${i + 1}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (i < 3) Color(0xFF1F2A37) else MaterialTheme.colorScheme.onSurface)
+                    }
+                    HSpace(12)
+                    Text(e.score.toString(), Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Dot(e.difficulty.accent(), 8); HSpace(4)
+                    Text(e.difficulty.label, Modifier.width(64.dp), fontSize = 13.sp)
+                    Text(formatTime(e.timeMs), Modifier.width(56.dp), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                    Text(fmt.format(java.util.Date(e.date)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else {
+            if (history.isEmpty()) {
+                Text("Every game you finish, win or lose, will be listed here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                return@Column
+            }
+            for (e in history.take(shown)) {
+                val (bg, fg) = when (e.result) {
+                    com.puresudoku.data.GameResult.Result.WON -> Color(0xFF2E7D32) to Color.White
+                    com.puresudoku.data.GameResult.Result.LOST -> Color(0xFFC62828) to Color.White
+                    com.puresudoku.data.GameResult.Result.ABANDONED -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(e.result.label, Modifier.width(78.dp).clip(RoundedCornerShape(50)).background(bg).padding(vertical = 3.dp),
+                        color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                    HSpace(10)
+                    Text(e.score.toString(), Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Dot(e.difficulty.accent(), 8); HSpace(4)
+                    Text(e.difficulty.label, Modifier.width(60.dp), fontSize = 13.sp)
+                    Text(formatTime(e.timeMs), Modifier.width(54.dp), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                    Text(fmt.format(java.util.Date(e.date)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (history.size > shown) TextButton(onClick = { shown += 30 }, Modifier.fillMaxWidth()) { Text("Show more") }
         }
     }
 }
