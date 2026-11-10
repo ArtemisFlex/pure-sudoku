@@ -81,7 +81,7 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
         if (!myTurn) { nudge("Wait for your turn"); return }
         if (!g.canPlay(c)) {
             errorFx = cardFx(c)
-            nudge("Play a ${Cards.suitSymbol(g.suit)} or a ${Cards.rankName(Cards.rank(g.top))}, or any 8")
+            nudge("That card doesn't match")
             return
         }
         if (Cards.rank(c) == 8) { eightAsk = c; return }
@@ -103,14 +103,13 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
 
     fun tapDeck() {
         if (!myTurn) { nudge("Wait for your turn"); return }
-        if (g.playable(0).isNotEmpty()) { nudge("You have a card you can play"); return }
         val c = g.draw(0)
         if (c == null) {
             g.pass(0); message = "Nothing left to draw: you pass"; bump()
             if (!checkEnd()) { changed(); runOpponents() }
             return
         }
-        message = if (g.canPlay(c)) "You drew ${Cards.label(c)}: you can play it" else "You drew ${Cards.label(c)}"
+        message = "You drew ${Cards.label(c)}"
         bump(); changed()
     }
 
@@ -185,7 +184,7 @@ object CrazyEightsDef : GameDef {
     override val kind = GameKind.CRAZY_EIGHTS
     override fun generate(d: Difficulty): Session = CrazyEightsSession(d, CrazyEights.newGame(d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = CrazyEightsSession.restore(o).also { it.resume() }
-    override fun hint(d: Difficulty) = "Play a card matching the suit or rank on top. Eights are wild. Can't play? Tap the deck to draw."
+    override fun hint(d: Difficulty) = "Play a card matching the suit or rank on top. Eights are wild. Tap the deck to draw."
     override fun levelInfo(d: Difficulty) = CrazyEights.config(d).let { "${it.opponents} opponent${if (it.opponents > 1) "s" else ""}" }
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "One opponent who plays at random."
@@ -210,14 +209,14 @@ object CrazyEightsDef : GameDef {
     }
 
     override val tutorial = listOf(
-        TutorialStep("Match suit or rank", "On your turn, play one card that matches the top card's suit or its rank. Cards you can play are lifted. The first player to empty their hand wins.") { active ->
+        TutorialStep("Match suit or rank", "On your turn, play one card that matches the top card's suit or its rank. The first player to empty their hand wins.") { active ->
             var s by remember { mutableStateOf(demo()) }
             DemoStage(active, script = {
                 s.cancelThinking(); s = demo(); wait(500)
                 tap("h-${Cards.of(4, 2)}") { s.tapCard(Cards.of(4, 2)) }; wait(2400)
             }) { t -> CrazyEightsTable(s, t) }
         },
-        TutorialStep("Wild eights and drawing", "An 8 can be played on anything: you then call the suit everyone must follow. If you can't play, tap the deck to draw until you can.") { active ->
+        TutorialStep("Wild eights and drawing", "An 8 can be played on anything: you then call the suit everyone must follow. Can't (or would rather not) play? Tap the deck to draw a card.") { active ->
             var s by remember { mutableStateOf(demo()) }
             DemoStage(active, script = {
                 s.cancelThinking(); s = demo(); wait(500)
@@ -266,15 +265,12 @@ private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = Pro
         Spacer(Modifier.height(14.dp))
         TurnBanner(if (s.thinking) s.message.ifEmpty { "Opponents are playing…" } else s.message, s.thinking)
         Spacer(Modifier.height(14.dp))
-        val mine = s.outcome == Outcome.PLAYING && g.turn == 0 && !s.thinking
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((-10).dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (c in g.hands[0].sortedBy { Cards.suit(it) * 13 + Cards.rank(it) }) {
-                val ok = mine && g.canPlay(c)
-                PopCard(c, true, 62.dp, Modifier.demoTarget(targets, "h-$c"), lift = ok, highlight = ok, dim = mine && !ok, fx = s.errorFx) { s.tapCard(c) }
+                PopCard(c, true, 62.dp, Modifier.demoTarget(targets, "h-$c"), fx = s.errorFx) { s.tapCard(c) }
             }
         }
         Spacer(Modifier.height(10.dp))
-        if (mine && g.playable(0).isEmpty()) Text("No match: tap the deck to draw", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(12.dp))
     }
     if (s.eightAsk >= 0) {
