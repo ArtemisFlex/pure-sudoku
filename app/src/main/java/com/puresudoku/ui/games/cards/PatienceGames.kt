@@ -269,6 +269,7 @@ object SolitaireDef : GameDef {
 
 @Composable
 private fun SolitaireTable(s: SolitaireSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.SOLITAIRE) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val k = s.k
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -339,6 +340,7 @@ private fun SolitaireTable(s: SolitaireSession, targets: DemoTargets?) {
             }
             Spacer(Modifier.height(10.dp))
         }
+    }
     }
 }
 
@@ -535,6 +537,7 @@ object PyramidDef : GameDef {
 
 @Composable
 private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.DELVER) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val deal = s.deal
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -577,5 +580,6 @@ private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
                 highlight = s.selected == 100 + i && i == w, tag = if (i == w) "waste" else null, onTap = { if (i == w) s.tapWaste() }, art = CardArt.delver(deal.stock[i]))
             androidx.compose.runtime.key(s.floor) { CardLayer(cards, cw, s.errorFx, targets, from = DpOffset(maxWidth / 2, stockY)) }
         }
+    }
     }
 }

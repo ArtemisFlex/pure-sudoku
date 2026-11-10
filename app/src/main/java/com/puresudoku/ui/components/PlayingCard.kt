@@ -86,9 +86,10 @@ private fun Face(card: Int, width: Dp, highlight: Boolean, error: Boolean, art: 
     val density = LocalDensity.current
     val small = with(density) { (width * 0.27f).toSp() }
     val big = with(density) { (width * 0.5f).toSp() }
+    val th = LocalCardTheme.current
     Box(
-        Modifier.fillMaxSize().clip(shape).background(if (error) Color(0xFFFFE1E1) else CARD_FACE)
-            .border(if (highlight) 3.dp else 1.dp, if (highlight) colors.entered else Color(0xFFB9C0CA), shape),
+        Modifier.fillMaxSize().clip(shape).background(if (error) Color(0xFFFFE1E1) else th.face)
+            .border(if (highlight) 3.dp else 1.dp, if (highlight) colors.entered else th.edge, shape),
     ) {
         if (art != 0) {
             androidx.compose.foundation.Image(
@@ -97,18 +98,18 @@ private fun Face(card: Int, width: Dp, highlight: Boolean, error: Boolean, art: 
             )
         }
         if (card == JOKER) {
-            if (art == 0) Text("★", Modifier.align(Alignment.Center), fontSize = big, color = colors.entered, fontWeight = FontWeight.Bold)
-            Text("JOKER", Modifier.align(Alignment.TopStart).padding(start = width * 0.07f, top = 1.dp), fontSize = small * 0.6f, color = colors.entered, fontWeight = FontWeight.Bold, fontFamily = Poppins)
+            if (art == 0) Text("★", Modifier.align(Alignment.Center), fontSize = big, color = th.joker, fontWeight = FontWeight.Bold)
+            Text("JOKER", Modifier.align(Alignment.TopStart).padding(start = width * 0.07f, top = 1.dp), fontSize = small * 0.6f, color = th.joker, fontWeight = FontWeight.Bold, fontFamily = th.font)
             return@Box
         }
-        val col = if (Cards.red(card)) CARD_RED else CARD_INK
+        val col = th.ink(Cards.suit(card))
         val r = Cards.rankLabel(Cards.rank(card)); val s = Cards.suitSymbol(Cards.suit(card))
-        Text(r, Modifier.align(Alignment.TopStart).padding(start = width * 0.07f), fontSize = small, lineHeight = small, color = col, fontWeight = FontWeight.Bold, fontFamily = Poppins)
+        Text(r, Modifier.align(Alignment.TopStart).padding(start = width * 0.07f), fontSize = small, lineHeight = small, color = col, fontWeight = FontWeight.Bold, fontFamily = th.font)
         Text(s, Modifier.align(Alignment.TopEnd).padding(end = width * 0.07f, top = 1.dp), fontSize = small * 0.85f, lineHeight = small, color = col)
         if (art == 0) Text(
             if (Cards.rank(card) in 11..13) r else s,
             Modifier.align(Alignment.Center).padding(top = width * 0.12f),
-            fontSize = if (Cards.rank(card) in 11..13) big * 0.8f else big, color = col, fontWeight = FontWeight.Bold, fontFamily = Poppins,
+            fontSize = if (Cards.rank(card) in 11..13) big * 0.8f else big, color = col, fontWeight = FontWeight.Bold, fontFamily = th.font,
         )
     }
 }
@@ -116,17 +117,10 @@ private fun Face(card: Int, width: Dp, highlight: Boolean, error: Boolean, art: 
 @Composable
 fun Back(width: Dp, highlight: Boolean = false) {
     val colors = LocalBoardColors.current
+    val th = LocalCardTheme.current
     val shape = RoundedCornerShape(width * 0.1f)
-    Box(Modifier.fillMaxSize().clip(shape).background(colors.entered).border(if (highlight) 3.dp else 1.dp, if (highlight) colors.wave else Color(0x33000000), shape)) {
-        Canvas(Modifier.fillMaxSize().padding(width * 0.1f)) {
-            val step = size.width / 3
-            for (k in 1..2) {
-                drawLine(Color.White.copy(alpha = 0.35f), Offset(k * step, 0f), Offset(k * step, size.height), 2f)
-            }
-            var y = step
-            while (y < size.height) { drawLine(Color.White.copy(alpha = 0.35f), Offset(0f, y), Offset(size.width, y), 2f); y += step }
-            drawRoundRect(Color.White.copy(alpha = 0.6f), size = size, cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f), style = androidx.compose.ui.graphics.drawscope.Stroke(3f))
-        }
+    Box(Modifier.fillMaxSize().clip(shape).background(th.back).border(if (highlight) 3.dp else 1.dp, if (highlight) colors.wave else Color(0x33000000), shape)) {
+        Canvas(Modifier.fillMaxSize().padding(width * 0.1f)) { drawBackPattern(th.pattern, th.backInk) }
     }
 }
 

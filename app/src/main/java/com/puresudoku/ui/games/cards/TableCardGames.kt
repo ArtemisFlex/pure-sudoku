@@ -249,6 +249,7 @@ object BlackjackDef : GameDef {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BlackjackTableUi(s: BlackjackSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.BLACKJACK) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val t = s.t
     val colors = LocalBoardColors.current
@@ -299,6 +300,7 @@ private fun BlackjackTableUi(s: BlackjackSession, targets: DemoTargets?) {
             Button(onClick = s::deal, modifier = Modifier.demoTarget(targets, "deal")) { Text(if (s.phase == 2) "Next hand" else "Deal") }
         }
         Spacer(Modifier.height(12.dp))
+    }
     }
 }
 
@@ -475,6 +477,7 @@ object GoFishDef : GameDef {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.GO_FISH) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val colors = LocalBoardColors.current
@@ -526,6 +529,7 @@ private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(12.dp))
+    }
     }
 }
 
@@ -769,6 +773,7 @@ private fun Field(points: List<PointCard>, royals: List<Int>, w: Dp) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.CUTTLE) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val colors = LocalBoardColors.current
@@ -844,5 +849,6 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(12.dp))
+    }
     }
 }

@@ -247,6 +247,7 @@ object ScoundrelDef : GameDef {
 
 @Composable
 private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.SCOUNDREL) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val colors = LocalBoardColors.current
@@ -300,6 +301,7 @@ private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
             Text(if (g.canAvoid()) "Avoid this room" else "Can't avoid now")
         }
         Spacer(Modifier.height(12.dp))
+    }
     }
 }
 
@@ -473,6 +475,7 @@ object RegicideDef : GameDef {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.REGICIDE) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val colors = LocalBoardColors.current
@@ -521,6 +524,7 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
             if (g.jesters > 0) OutlinedButton(onClick = s::jester) { Text("Jester ★") }
         }
         Spacer(Modifier.height(12.dp))
+    }
     }
 }
 
@@ -632,6 +636,7 @@ object DungeonDef : GameDef {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.TOMB) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val colors = LocalBoardColors.current
@@ -693,6 +698,7 @@ private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(12.dp))
+    }
     }
 }
 
@@ -832,6 +838,7 @@ object JailbreakDef : GameDef {
 
 @Composable
 private fun JailbreakTable(s: JailbreakSession, targets: DemoTargets?) {
+    com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.JAILBREAK) {
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val colors = LocalBoardColors.current
@@ -864,5 +871,6 @@ private fun JailbreakTable(s: JailbreakSession, targets: DemoTargets?) {
             Text("Put a spare card on the Joker (${g.remainder.size} left)")
         }
         Spacer(Modifier.height(if (targets == null) 14.dp else 2.dp))
+    }
     }
 }
