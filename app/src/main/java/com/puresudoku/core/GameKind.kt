@@ -5,6 +5,7 @@ enum class GameCategory(val title: String, val blurb: String) {
     WORDS("Word Games", "Vocabulary · Meaning · Sound · Wordplay · Poetry · Focus"),
     CARDS("Card Games", "Strategy · Patience · Odds · Memory · Adventure · Combat"),
     BOARD("Board Games", "Strategy · Tactics · Territory · Planning · Patterns · Luck"),
+    STRATEGY("Strategy Games", "Territory · Trade · Exploration · Risk · Long-term planning"),
 }
 
 /** Every game in PureGames. Order here is the order on the home screen. */
@@ -47,4 +48,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     GOMOKU("Gomoku", "Patterns", "Five stones in a row wins.", GameCategory.BOARD),
     MORRIS("Nine Men's Morris", "Tactics", "Form mills to take your rival's men.", GameCategory.BOARD),
     TIC_TAC_TOE("Tic-Tac-Toe", "Tactics", "Three in a row, best of five rounds.", GameCategory.BOARD),
+    REALMFORGE("Realmforge", "Exploration", "Settle a fog-covered fantasy realm before your rival does.", GameCategory.STRATEGY),
+    REALM_DRAGON("Realmforge: Dragon's Wake", "Risk", "Build your realm while a growing dragon hunts the leader.", GameCategory.STRATEGY),
+    REALM_NIGHT("Realmforge: Night & Day", "Timing", "Day and night turn the realm. The night belongs to the dragon.", GameCategory.STRATEGY),
 }

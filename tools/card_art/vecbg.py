@@ -538,6 +538,83 @@ def crazy_eights_bg(a):
         a.path(f"M{x},{y - rr} a{rr * 0.55},{rr * 0.5} 0 1,0 0.1,0z M{x},{y} a{rr * 0.7},{rr * 0.62} 0 1,0 0.1,0z", stroke="#FFD54F", sw=6, salpha=0.25)
 
 
+# ============================================================ strategy (Realmforge)
+
+def mountains(a, base, peaks, fill, alpha=1.0):
+    pts = [(-10, base)] + peaks + [(W + 10, base), (W + 10, H + 10), (-10, H + 10)]
+    a.path(poly(pts), fill, alpha)
+
+def castle(a, x, y, s, fill, window=None):
+    a.path(rect(x - 30 * s, y - 40 * s, 60 * s, 40 * s), fill)
+    a.path("".join(rect(x - 30 * s + k * 12 * s, y - 48 * s, 7 * s, 9 * s) for k in range(5)), fill)
+    for tx in (-38, 26):
+        a.path(rect(x + tx * s, y - 70 * s, 12 * s, 70 * s), fill)
+        a.path(poly([(x + (tx - 3) * s, y - 70 * s), (x + (tx + 6) * s, y - 88 * s), (x + (tx + 15) * s, y - 70 * s)]), fill)
+    a.path(rect(x - 6 * s, y - 64 * s, 12 * s, 26 * s), fill)
+    a.path(poly([(x - 9 * s, y - 64 * s), (x, y - 84 * s), (x + 9 * s, y - 64 * s)]), fill)
+    if window:
+        a.path("".join(rect(x + dx * s, y + dy * s, 3.5 * s, 5 * s) for dx, dy in ((-20, -28), (-4, -30), (12, -26), (-34, -52), (30, -50), (-2, -56))), window, 0.95)
+
+def dragon(a, x, y, s, fill, alpha=1.0):
+    body = [(x - 40 * s, y + 4 * s), (x - 10 * s, y - 2 * s), (x + 22 * s, y - 6 * s), (x + 36 * s, y - 14 * s), (x + 44 * s, y - 12 * s),
+            (x + 38 * s, y - 6 * s), (x + 24 * s, y + 2 * s), (x - 8 * s, y + 8 * s), (x - 42 * s, y + 10 * s), (x - 60 * s, y + 22 * s)]
+    a.path(poly(body), fill, alpha)
+    a.path(poly([(x - 6 * s, y), (x - 30 * s, y - 46 * s), (x - 14 * s, y - 38 * s), (x - 2 * s, y - 50 * s), (x + 6 * s, y - 36 * s), (x + 18 * s, y - 40 * s), (x + 12 * s, y - 2 * s)]), fill, alpha)
+    a.path(poly([(x + 2 * s, y + 4 * s), (x - 16 * s, y + 34 * s), (x + 2 * s, y + 24 * s), (x + 14 * s, y + 30 * s), (x + 14 * s, y + 4 * s)]), fill, alpha * 0.85)
+
+@scene("vbg_realm_fog")
+def realm_fog(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#9FC3C9"), (0.45, "#D9E4DC"), (1, "#5E7C6B")))
+    a.path(circle(260, 120, 40), a.rad(260, 120, 90, (0, "#FFF8E1CC"), (1, "#FFF8E100")))
+    mountains(a, 320, [(30, 230), (80, 270), (140, 190), (200, 260), (250, 210), (320, 270), (370, 240)], "#8DA9A8", 0.8)
+    for y in (250, 300): a.path(band(y, 8, 260, y / 40), "#FFFFFF", 0.35)
+    mountains(a, 400, [(0, 320), (60, 300), (120, 340), (190, 290), (240, 330), (300, 300), (370, 330)], "#6F8F7E")
+    a.path(poly([(200, 300), (226, 260), (250, 300)]), "#5B7A69")
+    castle(a, 226, 262, 0.55, "#4E6A5B")
+    for y in (360, 430, 500): a.path(band(y, 10, 300, y / 70), "#FFFFFF", 0.28)
+    a.path(band(470, 14, 380, 1.1), "#577A61"); a.path(band(540, 18, 320, 2.7), "#45664F")
+    for _ in range(14):
+        x, y = a.rng.uniform(30, 330), a.rng.uniform(480, 620)
+        a.path(poly([(x, y - 26), (x + 9, y), (x - 9, y)]), "#3B5A45", 0.9)
+    for (x, y) in ((90, 150), (110, 140), (128, 152)):
+        a.path(f"M{x - 7},{y} Q{x - 3},{y - 5} {x},{y} Q{x + 3},{y - 5} {x + 7},{y}", stroke="#3F5452", sw=1.6, salpha=0.7)
+    a.path(band(600, 10, 280, 0.3), "#FFFFFF", 0.3)
+
+@scene("vbg_realm_dragon")
+def realm_dragon(a):
+    a.bg(a.lin(0, 0, 0, H, (0, "#2A0E1A"), (0.5, "#7A2418"), (1, "#1C0A08")))
+    a.path(circle(180, 330, 160), a.rad(180, 330, 220, (0, "#FF8A3D88"), (1, "#FF8A3D00")))
+    mountains(a, 420, [(0, 340), (70, 300), (130, 250), (160, 232), (200, 232), (230, 260), (300, 310), (370, 290)], "#3A1612")
+    a.path(poly([(160, 234), (172, 244), (186, 238), (200, 234)]), "#FF7043", 0.9)
+    a.path("M176,240 C170,280 186,300 176,340 C168,370 182,400 174,420", stroke="#FF7043", sw=4, salpha=0.6)
+    for k in range(5): a.path(circle(180 + (k - 2) * 8, 200 - k * 22, 14 + k * 5), "#4A2A28", 0.22)
+    dragon(a, 250, 130, 1.25, "#12060A", 0.92)
+    mountains(a, 520, [(0, 450), (60, 420), (140, 470), (220, 430), (300, 460), (370, 440)], "#22100D")
+    castle(a, 70, 452, 0.5, "#140806", window="#FFB74D")
+    a.path(band(560, 14, 340, 1.4), "#120807")
+    for _ in range(60):
+        x, y = a.rng.uniform(0, W), a.rng.uniform(150, 600)
+        a.path(circle(x, y, a.rng.uniform(0.8, 2.2)), a.rng.choice(["#FFB74D", "#FF7043", "#FFE082"]), a.rng.uniform(0.4, 0.9))
+
+@scene("vbg_realm_night")
+def realm_night(a):
+    a.bg(a.lin(0, 0, W, H * 0.7, (0, "#FFC46B"), (0.42, "#E07A5F"), (0.58, "#3D3B6E"), (1, "#0D1333")))
+    a.path(circle(70, 110, 34), a.rad(70, 110, 90, (0, "#FFF3C4"), (0.4, "#FFE08277"), (1, "#FFE08200")))
+    a.path(circle(70, 110, 26), "#FFF6D5")
+    a.path(circle(290, 300, 26), "#F3F0FF"); a.path(circle(301, 292, 22), "#2C2F63")
+    for _ in range(40):
+        x, y = a.rng.uniform(160, 360), a.rng.uniform(150, 420)
+        if x + y * 0.6 > 330: a.path(circle(x, y, a.rng.uniform(0.6, 1.6)), "#FFFFFF", a.rng.uniform(0.4, 0.95))
+    mountains(a, 470, [(0, 400), (80, 360), (150, 410), (230, 350), (300, 390), (370, 370)], "#2A2F57", 0.9)
+    a.path(band(470, 16, 360, 0.9), "#1E2547")
+    castle(a, 250, 470, 0.7, "#121633", window="#FFD54F")
+    a.path(band(540, 18, 300, 2.2), "#151B3A")
+    for _ in range(12):
+        x, y = a.rng.uniform(20, 340), a.rng.uniform(500, 620)
+        a.path(poly([(x, y - 22), (x + 8, y), (x - 8, y)]), "#0E1330")
+    a.path(band(610, 10, 300, 0.4), "#0A0E24")
+
+
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "vbg"
     os.makedirs(out, exist_ok=True)

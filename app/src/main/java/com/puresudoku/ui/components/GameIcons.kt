@@ -81,6 +81,9 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.MAHJONG -> mahjongIcon(colors, tm, o, inner)
             GameKind.MORRIS -> morrisIcon(colors, o, inner)
             GameKind.TIC_TAC_TOE -> tttIcon(colors, o, inner)
+            GameKind.REALMFORGE -> realmIcon(colors, o, inner, 0)
+            GameKind.REALM_DRAGON -> realmIcon(colors, o, inner, 1)
+            GameKind.REALM_NIGHT -> realmIcon(colors, o, inner, 2)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),
@@ -406,6 +409,38 @@ private fun DrawScope.mahjongIcon(c: BoardColors, tm: TextMeasurer, o: Float, in
         drawRoundRect(if (strong) c.entered else c.boardBg, tl, Size(w, h), CornerRadius(w * 0.16f))
         drawRoundRect(c.thickLine, tl, Size(w, h), CornerRadius(w * 0.16f), style = Stroke(inner * 0.022f))
         label(tm, if (strong) "中" else "東", tl.x + w / 2, tl.y + h / 2, w * 0.5f, if (strong) c.boardBg else c.given, center = true)
+    }
+}
+
+/** A hex of land with a little tower; the variants add a dragon wing or a crescent moon. */
+private fun DrawScope.realmIcon(c: BoardColors, o: Float, inner: Float, variant: Int) {
+    val cx = o + inner * 0.5f; val cy = o + inner * 0.54f; val r = inner * 0.4f
+    val hex = androidx.compose.ui.graphics.Path().apply {
+        for (k in 0 until 6) {
+            val a = Math.toRadians(60.0 * k - 90.0)
+            val x = cx + r * kotlin.math.cos(a).toFloat(); val y = cy + r * kotlin.math.sin(a).toFloat()
+            if (k == 0) moveTo(x, y) else lineTo(x, y)
+        }
+        close()
+    }
+    drawPath(hex, c.entered.copy(alpha = 0.22f))
+    drawPath(hex, c.thickLine, style = Stroke(inner * 0.03f))
+    val w = inner * 0.14f; val base = cy + r * 0.42f
+    drawRect(c.given, Offset(cx - w / 2, base - inner * 0.34f), Size(w, inner * 0.34f))
+    for (k in 0..2) drawRect(c.given, Offset(cx - w / 2 + k * w * 0.4f, base - inner * 0.39f), Size(w * 0.22f, inner * 0.06f))
+    drawRect(c.boardBg, Offset(cx - w * 0.15f, base - inner * 0.12f), Size(w * 0.3f, inner * 0.12f))
+    for (dx in listOf(-1f, 1f)) drawPath(androidx.compose.ui.graphics.Path().apply {
+        moveTo(cx + dx * inner * 0.26f, base); lineTo(cx + dx * inner * 0.14f, base - inner * 0.16f); lineTo(cx + dx * inner * 0.02f, base); close()
+    }, c.entered)
+    when (variant) {
+        1 -> drawPath(androidx.compose.ui.graphics.Path().apply {
+            moveTo(o + inner * 0.62f, o + inner * 0.2f); lineTo(o + inner * 0.95f, o + inner * 0.02f); lineTo(o + inner * 0.86f, o + inner * 0.2f)
+            lineTo(o + inner * 0.98f, o + inner * 0.22f); lineTo(o + inner * 0.84f, o + inner * 0.32f); close()
+        }, c.error)
+        2 -> {
+            drawCircle(c.entered, inner * 0.13f, Offset(o + inner * 0.82f, o + inner * 0.16f))
+            drawCircle(c.boardBg, inner * 0.11f, Offset(o + inner * 0.88f, o + inner * 0.12f))
+        }
     }
 }
 

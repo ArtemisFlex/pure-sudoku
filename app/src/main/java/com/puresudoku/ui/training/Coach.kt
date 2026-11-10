@@ -50,7 +50,7 @@ class Course(val basics: List<String>, val levels: List<List<String>>) {
 }
 
 object Lessons {
-    private val all: Map<GameKind, Course> by lazy { NumberLessons.all + WordLessons.all + CardLessons.all + BoardLessons.all }
+    private val all: Map<GameKind, Course> by lazy { NumberLessons.all + WordLessons.all + CardLessons.all + BoardLessons.all + StrategyLessons.all }
     fun of(kind: GameKind): Course? = all[kind]
 
     private val levelTitles = listOf("First steps", "Building habits", "Thinking ahead", "Sharper technique", "Advanced play", "Mastery")
