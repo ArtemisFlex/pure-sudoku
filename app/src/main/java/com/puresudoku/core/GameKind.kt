@@ -1,9 +1,9 @@
 package com.puresudoku.core
 
 enum class GameCategory(val title: String, val blurb: String) {
-    LOGIC("Mathematics & Numbers", "Sudoku, Kakuro, logic and memory puzzles"),
-    WORDS("Language & Words", "Crosswords, poetry, vocabulary and wordplay"),
-    CARDS("Card Games", "Solitaires, dungeon crawls and duels with a 52-card deck"),
+    LOGIC("Number Games", "Logic · Arithmetic · Deduction · Memory · Reasoning · Spatial"),
+    WORDS("Word Games", "Vocabulary · Meaning · Sound · Wordplay · Poetry · Focus"),
+    CARDS("Card Games", "Strategy · Patience · Odds · Memory · Adventure · Combat"),
 }
 
 /** Every game in PureGames. Order here is the order on the home screen. */
