@@ -12,6 +12,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -368,9 +372,9 @@ object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
 
 // =====================================================================  board geometry
 
-private class RGeo(val w: Float, val h: Float) {
-    val unit = min(w, h) / 10.5f
-    val cx = w / 2; val cy = h / 2
+private class RGeo(val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero) {
+    val unit = min(w, h) / 10.5f * zoom
+    val cx = w / 2 + pan.x; val cy = h / 2 + pan.y
     fun pt(x: Float, y: Float) = Offset(cx + x * unit, cy + y * unit)
     fun vert(v: Int) = pt(RealmMap.vertX[v], RealmMap.vertY[v])
     fun hex(h: Int) = pt(RealmMap.hexX[h], RealmMap.hexY[h])
@@ -476,18 +480,36 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
     val vT = s.vertexTargets(); val eT = s.edgeTargets(); val tT = s.tileTargets()
-    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val side = min(maxHeight.value, maxWidth.value).dp; val wDp = side; val hDp = side
-        Box(Modifier.size(wDp, hDp)) {
-            Canvas(Modifier.size(wDp, hDp).pointerInput(s, vT, eT, tT) {
+    var zoom by remember(s) { mutableFloatStateOf(1f) }
+    var pan by remember(s) { mutableStateOf(Offset.Zero) }
+    BoxWithConstraints(modifier.clipToBounds()) {
+        val wDp = maxWidth; val hDp = maxHeight
+        val wPx = with(LocalDensity.current) { wDp.toPx() }; val hPx = with(LocalDensity.current) { hDp.toPx() }
+        fun clampPan(p: Offset, z: Float): Offset {
+            val r = min(wPx, hPx) / 2f * z
+            val mx = (r - wPx / 2f + wPx * 0.2f).coerceAtLeast(0f); val my = (r - hPx / 2f + hPx * 0.2f).coerceAtLeast(0f)
+            return Offset(p.x.coerceIn(-mx, mx), p.y.coerceIn(-my, my))
+        }
+        fun zoomBy(k: Float, focus: Offset = Offset(wPx / 2, hPx / 2)) {
+            val nz = (zoom * k).coerceIn(1f, 3.5f); val f = focus - Offset(wPx / 2, hPx / 2)
+            pan = clampPan((pan - f) * (nz / zoom) + f, nz); zoom = nz
+        }
+        Box(Modifier.fillMaxSize()) {
+            Canvas(Modifier.fillMaxSize().pointerInput(s) {
+                detectTransformGestures { centroid, panChange, zoomChange, _ ->
+                    zoomBy(zoomChange, centroid)
+                    pan = clampPan(pan + panChange, zoom)
+                }
+            }.pointerInput(s, vT, eT, tT) {
                 detectTapGestures { o ->
-                    val geo = RGeo(size.width.toFloat(), size.height.toFloat())
-                    nearest(o, vT, geo::vert, geo.unit * 0.55f)?.let { s.tapVertex(it); return@detectTapGestures }
-                    nearest(o, eT, geo::edgeMid, geo.unit * 0.55f)?.let { s.tapEdge(it); return@detectTapGestures }
+                    val geo = RGeo(size.width.toFloat(), size.height.toFloat(), zoom, pan)
+                    val reach = maxOf(geo.unit * 0.55f, 18.dp.toPx())
+                    nearest(o, vT, geo::vert, reach)?.let { s.tapVertex(it); return@detectTapGestures }
+                    nearest(o, eT, geo::edgeMid, reach)?.let { s.tapEdge(it); return@detectTapGestures }
                     nearest(o, tT, geo::hex, geo.unit * 0.9f)?.let { s.tapTile(it) }
                 }
             }) {
-                val geo = RGeo(size.width, size.height); val u = geo.unit
+                val geo = RGeo(size.width, size.height, zoom, pan); val u = geo.unit
                 // sea
                 drawCircle(Brush.radialGradient(listOf(Color(0xFF3B8FC2), Color(0xFF1C4E7A)), center = Offset(geo.cx, geo.cy), radius = u * 5.4f), u * 5.15f, Offset(geo.cx, geo.cy))
                 // portals
@@ -561,8 +583,16 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 val cf = s.coachFrom
                 if (cf >= 0) coachRings(listOf(when { cf >= 200 -> geo.hex(cf - 200); cf >= 100 -> geo.edgeMid(cf - 100); else -> geo.vert(cf) }), u * 0.4f)
             }
+            Column(Modifier.align(Alignment.TopEnd).padding(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for ((label, act) in listOf<Pair<String, () -> Unit>>("+" to { zoomBy(1.4f) }, "−" to { zoomBy(1 / 1.4f) }, "⤢" to { zoom = 1f; pan = Offset.Zero })) {
+                    if (label == "⤢" && zoom <= 1.01f) continue
+                    Box(Modifier.size(36.dp).clip(CircleShape).wood(CircleShape).clickable(onClick = act), contentAlignment = Alignment.Center) {
+                        Text(label, color = PARCH_TOP, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = SERIF)
+                    }
+                }
+            }
             if (targets != null) {
-                val geo = with(LocalDensity.current) { RGeo(wDp.toPx(), hDp.toPx()) }
+                val geo = RGeo(wPx, hPx)
                 val r = geo.unit * 0.3f
                 CellTargets(targets, (0 until RealmMap.VERTS).map { "v-$it" to Rect(geo.vert(it), r) } + (0 until RealmMap.EDGES).map { "e-$it" to Rect(geo.edgeMid(it), r) })
             }
@@ -572,64 +602,118 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
 
 // =====================================================================  panels
 
+private val PANEL = RoundedCornerShape(14.dp)
+
+@Composable
+private fun InkText(text: String, size: Int = 13, bold: Boolean = false, color: Color = INK, modifier: Modifier = Modifier, align: TextAlign? = null, lines: Int = Int.MAX_VALUE) {
+    Text(text, fontSize = size.sp, lineHeight = (size + 3).sp, fontFamily = SERIF, fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium, color = color,
+        modifier = modifier, textAlign = align, maxLines = lines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+}
+
 @Composable
 private fun ResChip(r: Int, n: Int, modifier: Modifier = Modifier) {
-    Row(modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface).padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(RES_COLOR[r]))
-        Spacer(Modifier.width(4.dp))
-        Column {
-            Text(RES_SHORT[r], fontSize = 10.sp, lineHeight = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("$n", fontSize = 15.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
+    Column(modifier.parchment(PANEL).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RIcon(24.dp) { c, sz -> resIcon(r, c, sz) }
+            Spacer(Modifier.width(3.dp))
+            InkText("$n", 19, bold = true, color = if (n == 0) INK_SOFT.copy(alpha = 0.6f) else INK)
         }
+        InkText(RES_SHORT[r], 10, color = INK_SOFT)
     }
 }
 
 @Composable
-private fun CostDots(cost: IntArray) {
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        for (r in 0..4) repeat(cost[r]) { Box(Modifier.size(7.dp).clip(CircleShape).background(RES_COLOR[r])) }
+private fun CostIcons(cost: IntArray, size: Dp = 13.dp) {
+    Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        for (r in 0..4) repeat(cost[r]) { RIcon(size) { c, sz -> resIcon(r, c, sz) } }
     }
 }
 
 @Composable
-private fun BuildButton(label: String, cost: IntArray?, active: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick, enabled = enabled, shape = RoundedCornerShape(12.dp),
-        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        modifier = modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+private fun BuildButton(label: String, icon: RI, cost: IntArray?, active: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier.alpha(if (enabled || active) 1f else 0.45f).clip(shape)
+            .then(if (active) Modifier.wood(shape) else Modifier.parchment(shape))
+            .clickable(enabled = enabled || active, onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                color = when { active -> MaterialTheme.colorScheme.onPrimary; enabled -> MaterialTheme.colorScheme.onSurface; else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) })
-            if (cost != null) { Spacer(Modifier.height(3.dp)); CostDots(cost) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RIcon(22.dp) { c, sz -> actionIcon(icon, c, sz, if (active) PARCH_TOP else INK) }
+            Spacer(Modifier.width(4.dp))
+            InkText(label, 13, bold = true, color = if (active) PARCH_TOP else INK)
         }
+        if (cost != null) { Spacer(Modifier.height(2.dp)); CostIcons(cost) }
     }
 }
 
 @Composable
 private fun TwistChip(g: Realm) {
-    val text = when (g.twist) {
-        Realm.FOG -> "Ley power ${g.leyPower(0)} · rival ${g.leyPower(1)}"
-        Realm.WAKE -> if (g.dragonGone) (if (g.slayer == 0) "You slew the dragon" else "The rival slew the dragon") else "Dragon: ${g.dragonHp - g.dragonWounds} of ${g.dragonHp} health"
-        else -> if (g.night) "☾ Night · mana ×2, dragon hunts" else "☀ Day · night comes next round"
+    val (icon, text) = when (g.twist) {
+        Realm.FOG -> RI.LEY to "Ley power: you ${g.leyPower(0)} · rival ${g.leyPower(1)}"
+        Realm.WAKE -> RI.DRAGON to (if (g.dragonGone) (if (g.slayer == 0) "You slew the dragon!" else "The rival slew the dragon") else "Dragon health ${g.dragonHp - g.dragonWounds} of ${g.dragonHp}")
+        else -> if (g.night) RI.MOON to "Night · mana pays double · the dragon hunts" else RI.SUN to "Day · night falls next round"
     }
-    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        RIcon(18.dp) { c, sz -> actionIcon(icon, c, sz) }
+        Spacer(Modifier.width(6.dp))
+        InkText(text, 12, bold = true)
+        if (g.twist == Realm.WAKE && !g.dragonGone) {
+            Spacer(Modifier.width(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (k in 0 until g.dragonHp) Box(Modifier.size(8.dp).clip(CircleShape).background(if (k < g.dragonHp - g.dragonWounds) Color(0xFFB71C1C) else INK_SOFT.copy(alpha = 0.3f)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerBanner(name: String, vp: String, color: Color, active: Boolean, extra: String, modifier: Modifier = Modifier) {
+    Row(modifier.parchment(PANEL, if (active) color else GOLD, if (active) 2.5.dp else 1.5.dp).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(contentAlignment = Alignment.Center) {
+            RIcon(30.dp) { c, sz -> actionIcon(RI.SHIELD, c, sz, color) }
+            Text(vp, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = SERIF, modifier = Modifier.padding(bottom = 2.dp))
+        }
+        Spacer(Modifier.width(6.dp))
+        Column {
+            InkText(name, 13, bold = true)
+            InkText(extra, 10, color = INK_SOFT, lines = 1)
+        }
+    }
 }
 
 @Composable
 private fun ScoreBar(s: RealmSession) {
     val g = s.g
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        com.puresudoku.ui.games.board.ScoreChip("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Realm.SETUP)
-        com.puresudoku.ui.games.board.ScoreChip("Rival", "${g.vp(1, false)}${if (g.spells[1][Realm.RELIC] > 0 || g.spells[1].sum() > 0) "+?" else ""}", RIVAL, g.turn == 1 && g.phase != Realm.SETUP)
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-            Text("Goal ${g.target} · rival holds ${g.total(1)} cards", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
-            val titles = listOfNotNull(
-                g.roadHolder.takeIf { it >= 0 }?.let { "Great Road: ${if (it == 0) "you" else "rival"}" },
-                g.hostHolder.takeIf { it >= 0 }?.let { "Host: ${if (it == 0) "you" else "rival"}" },
-            )
-            if (titles.isNotEmpty()) Text(titles.joinToString(" · "), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        val titles0 = listOfNotNull("Great Road".takeIf { g.roadHolder == 0 }, "Host".takeIf { g.hostHolder == 0 }).joinToString(" · ").ifEmpty { "${g.spells[0].sum()} spells" }
+        val titles1 = listOfNotNull("Great Road".takeIf { g.roadHolder == 1 }, "Host".takeIf { g.hostHolder == 1 }).joinToString(" · ").ifEmpty { "${g.total(1)} cards · ${g.spells[1].sum()} spells" }
+        PlayerBanner("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Realm.SETUP, titles0, Modifier.weight(1f))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            RIcon(22.dp) { c, sz -> actionIcon(RI.CROWN, c, sz) }
+            Text("${g.target}", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
+                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
         }
+        PlayerBanner("Rival", "${g.vp(1, false)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Realm.SETUP, titles1, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun WoodButton(text: String, icon: RI?, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Row(modifier.alpha(if (enabled) 1f else 0.5f).clip(shape).wood(shape).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) { RIcon(22.dp) { c, sz -> actionIcon(icon, c, sz, PARCH_TOP) }; Spacer(Modifier.width(8.dp)) }
+        Text(text, color = PARCH_TOP, fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    }
+}
+
+@Composable
+private fun PromptRibbon(text: String, busy: Boolean) {
+    Row(Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(10.dp)).wood(RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (busy) { androidx.compose.material3.CircularProgressIndicator(Modifier.size(14.dp), color = PARCH_TOP, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
+        Text(text, color = PARCH_TOP, fontFamily = SERIF, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -647,54 +731,59 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
         ScoreBar(s)
         Spacer(Modifier.height(4.dp))
         TwistChip(g)
+        Spacer(Modifier.height(2.dp))
         RealmBoard(s, targets, Modifier.fillMaxWidth().weight(1f))
-        // dice + events
-        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        // dice + chronicle
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (g.lastRoll > 0) {
-                for (d in g.lastDie) {
-                    Box(Modifier.padding(end = 4.dp).size(26.dp).clip(RoundedCornerShape(6.dp)).background(if (g.lastRoll == 7) Color(0xFFFFCDD2) else Color(0xFFFFFBF0))
-                        .border(1.dp, Color(0xFF555555), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
-                        Text("$d", fontWeight = FontWeight.Bold, color = Color(0xFF222222), modifier = Modifier.padding(start = shake.value.coerceAtLeast(0f).dp))
-                    }
+                Canvas(Modifier.size(58.dp, 28.dp)) {
+                    val d = size.height * 0.92f
+                    die(Offset(d / 2 + shake.value, size.height / 2), d, g.lastDie[0], g.lastRoll == 7)
+                    die(Offset(d * 1.65f - shake.value, size.height / 2), d, g.lastDie[1], g.lastRoll == 7)
                 }
                 Spacer(Modifier.width(6.dp))
             }
-            Text(s.events.takeLast(2).joinToString("\n"), fontSize = 12.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            InkText(s.events.takeLast(2).joinToString("\n").ifEmpty { "The chronicle of the realm begins…" }, 12, color = INK_SOFT, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (r in 0..4) ResChip(r, g.res[0][r], Modifier.weight(1f))
         }
         Spacer(Modifier.height(6.dp))
-        com.puresudoku.ui.games.board.TurnBanner(s.prompt, s.thinking || (g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
+        PromptRibbon(s.prompt, s.thinking || (g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
         Spacer(Modifier.height(6.dp))
         val offer = s.offer
         when {
-            offer != null -> Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.padding(horizontal = 12.dp)) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    fun words(c: IntArray) = (0..4).filter { c[it] > 0 }.joinToString(" + ") { "${c[it]} ${Realm.RES[it]}" }
-                    Text("Rival offers ${words(offer.give)} for your ${words(offer.want)}", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { s.answerOffer(false) }) { Text("No") }
-                    Button(onClick = { s.answerOffer(true) }) { Text("Deal") }
+            offer != null -> Column(Modifier.padding(horizontal = 12.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                InkText("The rival offers a deal", 14, bold = true)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    InkText("You get ", 13); CostIcons(offer.give, 20.dp)
+                    InkText("   for ", 13); CostIcons(offer.want, 20.dp)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    WoodButton("Refuse", null) { s.answerOffer(false) }
+                    WoodButton("Deal", RI.TRADE) { s.answerOffer(true) }
                 }
             }
             s.myMove && g.phase == Realm.DISCARD -> DiscardPanel(s)
-            s.myMove && g.phase == Realm.ROLL -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (g.canPlay(0, Realm.KNIGHT)) OutlinedButton(onClick = { s.playSpell(Realm.KNIGHT) }) { Text("Knight first") }
-                Button(onClick = s::roll, modifier = Modifier.demoTarget(targets, "roll")) { Text("Roll") }
+            s.myMove && g.phase == Realm.ROLL -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (g.canPlay(0, Realm.KNIGHT)) BuildButton("Knight first", RI.KNIGHT, null, false, true) { s.playSpell(Realm.KNIGHT) }
+                WoodButton("Roll", RI.DICE, Modifier.demoTarget(targets, "roll")) { s.roll() }
             }
             s.myMove && g.phase == Realm.MAIN -> FlowRow(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp).demoTarget(targets, "build"),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 6.dp).demoTarget(targets, "build"),
+                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 val free = g.freeRoads > 0
-                BuildButton("Road", Realm.COST_ROAD, s.mode == RealmSession.Mode.ROAD || free, !free && g.can(0, Realm.COST_ROAD)) { s.toggleMode(RealmSession.Mode.ROAD) }
-                BuildButton("Village", Realm.COST_VILLAGE, s.mode == RealmSession.Mode.VILLAGE, !free && g.can(0, Realm.COST_VILLAGE)) { s.toggleMode(RealmSession.Mode.VILLAGE) }
-                BuildButton("Tower", Realm.COST_TOWER, s.mode == RealmSession.Mode.TOWER, !free && g.can(0, Realm.COST_TOWER)) { s.toggleMode(RealmSession.Mode.TOWER) }
-                BuildButton("Spell", Realm.COST_SPELL, false, !free && g.can(0, Realm.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
-                BuildButton("Trade", null, false, !free) { showTrade = true }
-                BuildButton("Spells ${g.spells[0].sum()}", null, s.mode == RealmSession.Mode.FIREBALL, g.spells[0].sum() > 0) { showSpells = true }
-                BuildButton("End turn", null, false, !free) { s.endTurn() }
+                BuildButton("Road", RI.ROAD, Realm.COST_ROAD, s.mode == RealmSession.Mode.ROAD || free, !free && g.can(0, Realm.COST_ROAD)) { s.toggleMode(RealmSession.Mode.ROAD) }
+                BuildButton("Village", RI.VILLAGE, Realm.COST_VILLAGE, s.mode == RealmSession.Mode.VILLAGE, !free && g.can(0, Realm.COST_VILLAGE)) { s.toggleMode(RealmSession.Mode.VILLAGE) }
+                BuildButton("Tower", RI.TOWER, Realm.COST_TOWER, s.mode == RealmSession.Mode.TOWER, !free && g.can(0, Realm.COST_TOWER)) { s.toggleMode(RealmSession.Mode.TOWER) }
+                BuildButton("Spell", RI.SCROLL, Realm.COST_SPELL, false, !free && g.can(0, Realm.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
+                BuildButton("Trade", RI.TRADE, null, false, !free) { showTrade = true }
+                BuildButton("Spells ${g.spells[0].sum()}", RI.BOOK, null, s.mode == RealmSession.Mode.FIREBALL, g.spells[0].sum() > 0) { showSpells = true }
+                BuildButton("End turn", RI.END, null, false, !free) { s.endTurn() }
             }
             else -> Spacer(Modifier.height(44.dp))
         }
@@ -709,25 +798,44 @@ private fun DiscardPanel(s: RealmSession) {
     val g = s.g
     val need = g.discardNeed[0]
     var pick by remember(g.lastRoll, s.rollId) { mutableStateOf(IntArray(5)) }
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.padding(horizontal = 10.dp)) {
-        Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Tap resources to discard: ${pick.sum()} of $need", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (r in 0..4) {
-                    Column(Modifier.clip(RoundedCornerShape(10.dp)).background(RES_COLOR[r].copy(alpha = 0.18f))
-                        .clickable { if (pick[r] < g.res[0][r] && pick.sum() < need) pick = pick.copyOf().also { it[r]++ } }.padding(6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(RES_SHORT[r], fontSize = 10.sp)
-                        Text("${g.res[0][r] - pick[r]}", fontWeight = FontWeight.Bold)
-                        if (pick[r] > 0) Text("−${pick[r]}", fontSize = 11.sp, color = RIVAL, modifier = Modifier.clickable { pick = pick.copyOf().also { it[r]-- } })
-                    }
+    Column(Modifier.padding(horizontal = 10.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RIcon(20.dp) { c, sz -> actionIcon(RI.DRAGON, c, sz) }
+            Spacer(Modifier.width(6.dp))
+            InkText("The dragon wakes! Discard ${pick.sum()} of $need", 14, bold = true)
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (r in 0..4) {
+                Column(Modifier.clip(RoundedCornerShape(10.dp)).background(RES_COLOR[r].copy(alpha = 0.15f))
+                    .clickable { if (pick[r] < g.res[0][r] && pick.sum() < need) pick = pick.copyOf().also { it[r]++ } }.padding(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    RIcon(26.dp) { c, sz -> resIcon(r, c, sz) }
+                    InkText("${g.res[0][r] - pick[r]}", 15, bold = true)
+                    InkText(if (pick[r] > 0) "−${pick[r]}" else " ", 12, bold = true, color = RIVAL, modifier = Modifier.clickable(enabled = pick[r] > 0) { pick = pick.copyOf().also { it[r]-- } })
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            Row {
-                TextButton(onClick = { pick = IntArray(5) }) { Text("Reset") }
-                Button(enabled = pick.sum() == need, onClick = { s.discard(pick) }) { Text("Discard") }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            WoodButton("Reset", null) { pick = IntArray(5) }
+            WoodButton("Discard", null, enabled = pick.sum() == need) { s.discard(pick) }
+        }
+    }
+}
+
+@Composable
+private fun ResPicker(selected: Int, label: (Int) -> String?, enabled: (Int) -> Boolean, onPick: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (r in 0..4) {
+            val on = selected == r; val ok = enabled(r)
+            Column(Modifier.weight(1f).alpha(if (ok) 1f else 0.35f).clip(RoundedCornerShape(10.dp))
+                .background(if (on) RES_COLOR[r].copy(alpha = 0.45f) else RES_COLOR[r].copy(alpha = 0.12f))
+                .border(if (on) 2.dp else 0.dp, if (on) GOLD else Color.Transparent, RoundedCornerShape(10.dp))
+                .clickable(enabled = ok) { onPick(r) }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                RIcon(26.dp) { c, sz -> resIcon(r, c, sz) }
+                InkText(RES_SHORT[r], 10, color = INK_SOFT)
+                label(r)?.let { InkText(it, 12, bold = true) }
             }
         }
     }
@@ -739,41 +847,28 @@ private fun TradeDialog(s: RealmSession, onDismiss: () -> Unit) {
     var give by remember { mutableIntStateOf(-1) }
     var get by remember { mutableIntStateOf(-1) }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Trade with the merchant") },
+        onDismissRequest = onDismiss, containerColor = PARCH_TOP, titleContentColor = INK, textContentColor = INK,
+        icon = { RIcon(32.dp) { c, sz -> actionIcon(RI.TRADE, c, sz) } },
+        title = { Text("The travelling merchant", fontFamily = SERIF, fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Give", fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (r in 0..4) {
-                        val rate = g.portRate(0, r); val ok = g.res[0][r] >= rate
-                        Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(if (give == r) RES_COLOR[r] else RES_COLOR[r].copy(alpha = if (ok) 0.2f else 0.06f))
-                            .clickable(enabled = ok) { give = r }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(RES_SHORT[r], fontSize = 10.sp, color = if (give == r) Color.White else Color.Unspecified)
-                            Text("$rate:1", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (give == r) Color.White else Color.Unspecified)
-                        }
-                    }
-                }
+                InkText("You give", 13, bold = true)
+                Spacer(Modifier.height(4.dp))
+                ResPicker(give, { r -> "${g.portRate(0, r)} : 1 (${g.res[0][r]})" }, { r -> g.res[0][r] >= g.portRate(0, r) }) { give = it; if (get == it) get = -1 }
                 Spacer(Modifier.height(10.dp))
-                Text("Get 1", fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (r in 0..4) {
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(if (get == r) RES_COLOR[r] else RES_COLOR[r].copy(alpha = 0.2f))
-                            .clickable(enabled = r != give) { get = r }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text(RES_SHORT[r], fontSize = 10.sp, color = if (get == r) Color.White else Color.Unspecified)
-                        }
-                    }
-                }
+                InkText("You get 1", 13, bold = true)
+                Spacer(Modifier.height(4.dp))
+                ResPicker(get, { null }, { r -> r != give }) { get = it }
                 Spacer(Modifier.height(8.dp))
-                Text("Settle next to a portal to trade 3:1 (any) or 2:1 (its resource).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                InkText("Settle beside a portal on the coast to trade 3:1 (any) or 2:1 (its resource).", 12, color = INK_SOFT)
             }
         },
         confirmButton = {
-            Button(enabled = give >= 0 && get >= 0 && give != get && g.res[0][give] >= g.portRate(0, give), onClick = {
+            WoodButton(if (give >= 0) "Trade ${g.portRate(0, give)} for 1" else "Trade", null, enabled = give >= 0 && get >= 0 && give != get && g.res[0][give] >= g.portRate(0, give)) {
                 s.trade(give, get); if (g.res[0][give] < g.portRate(0, give)) give = -1
-            }) { Text(if (give >= 0) "Trade ${g.portRate(0, give)} for 1" else "Trade") }
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Done", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
     )
 }
 
@@ -782,34 +877,43 @@ private fun SpellsDialog(s: RealmSession, onDismiss: () -> Unit) {
     val g = s.g
     var harvest by remember { mutableStateOf<List<Int>>(emptyList()) }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Your spells") },
+        onDismissRequest = onDismiss, containerColor = PARCH_TOP, titleContentColor = INK, textContentColor = INK,
+        icon = { RIcon(32.dp) { c, sz -> actionIcon(RI.BOOK, c, sz) } },
+        title = { Text("Your spellbook", fontFamily = SERIF, fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                if (g.spellPlayed) Text("You've already cast a spell this turn.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (g.spellPlayed) InkText("You've already cast a spell this turn.", 12, color = INK_SOFT)
                 for (k in 0..4) {
                     val n = g.spells[0][k]; if (n == 0) continue
-                    Column(Modifier.padding(vertical = 6.dp)) {
+                    Column(Modifier.padding(vertical = 4.dp).fillMaxWidth().parchment(PANEL).padding(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("${Realm.SPELLS[k]} ×$n", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            if (k != Realm.RELIC && k != Realm.HARVEST) FilledTonalButton(enabled = g.canPlay(0, k), onClick = { s.playSpell(k); onDismiss() }) { Text("Cast") }
+                            RIcon(30.dp) { c, sz -> actionIcon(spellIcon(k), c, sz) }
+                            Spacer(Modifier.width(8.dp))
+                            InkText("${Realm.SPELLS[k]} ×$n", 15, bold = true, modifier = Modifier.weight(1f))
+                            if (k != Realm.RELIC && k != Realm.HARVEST) WoodButton("Cast", null, enabled = g.canPlay(0, k)) { s.playSpell(k); onDismiss() }
                         }
-                        Text(Realm.SPELL_TEXT[k], fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        InkText(Realm.SPELL_TEXT[k], 12, color = INK_SOFT)
                         if (k == Realm.HARVEST && g.canPlay(0, k)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
-                                for (r in 0..4) Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(RES_COLOR[r].copy(alpha = 0.25f + 0.35f * harvest.count { it == r }))
-                                    .clickable { harvest = (harvest + r).takeLast(2) }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                                    Text(RES_SHORT[r] + if (harvest.count { it == r } > 0) " ×${harvest.count { it == r }}" else "", fontSize = 10.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (r in 0..4) {
+                                    val cnt = harvest.count { it == r }
+                                    Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(RES_COLOR[r].copy(alpha = 0.12f + 0.3f * cnt))
+                                        .clickable { harvest = (harvest + r).takeLast(2) }.padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        RIcon(22.dp) { c, sz -> resIcon(r, c, sz) }
+                                        InkText(if (cnt > 0) "×$cnt" else " ", 11, bold = true)
+                                    }
                                 }
                             }
-                            Button(enabled = harvest.size == 2, onClick = { s.playSpell(Realm.HARVEST, harvest[0], harvest[1]); onDismiss() }) { Text("Cast Harvest Moon") }
+                            Spacer(Modifier.height(4.dp))
+                            WoodButton("Cast Harvest Moon", RI.MOON, enabled = harvest.size == 2) { s.playSpell(Realm.HARVEST, harvest[0], harvest[1]); onDismiss() }
                         }
-                        if (n > 0 && g.fresh[k] >= n && g.turn == 0) Text("Bought this turn: castable next turn", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                        if (g.fresh[k] >= n && g.turn == 0) InkText("Learned this turn: castable next turn", 11, bold = true, color = GOLD)
                     }
                 }
-                if (g.spells[0].sum() == 0) Text("No spells yet. Buy one for ore, grain and beasts.")
+                if (g.spells[0].sum() == 0) InkText("No spells yet. Buy one with ore, grain and beasts.", 13)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
     )
 }
