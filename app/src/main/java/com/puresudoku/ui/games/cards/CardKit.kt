@@ -23,7 +23,7 @@ import com.puresudoku.ui.session.FxIds
 /** Where one card sits on a table this frame. */
 class Placed(
     val card: Int, val x: androidx.compose.ui.unit.Dp, val y: androidx.compose.ui.unit.Dp, val faceUp: Boolean, val z: Float,
-    val highlight: Boolean = false, val dim: Boolean = false, val tag: String? = null, val onTap: (() -> Unit)? = null,
+    val highlight: Boolean = false, val dim: Boolean = false, val tag: String? = null, val onTap: (() -> Unit)? = null, val art: Int = 0,
 )
 
 /**
@@ -37,7 +37,7 @@ fun CardLayer(cards: List<Placed>, width: androidx.compose.ui.unit.Dp, fx: CardF
         androidx.compose.runtime.key(p.card) {
             com.puresudoku.ui.components.MovingCard(
                 p.card, p.faceUp, width, androidx.compose.ui.unit.DpOffset(p.x, p.y), from = from, delayMs = if (from != null) i * 18 else 0, z = p.z,
-                highlight = p.highlight, dim = p.dim, shake = rememberShake(fx, p.card),
+                highlight = p.highlight, dim = p.dim, shake = rememberShake(fx, p.card), art = p.art,
                 modifier = Modifier
                     .then(if (p.tag != null) Modifier.demoTargetOrNot(targets, p.tag) else Modifier)
                     .then(if (p.onTap != null) Modifier.clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { p.onTap.invoke() } else Modifier),

@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp" android:height="96dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FF2A1D2E" android:pathData="M4,1h1v1h-1zM18,1h1v1h-1zM3,2h1v1h-1zM5,2h1v1h-1zM17,2h1v1h-1zM19,2h1v1h-1zM3,3h1v1h-1zM6,3h1v1h-1zM16,3h1v1h-1zM19,3h1v1h-1zM3,4h1v1h-1zM7,4h1v1h-1zM15,4h1v1h-1zM19,4h1v1h-1zM3,5h1v1h-1zM8,5h1v1h-1zM14,5h1v1h-1zM19,5h1v1h-1zM3,6h1v1h-1zM9,6h5v1h-5zM19,6h1v1h-1zM2,7h1v1h-1zM20,7h1v1h-1zM2,8h1v1h-1zM20,8h1v1h-1zM2,9h1v1h-1zM20,9h1v1h-1zM2,10h1v1h-1zM20,10h1v1h-1zM2,11h1v1h-1zM20,11h1v1h-1zM2,12h1v1h-1zM20,12h1v1h-1zM3,13h1v1h-1zM19,13h1v1h-1zM4,14h1v1h-1zM18,14h1v1h-1zM4,15h1v1h-1zM18,15h1v1h-1zM5,16h1v1h-1zM17,16h1v1h-1zM6,17h1v1h-1zM16,17h1v1h-1zM6,18h1v1h-1zM16,18h1v1h-1zM7,19h1v1h-1zM15,19h1v1h-1zM8,20h1v1h-1zM14,20h1v1h-1zM9,21h1v1h-1zM13,21h1v1h-1zM10,22h1v1h-1zM12,22h1v1h-1zM11,23h1v1h-1z"/>
+    <path android:fillColor="#FF948AA0" android:pathData="M4,2h1v1h-1zM4,3h2v1h-2zM4,4h1v1h-1zM6,4h1v1h-1zM4,5h4v1h-4zM4,6h5v1h-5zM3,7h11v1h-11zM3,8h11v1h-11zM3,9h11v1h-11zM3,10h4v1h-4zM9,10h5v1h-5zM3,11h11v1h-11zM3,12h11v1h-11zM4,13h10v1h-10zM5,14h3v1h-3zM5,15h4v1h-4zM6,16h3v1h-3zM7,17h3v1h-3zM7,18h3v1h-3zM13,18h1v1h-1zM8,19h3v1h-3zM13,19h1v1h-1zM9,20h2v1h-2zM13,20h1v1h-1zM10,21h3v1h-3zM11,22h1v1h-1z"/>
+    <path android:fillColor="#FF6A5C70" android:pathData="M18,2h1v1h-1zM17,3h2v1h-2zM16,4h1v1h-1zM18,4h1v1h-1zM15,5h4v1h-4zM14,6h5v1h-5zM14,7h6v1h-6zM14,8h6v1h-6zM14,9h6v1h-6zM16,10h4v1h-4zM14,11h6v1h-6zM14,12h6v1h-6zM14,13h5v1h-5zM15,14h3v1h-3zM14,15h4v1h-4zM14,16h3v1h-3zM14,17h2v1h-2zM14,18h2v1h-2zM14,19h1v1h-1z"/>
+    <path android:fillColor="#FFFF9B8A" android:pathData="M5,4h1v1h-1zM17,4h1v1h-1z"/>
+    <path android:fillColor="#FFF2C24B" android:pathData="M7,10h1v1h-1zM15,10h1v1h-1z"/>
+    <path android:fillColor="#FF1A1420" android:pathData="M8,10h1v1h-1zM14,10h1v1h-1zM11,18h2v1h-2z"/>
+    <path android:fillColor="#FFE2D6BC" android:pathData="M8,14h7v1h-7zM9,15h5v1h-5zM9,16h5v1h-5zM10,17h4v1h-4zM10,18h1v1h-1zM11,19h2v1h-2zM11,20h2v1h-2z"/>
+</vector>

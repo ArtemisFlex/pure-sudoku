@@ -38,6 +38,40 @@ object CardArt {
         11 -> R.drawable.art_dark_knight
         12 -> R.drawable.art_dark_queen
         13 -> R.drawable.art_lich_king
+        1 -> R.drawable.art_rg_wolf
+        else -> when (Cards.suit(c)) { 2 -> R.drawable.art_rg_heal; 1 -> R.drawable.art_rg_draw; 0 -> R.drawable.art_rg_hammer; else -> R.drawable.art_rg_shield }
+    }
+
+    /** Dungeon Solitaire's own tomb monsters (2..10). */
+    fun tombMonster(r: Int) = when {
+        r <= 4 -> R.drawable.art_ds_bat
+        r <= 7 -> R.drawable.art_ds_spider
+        else -> R.drawable.art_ds_mummy
+    }
+
+    /** Cuttle: each rank shows what it does. */
+    fun cuttle(c: Int) = when (Cards.rank(c)) {
+        1 -> R.drawable.art_cut_purge
+        2 -> R.drawable.art_cut_counter
+        3 -> R.drawable.art_cut_salvage
+        4 -> R.drawable.art_cut_discard
+        5 -> R.drawable.art_cut_draw
+        6 -> R.drawable.art_cut_topple
+        7 -> R.drawable.art_cut_reveal
+        8 -> R.drawable.art_cut_glasses
+        9 -> R.drawable.art_cut_return
+        10 -> R.drawable.art_cut_gem
+        11 -> R.drawable.art_cut_steal
+        12 -> R.drawable.art_cut_tower
+        else -> R.drawable.art_cut_crown
+    }
+
+    /** Dungeon Delver: the face cards and Aces of the deep. */
+    fun delver(c: Int) = when (Cards.rank(c)) {
+        1 -> R.drawable.art_dd_lantern
+        11 -> R.drawable.art_dd_delver
+        12 -> R.drawable.art_dd_oracle
+        13 -> R.drawable.art_dd_wyvern
         else -> 0
     }
 
@@ -47,10 +81,10 @@ object CardArt {
         val r = Cards.rank(c); val s = Cards.suit(c)
         return when {
             r == 1 -> R.drawable.art_torch
-            r == 11 -> when (s) { 3 -> R.drawable.art_battleaxe; 1 -> R.drawable.art_dagger; 0 -> R.drawable.art_key; else -> R.drawable.art_boot }
+            r == 11 -> when (s) { 3 -> R.drawable.art_ds_berserk; 1 -> R.drawable.art_ds_disarm; 0 -> R.drawable.art_key; else -> R.drawable.art_boot }
             r == 12 -> R.drawable.art_blessing
             r == 13 -> R.drawable.art_chest
-            encounter -> when (s) { 3 -> monster(r); 1 -> R.drawable.art_trap; else -> R.drawable.art_door }
+            encounter -> when (s) { 3 -> tombMonster(r); 1 -> R.drawable.art_trap; else -> R.drawable.art_door }
             s == 1 -> R.drawable.art_coins
             else -> 0
         }

@@ -758,11 +758,11 @@ private fun Field(points: List<PointCard>, royals: List<Int>, w: Dp) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (points.isEmpty() && royals.isEmpty()) Text("—", color = LocalBoardColors.current.note, modifier = Modifier.padding(vertical = 18.dp))
         for (pc in points) Box(Modifier.width(w + 12.dp * pc.jacks.size)) {
-            PopCard(pc.card, true, w)
-            pc.jacks.forEachIndexed { i, j -> PopCard(j, true, w, Modifier.offset(x = 12.dp * (i + 1), y = 10.dp)) }
+            PopCard(pc.card, true, w, art = CardArt.cuttle(pc.card))
+            pc.jacks.forEachIndexed { i, j -> PopCard(j, true, w, Modifier.offset(x = 12.dp * (i + 1), y = 10.dp), art = CardArt.cuttle(j)) }
         }
         if (royals.isNotEmpty() && points.isNotEmpty()) Spacer(Modifier.width(8.dp))
-        for (r in royals) PopCard(r, true, w)
+        for (r in royals) PopCard(r, true, w, art = CardArt.cuttle(r))
     }
 }
 
@@ -780,7 +780,7 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy((-20).dp)) {
             val see = g.glasses(0)
-            for (c in g.hands[1]) PopCard(if (see) c else 0, see, 40.dp)
+            for (c in g.hands[1]) PopCard(if (see) c else 0, see, 40.dp, art = if (see) CardArt.cuttle(c) else 0)
         }
         Spacer(Modifier.height(6.dp))
         Field(g.points[1], g.royals[1], 50.dp)
@@ -816,10 +816,10 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         if (prompt.isNotEmpty()) Text(prompt, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
 
-        if (w is CWait.Seven && s.actor() == 0) { PopCard(w.card, true, 64.dp, highlight = true); Spacer(Modifier.height(8.dp)) }
+        if (w is CWait.Seven && s.actor() == 0) { PopCard(w.card, true, 64.dp, highlight = true, art = CardArt.cuttle(w.card)); Spacer(Modifier.height(8.dp)) }
         if (w is CWait.ScrapPick && s.actor() == 0) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (c in g.scrap.distinct()) PopCard(c, true, 48.dp) { s.pickScrap(c) }
+                for (c in g.scrap.distinct()) PopCard(c, true, 48.dp, art = CardArt.cuttle(c)) { s.pickScrap(c) }
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -840,7 +840,7 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (c in g.hands[0].sortedBy { Cuttle.r(it) * 4 + Cards.suit(it) }) {
                 val sel = c == s.selected || c in s.discards
-                PopCard(c, true, 56.dp, Modifier.demoTarget(targets, "h-$c"), highlight = sel, lift = sel) { s.select(c) }
+                PopCard(c, true, 56.dp, Modifier.demoTarget(targets, "h-$c"), highlight = sel, lift = sel, art = CardArt.cuttle(c)) { s.select(c) }
             }
         }
         Spacer(Modifier.height(12.dp))

@@ -401,7 +401,7 @@ class PyramidSession(
 
     private fun pick(sel: Int) {
         val c = cardOf(sel)
-        if (Cards.rank(c) == 13) { remove(listOf(sel)); message = "A King falls alone — a dragon slain!"; return }
+        if (Cards.rank(c) == 13) { remove(listOf(sel)); message = "A King falls alone: the wyvern is slain!"; return }
         val prev = selected
         if (prev < 0 || prev == sel) { selected = if (prev == sel) -1 else sel; version++; return }
         val a = cardOf(prev)
@@ -569,12 +569,12 @@ private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
                 val r = PyramidRules.row(i); val kk = i - PyramidRules.index(r, 0)
                 val x = left + cw * 1.03f * (kk + (6 - r) / 2f)
                 cards += Placed(deal.pyramid[i], x, rowStep * r, true, r.toFloat(), highlight = s.selected == i, dim = !s.exposed(i),
-                    tag = "pyr-$i", onTap = { s.tapPyramid(i) })
+                    tag = "pyr-$i", onTap = { s.tapPyramid(i) }, art = CardArt.delver(deal.pyramid[i]))
             }
             for (i in 0 until 24) if (i >= s.pos && s.stockLeft(i)) cards += Placed(deal.stock[i], stockX, stockY, false, 50f - i, onTap = { s.draw() })
             val w = s.wasteTop
             for (i in 0 until s.pos) if (s.stockLeft(i)) cards += Placed(deal.stock[i], wasteX, stockY, true, 60f + i,
-                highlight = s.selected == 100 + i && i == w, tag = if (i == w) "waste" else null, onTap = { if (i == w) s.tapWaste() })
+                highlight = s.selected == 100 + i && i == w, tag = if (i == w) "waste" else null, onTap = { if (i == w) s.tapWaste() }, art = CardArt.delver(deal.stock[i]))
             androidx.compose.runtime.key(s.floor) { CardLayer(cards, cw, s.errorFx, targets, from = DpOffset(maxWidth / 2, stockY)) }
         }
     }

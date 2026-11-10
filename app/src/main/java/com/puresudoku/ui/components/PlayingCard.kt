@@ -161,6 +161,7 @@ fun MovingCard(
     error: Boolean = false,
     shake: Float = 0f,
     modifier: Modifier = Modifier,
+    art: Int = 0,
 ) {
     val anim = remember(card) { Animatable(from ?: target, DpOffset.VectorConverter) }
     val first = remember(card) { booleanArrayOf(true) }
@@ -174,6 +175,6 @@ fun MovingCard(
         card, faceUp, width,
         // offset first, so taps and tutorial pointers land where the card is drawn
         Modifier.zIndex(z).offset { IntOffset((anim.value.x + shake.dp).roundToPx(), anim.value.y.roundToPx()) }.then(modifier),
-        highlight = highlight, dim = dim, error = error,
+        highlight = highlight, dim = dim, error = error, art = art,
     )
 }
