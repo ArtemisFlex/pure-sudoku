@@ -10,7 +10,7 @@ import com.puresudoku.core.cards.Scoundrel
  * drawn in Sprite Studio; sources in tools/card_art). 0 means "plain card face".
  */
 object CardArt {
-    const val JESTER = R.drawable.art_jester
+    val JESTER get() = R.drawable.art_jester
 
     /** A monster scaled to its strength (2..14). */
     fun monster(value: Int) = when {
