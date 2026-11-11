@@ -308,19 +308,20 @@ fun LevelScreen(vm: AppViewModel, kind: GameKind) {
                         Box(Modifier.size(10.dp, 42.dp).clip(RoundedCornerShape(50)).background(d.accent()))
                         HSpace(16)
                         Column(Modifier.weight(1f)) {
-                            Text(d.label, style = MaterialTheme.typography.titleLarge)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(d.label, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1)
+                                if (best > 0) Text("Best ${formatTime(best)}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                            }
                             Text(def.levelBlurb(d), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(def.levelInfo(d), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
                             Spacer(Modifier.height(8.dp))
                             Surface(
                                 onClick = { vm.startTraining(kind, d) }, shape = RoundedCornerShape(50),
                                 color = d.accent().copy(alpha = 0.16f), contentColor = MaterialTheme.colorScheme.onSurface,
                             ) {
-                                Text("Training wheels", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
+                                Text("Training wheels", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
                             }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(def.levelInfo(d), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (best > 0) Text("Best ${formatTime(best)}", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
