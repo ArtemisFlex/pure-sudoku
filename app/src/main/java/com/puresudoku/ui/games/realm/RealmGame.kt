@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,6 +79,7 @@ import com.puresudoku.core.board.RealmMap
 import com.puresudoku.ui.components.GameIcon
 import com.puresudoku.ui.games.GameDef
 import com.puresudoku.ui.games.board.CellTargets
+import com.puresudoku.ui.games.board.AiWorker
 import com.puresudoku.ui.games.board.DuelSession
 import com.puresudoku.ui.games.board.coachRings
 import com.puresudoku.ui.games.board.glyph
@@ -118,6 +120,59 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     var rollId by mutableIntStateOf(0); private set
     var events by mutableStateOf<List<String>>(emptyList()); private set
 
+    // ---------------- heralds: one card per rival action, shown in order
+
+    internal var herald by mutableStateOf<Herald?>(null); private set
+    private val heraldQ = ArrayDeque<Herald>()
+    private var heraldId = 0
+    private var heraldToken = 0
+    private var afterHeralds: (() -> Unit)? = null
+    val heraldBusy get() = herald != null || heraldQ.isNotEmpty()
+
+    private fun announce(icon: RI, title: String, detail: String = "", ms: Long = 1700, mine: Boolean = false) {
+        heraldQ += Herald(++heraldId, icon, title, detail, ms, mine)
+        if (herald == null) nextHerald()
+    }
+
+    private fun nextHerald() {
+        val h = heraldQ.removeFirstOrNull()
+        herald = h; bump()
+        if (h == null) { val f = afterHeralds; afterHeralds = null; f?.invoke(); return }
+        val tok = ++heraldToken
+        AiWorker.later(h.ms) { if (tok == heraldToken) nextHerald() }
+    }
+
+    /** Tap on a card: move straight on to the next one. */
+    fun skipHerald() { if (herald != null) { heraldToken++; nextHerald() } }
+
+    private fun whenQuiet(f: () -> Unit) { if (!heraldBusy) f() else afterHeralds = f }
+
+    private fun spotWords(v: Int): String {
+        val names = listOf("forest", "mountain", "fields", "meadow", "spires", "waste")
+        val parts = RealmMap.vertHexes[v].filter { g.revealed[it] && g.terrain[it] != Realm.WASTE }.map { "${g.number[it]} ${names[g.terrain[it]]}" }
+        return if (parts.isEmpty()) "On the edge of the unknown" else "Touching " + parts.joinToString(", ")
+    }
+
+    private fun rivalCard(a: RAct, tradeRate: Int, logs: List<String>) {
+        val quiet = listOf("Rival bought", "Rival discarded", "Rival cast", "Rival sent a Knight", "Rival burned a road")
+        val rest = logs.filter { l -> quiet.none { l.startsWith(it) } }
+        fun detail(vararg first: String) = (first.toList() + rest).filter { it.isNotEmpty() }.joinToString("\n")
+        when (a) {
+            RAct.Roll -> announce(RI.DICE, "Rival rolls ${g.lastDie[0]} + ${g.lastDie[1]} = ${g.lastRoll}",
+                detail(if (g.lastRoll == 7) "The dragon wakes!" else if (rest.isEmpty()) "Nobody collects anything" else ""), 2000)
+            is RAct.Village -> announce(RI.VILLAGE, "Rival builds a village", detail(spotWords(a.v)))
+            is RAct.Tower -> announce(RI.TOWER, "Rival raises a tower", detail("It now collects double: " + spotWords(a.v).lowercase()))
+            is RAct.Road -> announce(RI.ROAD, if (g.phase == Realm.SETUP || g.setupStep in 1..3) "Rival lays a road" else "Rival builds a road", detail())
+            is RAct.Dragon -> announce(RI.DRAGON, "Rival sends the dragon to the ${Realm.TERRAIN[g.terrain[a.tile]].lowercase()}", detail())
+            is RAct.Discard -> announce(RI.DRAGON, "Rival discards ${a.counts.sum()} cards", detail("Too many cards when the 7 came"))
+            is RAct.Trade -> announce(RI.TRADE, "Rival trades with the merchant", detail("$tradeRate ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}"))
+            RAct.BuySpell -> announce(RI.SCROLL, "Rival learns a spell", detail("It's hidden until cast"))
+            is RAct.Spell -> announce(spellIcon(a.kind), "Rival casts ${Realm.SPELLS[a.kind]}", detail(Realm.SPELL_TEXT[a.kind]), 2000)
+            RAct.End -> announce(RI.END, "Rival ends its turn", detail())
+            is RAct.Offer -> {}
+        }
+    }
+
     private val lvl get() = RealmAi.level(aiDifficulty)
 
     override val middleStat get() = MiddleStat.Counter("Points", "${g.vp(0)}/${g.target}")
@@ -126,7 +181,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     override val lostTitle get() = "Your rival rules the realm"
     override val lostMessage get() = "The rival reached ${g.vp(1)} points. This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && g.actor == 0 && offer == null && g.phase != Realm.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.actor == 0 && offer == null && g.phase != Realm.OVER
 
     fun vertexTargets(): List<Int> = when {
         !myMove -> emptyList()
@@ -204,7 +259,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         if (accept && g.legal(o)) { g.apply(o, rng); events = (events + "You took the rival's deal").takeLast(4); g.log.clear() }
         else events = (events + "You turned down the deal").takeLast(4)
         bump(); changed()
-        aiStep()
+        whenQuiet { aiStep() }
     }
 
     private fun code(a: RAct): Int = when (a) {
@@ -225,9 +280,15 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
             if (a == RAct.End) { aiOffered = false; moves++ }
             if (a == RAct.Roll) rollId++
             code(a).let { if (it >= 0) lastAi = it }
-            g.apply(a, rng); flush(); changed()
-            if (g.phase == Realm.OVER) { finishGame(); return@computer }
-            aiStep()
+            val rate = if (a is RAct.Trade) g.portRate(1, a.give) else 0
+            g.apply(a, rng)
+            val logs = g.log.toList(); flush(); changed()
+            rivalCard(a, rate, logs)
+            if (g.phase == Realm.OVER) { whenQuiet { finishGame() }; return@computer }
+            if (g.actor == 0 && g.phase == Realm.ROLL) announce(RI.DICE, "Your turn", "Roll the dice", 1200, mine = true)
+            else if (g.actor == 0 && g.phase == Realm.SETUP) announce(RI.VILLAGE, "Your turn", "Place your village", 1200, mine = true)
+            else if (g.actor == 0 && g.phase == Realm.DISCARD) announce(RI.DRAGON, "You must discard", "You hold more than 7 cards", 1400, mine = true)
+            whenQuiet { aiStep() }
         }
     }
 
@@ -240,6 +301,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
         offer != null -> "The rival offers a deal"
+        heraldBusy -> "Watch the rival's moves · tap a card to skip"
         thinking || g.actor == 1 -> when (g.phase) {
             Realm.SETUP -> "The rival is choosing where to settle…"
             Realm.DISCARD -> "The rival is discarding…"
@@ -298,6 +360,8 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         }
     }
 }
+
+internal class Herald(val id: Int, val icon: RI, val title: String, val detail: String, val ms: Long, val mine: Boolean)
 
 // =====================================================================  game definitions
 
@@ -724,7 +788,10 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
         Spacer(Modifier.height(4.dp))
         TwistChip(g)
         Spacer(Modifier.height(2.dp))
-        RealmBoard(s, targets, Modifier.fillMaxWidth().weight(1f))
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            RealmBoard(s, targets, Modifier.fillMaxSize())
+            HeraldCard(s, Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp, vertical = 8.dp))
+        }
         // dice + chronicle
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (g.lastRoll > 0) {
@@ -742,7 +809,7 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
             for (r in 0..4) ResChip(r, g.res[0][r], Modifier.weight(1f))
         }
         Spacer(Modifier.height(6.dp))
-        PromptRibbon(s.prompt, s.thinking || (g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
+        PromptRibbon(s.prompt, s.thinking || s.heraldBusy || (g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
         Spacer(Modifier.height(6.dp))
         val offer = s.offer
         when {
@@ -908,4 +975,34 @@ private fun SpellsDialog(s: RealmSession, onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
     )
+}
+
+/** The rival's current action, as a card over the board. Tap to skip ahead. */
+@Composable
+private fun HeraldCard(s: RealmSession, modifier: Modifier = Modifier) {
+    androidx.compose.animation.AnimatedContent(
+        s.herald, modifier = modifier, label = "herald",
+        transitionSpec = {
+            (androidx.compose.animation.slideInVertically { it / 2 } + androidx.compose.animation.fadeIn(tween(220))) togetherWith
+                androidx.compose.animation.fadeOut(tween(150))
+        },
+    ) { h ->
+        if (h == null) { Spacer(Modifier.height(1.dp)); return@AnimatedContent }
+        val accent = if (h.mine) YOU else RIVAL
+        val time = remember(h.id) { Animatable(1f) }
+        LaunchedEffect(h.id) { time.animateTo(0f, tween(h.ms.toInt(), easing = androidx.compose.animation.core.LinearEasing)) }
+        Column(Modifier.fillMaxWidth().clip(PANEL).parchment(PANEL, accent, 2.dp).clickable { s.skipHerald() }) {
+            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(46.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)).border(1.5.dp, accent, CircleShape), contentAlignment = Alignment.Center) {
+                    RIcon(32.dp) { c, sz -> actionIcon(h.icon, c, sz) }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    InkText(h.title, 16, bold = true)
+                    if (h.detail.isNotEmpty()) InkText(h.detail, 13, color = INK_SOFT)
+                }
+            }
+            Box(Modifier.fillMaxWidth(time.value).height(3.dp).background(accent))
+        }
+    }
 }
