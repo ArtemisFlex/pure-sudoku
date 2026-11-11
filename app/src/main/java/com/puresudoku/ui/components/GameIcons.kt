@@ -33,6 +33,7 @@ fun gameLogoRes(kind: GameKind): Int = when (kind) {
     GameKind.REALM_DRAGON -> com.puresudoku.R.drawable.rt_logo_wyrm
     GameKind.REALM_NIGHT -> com.puresudoku.R.drawable.rt_logo_night
     GameKind.WISTERIA -> com.puresudoku.R.drawable.rt_logo_wisteria
+    GameKind.KREASHUN -> com.puresudoku.R.drawable.rt_logo_kreashun
     else -> 0
 }
 
@@ -99,6 +100,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.REALM_DRAGON -> realmIcon(colors, o, inner, 1)
             GameKind.REALM_NIGHT -> realmIcon(colors, o, inner, 2)
             GameKind.WISTERIA -> realmIcon(colors, o, inner, 0)
+            GameKind.KREASHUN -> realmIcon(colors, o, inner, 0)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),

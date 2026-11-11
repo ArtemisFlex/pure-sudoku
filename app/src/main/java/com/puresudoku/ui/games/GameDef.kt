@@ -95,6 +95,7 @@ object Games {
             com.puresudoku.ui.games.realm.RealmDragonDef,
             com.puresudoku.ui.games.realm.RealmNightDef,
             com.puresudoku.ui.games.realm.WisteriaDef,
+            com.puresudoku.ui.games.realm.KreashunDef,
         )
     }
 

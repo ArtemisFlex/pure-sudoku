@@ -55,6 +55,21 @@ object StrategyLessons {
             listOf("Castles are worth 3 and take three hits: build them deep inside your land.", "Strike when the rival can't afford to retake the land."),
             listOf("Time your last upgrades so you win before the dragon or an army arrives.", "Break walls with Siege Fire right before your army lands."),
         )),
+        GameKind.KREASHUN to Course(listOf(
+            "Roll each turn: tiles with that number pay every village on their corners, towers twice. Tiles you hold pay your corner buildings double.",
+            "Walls go on sides joined to your villages, walls or tiles. Wall every side of a tile, coast included, to capture it: whoever builds the closing wall takes it.",
+            "Each tile you hold is worth a point. Fell a rival castle for one more. Reach the points goal to win; drop back to 0 after scoring and you lose.",
+            "Held tiles can raise a castle (3 hit points) and hire knights: 2 on a bare tile, 3 in a castle.",
+            "A knight strikes a touching rival tile: it breaks the wall on that side first. Broken walls are rubble and are never rebuilt.",
+            "Once that side is open, a hit takes a tile with no castle, or knocks a point off a castle. A tile taken by force brings its walls, villages, towers and knights with it; one taken from a felled castle rebuilds its castle at half price.",
+        ), listOf(
+            listOf("Settle on 6s and 8s, touching tiles you can wall in.", "Count the sides: a tile at 5 of 6 is a gift to whoever closes it."),
+            listOf("Share walls: one wall closes a side of two tiles at once.", "Wall tiles your villages touch: they'll pay double."),
+            listOf("Never leave a tile one wall from closed where the rival can reach it.", "Towers on held tiles pay four times: build them there."),
+            listOf("Castle the tiles that touch the rival.", "Hire knights in pairs: one breaks the wall, the next takes the tile."),
+            listOf("Strike bare tiles before the rival can castle them.", "A felled castle is a point and a half-price rebuild for you."),
+            listOf("Watch the rival's only tiles: taking their last one wins.", "Plan the closing wall two turns ahead."),
+        )),
         GameKind.REALM_NIGHT to Course(basics + "Rounds alternate day and night. At night crystal spires pay double mana, and the dragon raids the leader's best tile.", levels(listOf(
             "Crystal spires are worth more here: settle one early.",
             "Use night mana for roads and villages.",
