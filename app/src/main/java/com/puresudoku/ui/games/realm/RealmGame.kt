@@ -360,7 +360,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
     @Composable
     override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) {
         val version = when (twist) { Realm.WAKE -> "Wyrmrise · "; Realm.NIGHT -> "Nightfall · "; else -> "" }
-        Box(Modifier.fillMaxWidth().height(92.dp)) {
+        Box(Modifier.fillMaxWidth().height(52.dp)) {
             RoundArtButton(Modifier.align(Alignment.CenterStart), onClick = actions.back) {
                 RIcon(20.dp) { c, sz ->
                     drawLine(PARCH_TOP, c + Offset(sz * 0.35f, 0f), c - Offset(sz * 0.35f, 0f), sz * 0.14f, StrokeCap.Round)
@@ -369,8 +369,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
                 }
             }
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                ArtImg(com.puresudoku.R.drawable.rt_logo, 64.dp, Modifier.width(150.dp))
-                Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(session.difficulty.accent()))
                     Spacer(Modifier.width(5.dp))
                     Text((if (session.training) "Training · " else "") + version + session.difficulty.label, fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = INK)
@@ -847,7 +846,7 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
         // top edge: both players and the version's twist
         Column(
             Modifier.align(Alignment.TopCenter).fillMaxWidth().onSizeChanged { topH = it.height }
-                .then(if (full) Modifier.statusBarsPadding().padding(top = 92.dp) else Modifier).padding(top = 4.dp),
+                .then(if (full) Modifier.statusBarsPadding().padding(top = 54.dp) else Modifier).padding(top = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             ScoreBar(s)
