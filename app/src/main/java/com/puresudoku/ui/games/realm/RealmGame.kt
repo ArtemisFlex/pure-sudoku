@@ -1050,17 +1050,16 @@ internal class RealmArt(val frame: ImageBitmap, val fog: List<ImageBitmap>, priv
 @Composable
 internal fun rememberRealmArt(): RealmArt {
     @Composable fun img(id: Int) = ImageBitmap.imageResource(id)
-    val R = com.puresudoku.R.drawable
     return RealmArt(
-        img(R.rt_frame),
-        listOf(img(R.rt_fog_1), img(R.rt_fog_2)),
+        img(com.puresudoku.R.drawable.rt_frame),
+        listOf(img(com.puresudoku.R.drawable.rt_fog_1), img(com.puresudoku.R.drawable.rt_fog_2)),
         listOf(
-            listOf(img(R.rt_timber_1), img(R.rt_timber_2), img(R.rt_timber_3), img(R.rt_timber_4)),
-            listOf(img(R.rt_ore_1), img(R.rt_ore_2), img(R.rt_ore_3), img(R.rt_ore_4)),
-            listOf(img(R.rt_grain_1), img(R.rt_grain_2)),
-            listOf(img(R.rt_beasts_1), img(R.rt_beasts_2), img(R.rt_beasts_3), img(R.rt_beasts_4), img(R.rt_beasts_5)),
-            listOf(img(R.rt_mana_1), img(R.rt_mana_2), img(R.rt_mana_3)),
-            listOf(img(R.rt_waste_1)),
+            listOf(img(com.puresudoku.R.drawable.rt_timber_1), img(com.puresudoku.R.drawable.rt_timber_2), img(com.puresudoku.R.drawable.rt_timber_3), img(com.puresudoku.R.drawable.rt_timber_4)),
+            listOf(img(com.puresudoku.R.drawable.rt_ore_1), img(com.puresudoku.R.drawable.rt_ore_2), img(com.puresudoku.R.drawable.rt_ore_3), img(com.puresudoku.R.drawable.rt_ore_4)),
+            listOf(img(com.puresudoku.R.drawable.rt_grain_1), img(com.puresudoku.R.drawable.rt_grain_2)),
+            listOf(img(com.puresudoku.R.drawable.rt_beasts_1), img(com.puresudoku.R.drawable.rt_beasts_2), img(com.puresudoku.R.drawable.rt_beasts_3), img(com.puresudoku.R.drawable.rt_beasts_4), img(com.puresudoku.R.drawable.rt_beasts_5)),
+            listOf(img(com.puresudoku.R.drawable.rt_mana_1), img(com.puresudoku.R.drawable.rt_mana_2), img(com.puresudoku.R.drawable.rt_mana_3)),
+            listOf(img(com.puresudoku.R.drawable.rt_waste_1)),
         ),
     )
 }
