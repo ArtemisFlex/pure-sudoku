@@ -38,6 +38,9 @@ interface GameDef {
     fun background(session: Session): Int = 0
 
     /** A fixed Easy training game with a scripted lesson, or null to use the coached game. */
+    /** The game draws edge to edge under the top bar, and hides the status row and hint. */
+    val fullBleed: Boolean get() = false
+
     fun lesson(): Pair<Session, List<com.puresudoku.ui.session.LessonStep>>? = null
 
     val tutorial: List<TutorialStep>

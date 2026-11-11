@@ -83,6 +83,7 @@ fun PlayScreen(vm: AppViewModel) {
                 Backdrop(res)
             }
         }
+        if (def.fullBleed) Box(Modifier.fillMaxSize()) { def.Play(session) }
         ShadowedText(backdrop != 0) {
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
@@ -110,17 +111,19 @@ fun PlayScreen(vm: AppViewModel) {
                     Icon(if (vm.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = "Pause")
                 }
             }
-            StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
-            Text(
-                def.hint(session.difficulty),
-                fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            )
+            if (!def.fullBleed) {
+                StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
+                Text(
+                    def.hint(session.difficulty),
+                    fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
 
             var coachOpen by remember(session) { mutableStateOf(session.training) }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                def.Play(session)
+                if (!def.fullBleed) def.Play(session)
                 NudgePill(session, Modifier.align(Alignment.TopCenter))
                 if (session !is com.puresudoku.ui.games.realm.RealmSession) com.puresudoku.ui.components.HeraldOverlay(session, def, Modifier.align(Alignment.TopCenter))
                 if (session.training) com.puresudoku.ui.training.CoachPanel(

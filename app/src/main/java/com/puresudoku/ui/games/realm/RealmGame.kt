@@ -52,6 +52,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -344,6 +347,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
 abstract class RealmDefBase(final override val kind: GameKind, private val twist: Int) : GameDef {
     override fun generate(d: Difficulty): Session = RealmSession(kind, d, Realm.newGame(twist, d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = RealmSession.restore(kind, o).also { it.resume() }
+    override val fullBleed: Boolean get() = true
     override fun levelInfo(d: Difficulty) = "First to ${Realm.target(d)} points · " + if (d.ordinal <= 1) "fair dice deck" else "real dice"
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A careless rival who offers generous deals."
@@ -412,9 +416,11 @@ object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
 
 // =====================================================================  board geometry
 
-private class RGeo(val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero) {
-    val unit = min(w, h) / 10.5f * zoom
-    val cx = w / 2 + pan.x; val cy = h / 2 + pan.y
+/** Board layout: at zoom 1 the board fits the gap between [top] and [bottom] (px); zoomed, it spreads under everything. */
+private class RGeo(val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f) {
+    val fh = (h - top - bottom).coerceAtLeast(h * 0.35f)
+    val unit = min(w, fh) / 10.4f * zoom
+    val cx = w / 2 + pan.x; val cy = top + fh / 2 + pan.y
     fun pt(x: Float, y: Float) = Offset(cx + x * unit, cy + y * unit)
     fun vert(v: Int) = pt(RealmMap.vertX[v], RealmMap.vertY[v])
     fun hex(h: Int) = pt(RealmMap.hexX[h], RealmMap.hexY[h])
@@ -515,7 +521,7 @@ private fun DrawScope.drawDragon(c: Offset, u: Float, alpha: Float) {
 }
 
 @Composable
-fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modifier) {
+fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modifier, fitTop: Float = 0f, fitBottom: Float = 0f) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
@@ -525,13 +531,16 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
     BoxWithConstraints(modifier.clipToBounds()) {
         val wDp = maxWidth; val hDp = maxHeight
         val wPx = with(LocalDensity.current) { wDp.toPx() }; val hPx = with(LocalDensity.current) { hDp.toPx() }
+        val fitH = (hPx - fitTop - fitBottom).coerceAtLeast(hPx * 0.35f)
+        val home = Offset(wPx / 2, fitTop + fitH / 2)
         fun clampPan(p: Offset, z: Float): Offset {
-            val r = min(wPx, hPx) / 2f * z
-            val mx = (r - wPx / 2f + wPx * 0.2f).coerceAtLeast(0f); val my = (r - hPx / 2f + hPx * 0.2f).coerceAtLeast(0f)
+            if (z <= 1.001f) return Offset.Zero
+            val r = min(wPx, fitH) / 2f * z
+            val mx = (r - wPx / 2f + wPx * 0.3f).coerceAtLeast(0f); val my = (r - hPx / 2f + hPx * 0.3f).coerceAtLeast(0f)
             return Offset(p.x.coerceIn(-mx, mx), p.y.coerceIn(-my, my))
         }
-        fun zoomBy(k: Float, focus: Offset = Offset(wPx / 2, hPx / 2)) {
-            val nz = (zoom * k).coerceIn(1f, 3.5f); val f = focus - Offset(wPx / 2, hPx / 2)
+        fun zoomBy(k: Float, focus: Offset = home) {
+            val nz = (zoom * k).coerceIn(1f, 4f); val f = focus - home
             pan = clampPan((pan - f) * (nz / zoom) + f, nz); zoom = nz
         }
         Box(Modifier.fillMaxSize()) {
@@ -542,14 +551,14 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 }
             }.pointerInput(s, vT, eT, tT) {
                 detectTapGestures { o ->
-                    val geo = RGeo(size.width.toFloat(), size.height.toFloat(), zoom, pan)
+                    val geo = RGeo(size.width.toFloat(), size.height.toFloat(), zoom, pan, fitTop, fitBottom)
                     val reach = maxOf(geo.unit * 0.55f, 18.dp.toPx())
                     nearest(o, vT, geo::vert, reach)?.let { s.tapVertex(it); return@detectTapGestures }
                     nearest(o, eT, geo::edgeMid, reach)?.let { s.tapEdge(it); return@detectTapGestures }
                     nearest(o, tT, geo::hex, geo.unit * 0.9f)?.let { s.tapTile(it) }
                 }
             }) {
-                val geo = RGeo(size.width, size.height, zoom, pan); val u = geo.unit
+                val geo = RGeo(size.width, size.height, zoom, pan, fitTop, fitBottom); val u = geo.unit
                 // sea
                 drawCircle(Brush.radialGradient(listOf(Color(0xFF3B8FC2), Color(0xFF1C4E7A)), center = Offset(geo.cx, geo.cy), radius = u * 5.4f), u * 5.15f, Offset(geo.cx, geo.cy))
                 // portals
@@ -624,7 +633,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 if (cf >= 0) coachRings(listOf(when { cf >= 200 -> geo.hex(cf - 200); cf >= 100 -> geo.edgeMid(cf - 100); else -> geo.vert(cf) }), u * 0.4f)
             }
             if (targets != null) {
-                val geo = RGeo(wPx, hPx)
+                val geo = RGeo(wPx, hPx, 1f, Offset.Zero, fitTop, fitBottom)
                 val r = geo.unit * 0.3f
                 CellTargets(targets, (0 until RealmMap.VERTS).map { "v-$it" to Rect(geo.vert(it), r) } + (0 until RealmMap.EDGES).map { "e-$it" to Rect(geo.edgeMid(it), r) })
             }
@@ -754,75 +763,91 @@ private fun PromptRibbon(text: String, busy: Boolean) {
 fun RealmUi(s: RealmSession, targets: DemoTargets?) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
+    val full = targets == null
     var showTrade by remember { mutableStateOf(false) }
     var showSpells by remember { mutableStateOf(false) }
+    var topH by remember { mutableIntStateOf(0) }
+    var botH by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
     val shake = remember(s.rollId) { Animatable(0f) }
     LaunchedEffect(s.rollId) { shake.animateTo(0f, keyframes { durationMillis = 420; 14f at 60; -10f at 140; 6f at 220; -3f at 320 }) }
 
-    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        ScoreBar(s)
-        Spacer(Modifier.height(4.dp))
-        TwistChip(g)
-        Spacer(Modifier.height(2.dp))
-        Box(Modifier.fillMaxWidth().weight(1f)) {
-            RealmBoard(s, targets, Modifier.fillMaxSize())
-            HeraldCard(s, Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp, vertical = 8.dp))
+    Box(Modifier.fillMaxSize()) {
+        RealmBoard(s, targets, Modifier.fillMaxSize(), topH.toFloat(), botH.toFloat())
+
+        // top edge: both players and the version's twist
+        Column(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth().onSizeChanged { topH = it.height }
+                .then(if (full) Modifier.statusBarsPadding().padding(top = 58.dp) else Modifier).padding(top = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ScoreBar(s)
+            Spacer(Modifier.height(4.dp))
+            TwistChip(g)
         }
-        // dice + chronicle
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (g.lastRoll > 0) {
-                Canvas(Modifier.size(58.dp, 28.dp)) {
-                    val d = size.height * 0.92f
-                    die(Offset(d / 2 + shake.value, size.height / 2), d, g.lastDie[0], g.lastRoll == 7)
-                    die(Offset(d * 1.65f - shake.value, size.height / 2), d, g.lastDie[1], g.lastRoll == 7)
+
+        HeraldCard(s, Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { botH.toDp() } + 6.dp).padding(horizontal = 12.dp))
+
+        // bottom edge: dice and chronicle, your resources, and what you can do
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { botH = it.height }
+                .then(if (full) Modifier.navigationBarsPadding() else Modifier).padding(bottom = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (g.lastRoll > 0) {
+                    Canvas(Modifier.size(50.dp, 24.dp)) {
+                        val d = size.height * 0.92f
+                        die(Offset(d / 2 + shake.value, size.height / 2), d, g.lastDie[0], g.lastRoll == 7)
+                        die(Offset(d * 1.65f - shake.value, size.height / 2), d, g.lastDie[1], g.lastRoll == 7)
+                    }
+                    Spacer(Modifier.width(6.dp))
                 }
-                Spacer(Modifier.width(6.dp))
+                InkText(s.events.lastOrNull() ?: "The chronicle of the realm begins…", 12, color = INK_SOFT, modifier = Modifier.weight(1f), lines = 2)
             }
-            InkText(s.events.takeLast(2).joinToString("\n").ifEmpty { "The chronicle of the realm begins…" }, 12, color = INK_SOFT, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (r in 0..4) ResChip(r, g.res[0][r], Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(6.dp))
-        PromptRibbon(s.prompt, s.thinking || s.heraldBusy || (g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
-        Spacer(Modifier.height(6.dp))
-        val offer = s.offer
-        when {
-            offer != null -> Column(Modifier.padding(horizontal = 12.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                InkText("The rival offers a deal", 14, bold = true)
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    InkText("You get ", 13); CostIcons(offer.give, 20.dp)
-                    InkText("   for ", 13); CostIcons(offer.want, 20.dp)
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (r in 0..4) ResChip(r, g.res[0][r], Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(5.dp))
+            PromptRibbon(s.prompt, s.thinking || s.heraldBusy || (g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
+            Spacer(Modifier.height(5.dp))
+            val offer = s.offer
+            when {
+                offer != null -> Column(Modifier.padding(horizontal = 12.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    InkText("The rival offers a deal", 14, bold = true)
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        InkText("You get ", 13); CostIcons(offer.give, 20.dp)
+                        InkText("   for ", 13); CostIcons(offer.want, 20.dp)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        WoodButton("Refuse", null) { s.answerOffer(false) }
+                        WoodButton("Deal", RI.TRADE) { s.answerOffer(true) }
+                    }
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    WoodButton("Refuse", null) { s.answerOffer(false) }
-                    WoodButton("Deal", RI.TRADE) { s.answerOffer(true) }
+                s.myMove && g.phase == Realm.DISCARD -> DiscardPanel(s)
+                s.myMove && g.phase == Realm.ROLL -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (g.canPlay(0, Realm.KNIGHT)) BuildButton("Knight first", RI.KNIGHT, null, false, true) { s.playSpell(Realm.KNIGHT) }
+                    WoodButton("Roll", RI.DICE, Modifier.demoTarget(targets, "roll")) { s.roll() }
                 }
+                s.myMove && g.phase == Realm.MAIN -> FlowRow(
+                    Modifier.fillMaxWidth().padding(horizontal = 6.dp).demoTarget(targets, "build"),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    val free = g.freeRoads > 0
+                    BuildButton("Road", RI.ROAD, Realm.COST_ROAD, s.mode == RealmSession.Mode.ROAD || free, !free && g.can(0, Realm.COST_ROAD)) { s.toggleMode(RealmSession.Mode.ROAD) }
+                    BuildButton("Village", RI.VILLAGE, Realm.COST_VILLAGE, s.mode == RealmSession.Mode.VILLAGE, !free && g.can(0, Realm.COST_VILLAGE)) { s.toggleMode(RealmSession.Mode.VILLAGE) }
+                    BuildButton("Tower", RI.TOWER, Realm.COST_TOWER, s.mode == RealmSession.Mode.TOWER, !free && g.can(0, Realm.COST_TOWER)) { s.toggleMode(RealmSession.Mode.TOWER) }
+                    BuildButton("Spell", RI.SCROLL, Realm.COST_SPELL, false, !free && g.can(0, Realm.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
+                    BuildButton("Trade", RI.TRADE, null, false, !free) { showTrade = true }
+                    BuildButton("Spells ${g.spells[0].sum()}", RI.BOOK, null, s.mode == RealmSession.Mode.FIREBALL, g.spells[0].sum() > 0) { showSpells = true }
+                    BuildButton("End turn", RI.END, null, false, !free) { s.endTurn() }
+                }
+                else -> Spacer(Modifier.height(44.dp))
             }
-            s.myMove && g.phase == Realm.DISCARD -> DiscardPanel(s)
-            s.myMove && g.phase == Realm.ROLL -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (g.canPlay(0, Realm.KNIGHT)) BuildButton("Knight first", RI.KNIGHT, null, false, true) { s.playSpell(Realm.KNIGHT) }
-                WoodButton("Roll", RI.DICE, Modifier.demoTarget(targets, "roll")) { s.roll() }
-            }
-            s.myMove && g.phase == Realm.MAIN -> FlowRow(
-                Modifier.fillMaxWidth().padding(horizontal = 6.dp).demoTarget(targets, "build"),
-                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                val free = g.freeRoads > 0
-                BuildButton("Road", RI.ROAD, Realm.COST_ROAD, s.mode == RealmSession.Mode.ROAD || free, !free && g.can(0, Realm.COST_ROAD)) { s.toggleMode(RealmSession.Mode.ROAD) }
-                BuildButton("Village", RI.VILLAGE, Realm.COST_VILLAGE, s.mode == RealmSession.Mode.VILLAGE, !free && g.can(0, Realm.COST_VILLAGE)) { s.toggleMode(RealmSession.Mode.VILLAGE) }
-                BuildButton("Tower", RI.TOWER, Realm.COST_TOWER, s.mode == RealmSession.Mode.TOWER, !free && g.can(0, Realm.COST_TOWER)) { s.toggleMode(RealmSession.Mode.TOWER) }
-                BuildButton("Spell", RI.SCROLL, Realm.COST_SPELL, false, !free && g.can(0, Realm.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
-                BuildButton("Trade", RI.TRADE, null, false, !free) { showTrade = true }
-                BuildButton("Spells ${g.spells[0].sum()}", RI.BOOK, null, s.mode == RealmSession.Mode.FIREBALL, g.spells[0].sum() > 0) { showSpells = true }
-                BuildButton("End turn", RI.END, null, false, !free) { s.endTurn() }
-            }
-            else -> Spacer(Modifier.height(44.dp))
         }
-        Spacer(Modifier.height(if (targets == null) 10.dp else 4.dp))
     }
     if (showTrade) TradeDialog(s) { showTrade = false }
     if (showSpells) SpellsDialog(s) { showSpells = false }
