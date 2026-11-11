@@ -165,7 +165,7 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
     fun trade(give: Int, get: Int) { if (myMove) act(WAct.Trade(give, get)) }
     fun buySpell() { if (myMove) act(WAct.BuySpell) }
     fun endTurn() { if (myMove && g.phase == Wisteria.MAIN) { mode = Mode.NONE; moves++; act(WAct.End) } }
-    fun setMode(m: Mode) { if (myMove) { mode = if (mode == m) Mode.NONE else m; plan = emptyList(); bump() } }
+    fun toggleMode(m: Mode) { if (myMove) { mode = if (mode == m) Mode.NONE else m; plan = emptyList(); bump() } }
 
     val planValid get() = g.validRoute(0, selected, plan)
     fun undoStep() { plan = plan.dropLast(1); bump() }
@@ -596,7 +596,7 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                 ) {
                     val h = s.selected
                     if (s.mode == WisteriaSession.Mode.MARCH) {
-                        WoodButton("Cancel", null) { s.setMode(WisteriaSession.Mode.MARCH) }
+                        WoodButton("Cancel", null) { s.toggleMode(WisteriaSession.Mode.MARCH) }
                         WoodButton("Undo step", null, enabled = s.plan.isNotEmpty()) { s.undoStep() }
                         WoodButton(if (s.plan.isEmpty()) "Send" else "Send · ${s.plan.size} turn${if (s.plan.size > 1) "s" else ""}", RI.KNIGHT, enabled = s.planValid) { s.sendMarch() }
                         return@FlowRow
@@ -605,10 +605,10 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                     if (h >= 0 && g.owner[h] == 0) {
                         if (g.level[h] < 3) BuildButton(if (g.level[h] == 1) "Tower" else "Castle", RI.TOWER, g.upgradeCost(h), false, g.canUpgrade(0, h)) { s.upgrade(h) }
                         BuildButton("Knight ${g.knights[h]}/${Wisteria.CAPACITY[g.level[h]]}", RI.KNIGHT, Wisteria.COST_KNIGHT, false, g.canHire(0, h)) { s.hire(h) }
-                        if (g.level[h] == 1) BuildButton("Strike", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE, g.strikeTargets(0, h).isNotEmpty()) { s.setMode(WisteriaSession.Mode.STRIKE) }
-                        else BuildButton("March", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH, g.marchTargets(0, h).isNotEmpty()) { s.setMode(WisteriaSession.Mode.MARCH) }
+                        if (g.level[h] == 1) BuildButton("Strike", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE, g.strikeTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE) }
+                        else BuildButton("March", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH, g.marchTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH) }
                         BuildButton("Wall", RI.SHIELD, if (g.freeWalls > 0) null else Wisteria.COST_WALL, s.mode == WisteriaSession.Mode.WALL,
-                            g.wallSpots(0).any { it.first == h } && (g.freeWalls > 0 || g.can(0, Wisteria.COST_WALL))) { s.setMode(WisteriaSession.Mode.WALL) }
+                            g.wallSpots(0).any { it.first == h } && (g.freeWalls > 0 || g.can(0, Wisteria.COST_WALL))) { s.toggleMode(WisteriaSession.Mode.WALL) }
                     }
                     BuildButton("Spell", RI.SCROLL, Wisteria.COST_SPELL, false, g.can(0, Wisteria.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
                     BuildButton("Trade", RI.TRADE, null, false, true) { showTrade = true }
