@@ -27,19 +27,22 @@ import com.puresudoku.ui.theme.BoardColors
 import com.puresudoku.ui.theme.LocalBoardColors
 import com.puresudoku.ui.theme.Poppins
 
+/** The artwork logo for games that have one, or 0 for games drawn as an icon tile. */
+fun gameLogoRes(kind: GameKind): Int = when (kind) {
+    GameKind.REALMFORGE -> com.puresudoku.R.drawable.rt_logo
+    GameKind.REALM_DRAGON -> com.puresudoku.R.drawable.rt_logo_wyrm
+    GameKind.REALM_NIGHT -> com.puresudoku.R.drawable.rt_logo_night
+    GameKind.WISTERIA -> com.puresudoku.R.drawable.rt_logo_wisteria
+    else -> 0
+}
+
 /**
  * Game icons in the style of the PureGames logo: a rounded tile, ink frame,
  * one strong blue accent and one pale blue accent.
  */
 @Composable
 fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
-    val logo = when (kind) {
-        GameKind.REALMFORGE -> com.puresudoku.R.drawable.rt_logo
-        GameKind.REALM_DRAGON -> com.puresudoku.R.drawable.rt_logo_wyrm
-        GameKind.REALM_NIGHT -> com.puresudoku.R.drawable.rt_logo_night
-        GameKind.WISTERIA -> com.puresudoku.R.drawable.rt_logo_wisteria
-        else -> 0
-    }
+    val logo = gameLogoRes(kind)
     if (logo != 0) {
         androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(logo), null, modifier.size(size), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
         return

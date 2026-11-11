@@ -76,7 +76,8 @@ fun HubScreen(vm: AppViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(28.dp))
-            GameCategory.entries.forEachIndexed { idx, cat ->
+            // Strategy games lead the list; the rest keep their usual order.
+            (listOf(GameCategory.STRATEGY) + GameCategory.entries.filter { it != GameCategory.STRATEGY }).forEachIndexed { idx, cat ->
                 val games = Games.all.filter { it.kind.category == cat }
                 if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx)
                 Spacer(Modifier.height(14.dp))
@@ -209,6 +210,17 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
             translationY = (1f - enter.value) * 50.dp.toPx()
         },
     ) {
+        val logo = com.puresudoku.ui.components.gameLogoRes(g.kind)
+        if (g.kind.category == GameCategory.STRATEGY && logo != 0) {
+            // Strategy games are shown by their logo alone, centred and filling the card.
+            Box(Modifier.fillMaxWidth().height(180.dp).padding(12.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Image(
+                    androidx.compose.ui.res.painterResource(logo), contentDescription = g.kind.title,
+                    modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+            }
+            return@Surface
+        }
         Column(Modifier.padding(16.dp)) {
             g.Icon(52.dp)
             Spacer(Modifier.height(12.dp))
