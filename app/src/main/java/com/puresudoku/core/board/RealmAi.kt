@@ -28,10 +28,10 @@ object RealmAi {
     /** Expected cards per roll for [p], by resource (visible tiles only). */
     fun income(g: Realm, p: Int): DoubleArray {
         val out = DoubleArray(5)
-        for (h in 0 until RealmMap.HEXES) {
+        for (h in 0 until g.map.HEXES) {
             if (g.terrain[h] == Realm.WASTE || !g.revealed[h]) continue
-            val blocked = h == g.dragon && !g.dragonGone
-            for (v in RealmMap.hexVerts[h]) if (g.vOwner[v] == p) out[g.terrain[h]] += g.vLevel[v] * Realm.pips(g.number[h]) / 36.0 * (if (blocked) 0.3 else 1.0)
+            val blocked = g.blocked(h)
+            for (v in g.map.hexVerts[h]) if (g.vOwner[v] == p) out[g.terrain[h]] += g.vLevel[v] * Realm.pips(g.number[h]) / 36.0 * (if (blocked) 0.3 else 1.0)
         }
         return out
     }
@@ -44,32 +44,32 @@ object RealmAi {
     private fun tileValue(g: Realm, h: Int, w: DoubleArray): Double = when {
         !g.revealed[h] -> 2.4
         g.terrain[h] == Realm.WASTE -> 0.0
-        else -> Realm.pips(g.number[h]) * w[g.terrain[h]] * (if (h == g.dragon && !g.dragonGone) 0.5 else 1.0)
+        else -> Realm.pips(g.number[h]) * w[g.terrain[h]] * (if (g.blocked(h)) 0.5 else 1.0)
     }
 
     fun spotValue(g: Realm, p: Int, v: Int, w: DoubleArray = weights(g, p)): Double {
-        var s = RealmMap.vertHexes[v].sumOf { tileValue(g, it, w) }
+        var s = g.map.vertHexes[v].sumOf { tileValue(g, it, w) }
         val inc = income(g, p)
-        val newTypes = RealmMap.vertHexes[v].filter { g.revealed[it] && g.terrain[it] != Realm.WASTE }.map { g.terrain[it] }.toSet().count { inc[it] < 0.05 }
+        val newTypes = g.map.vertHexes[v].filter { g.revealed[it] && g.terrain[it] != Realm.WASTE }.map { g.terrain[it] }.toSet().count { inc[it] < 0.05 }
         s += newTypes * 1.5
         val port = g.portAt(v)
         if (port == 5) s += 1.0 else if (port in 0..4) s += if (inc[port] > 0.15) 2.5 else 0.8
         if (g.twist == Realm.FOG && v in g.ley && g.leyVisible(v)) s += 1.5
-        if (g.twist == Realm.FOG) s += RealmMap.vertHexes[v].count { !g.revealed[it] } * 0.4
+        if (g.twist == Realm.FOG) s += g.map.vertHexes[v].count { !g.revealed[it] } * 0.4
         return s
     }
 
-    private fun spotFree(g: Realm, v: Int) = g.vOwner[v] < 0 && RealmMap.vertNbrs[v].all { g.vOwner[it] < 0 }
+    private fun spotFree(g: Realm, v: Int) = g.vOwner[v] < 0 && g.map.vertNbrs[v].all { g.vOwner[it] < 0 }
 
     /** Best road to build toward a future village: (first edge, target vertex, score). */
     fun roadPlan(g: Realm, p: Int, rng: Random?, noise: Double): Triple<Int, Int, Double>? {
         if (g.roads(p) >= Realm.MAX_ROADS) return null
         val w = weights(g, p)
-        val dist = IntArray(RealmMap.VERTS) { -1 }
-        val first = IntArray(RealmMap.VERTS) { -1 }
+        val dist = IntArray(g.map.VERTS) { -1 }
+        val first = IntArray(g.map.VERTS) { -1 }
         val queue = ArrayDeque<Int>()
-        for (v in 0 until RealmMap.VERTS) {
-            val mine = g.vOwner[v] == p || (g.vOwner[v] < 0 && RealmMap.vertEdges[v].any { g.eOwner[it] == p })
+        for (v in 0 until g.map.VERTS) {
+            val mine = g.vOwner[v] == p || (g.vOwner[v] < 0 && g.map.vertEdges[v].any { g.eOwner[it] == p })
             if (mine) { dist[v] = 0; queue += v }
         }
         var best: Triple<Int, Int, Double>? = null
@@ -77,9 +77,9 @@ object RealmAi {
             val v = queue.removeFirst()
             if (dist[v] >= 3) continue
             if (dist[v] > 0 && g.vOwner[v] >= 0) continue
-            for (e in RealmMap.vertEdges[v]) {
+            for (e in g.map.vertEdges[v]) {
                 if (g.eOwner[e] >= 0) continue
-                val u = RealmMap.other(e, v)
+                val u = g.map.other(e, v)
                 if (dist[u] >= 0) continue
                 dist[u] = dist[v] + 1
                 first[u] = if (dist[v] == 0) e else first[v]
@@ -116,8 +116,8 @@ object RealmAi {
         }
         val v = g.setupVillage
         val e = g.roadSpots(p).maxBy { e ->
-            val u = RealmMap.other(e, v)
-            RealmMap.vertNbrs[u].filter { spotFree(g, it) }.maxOfOrNull { spotValue(g, p, it, w) } ?: 0.0
+            val u = g.map.other(e, v)
+            g.map.vertNbrs[u].filter { spotFree(g, it) }.maxOfOrNull { spotValue(g, p, it, w) } ?: 0.0
         }
         return RAct.Road(e)
     }
@@ -163,7 +163,8 @@ object RealmAi {
 
         val towers = g.towerSpots(p)
         if (towers.isNotEmpty() && g.can(p, Realm.COST_TOWER))
-            return RAct.Tower(towers.maxBy { v -> RealmMap.vertHexes[v].sumOf { tileValue(g, it, w) } })
+            return RAct.Tower(towers.maxBy { v -> g.map.vertHexes[v].sumOf { tileValue(g, it, w) } +
+                g.map.vertHexes[v].count { h -> g.terrain[h] == Realm.WASTE && g.wasteClaim[h] < 0 && g.claimProgress(h, p).first >= 2 } * 8.0 })
         val spots = g.villageSpots(p)
         if (spots.isNotEmpty() && g.can(p, Realm.COST_VILLAGE))
             return RAct.Village(spots.maxBy { spotValue(g, p, it, w) + (rng.nextDouble() - 0.5) * lvl.noise })

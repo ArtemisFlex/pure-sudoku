@@ -8,13 +8,12 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * Board geometry for Eiseria: 19 pointy-top hexes (radius 2), 54 corners, 72 edges.
+ * Board geometry for one game of Eiseria: pointy-top hexes in axial coordinates, their corners and edges.
  * Positions are in hex-size units (centre to corner = 1), centred on the middle hex.
+ * Harder levels use bigger islands: the radius-2 hexagon plus some of the next ring.
  */
-object RealmMap {
-    const val HEXES = 19
-    val hexQ: IntArray
-    val hexR: IntArray
+class RealmGrid(val hexQ: IntArray, val hexR: IntArray) {
+    val HEXES = hexQ.size
     val hexX: FloatArray
     val hexY: FloatArray
     val ring: IntArray
@@ -31,11 +30,10 @@ object RealmMap {
     val coast: IntArray
     val VERTS: Int
     val EDGES: Int
+    /** Furthest corner from the centre, in hex units. */
+    val extent: Float
 
     init {
-        val qs = ArrayList<Int>(); val rs = ArrayList<Int>()
-        for (r in -2..2) for (q in -2..2) if (abs(q + r) <= 2) { qs += q; rs += r }
-        hexQ = qs.toIntArray(); hexR = rs.toIntArray()
         val s3 = sqrt(3.0)
         hexX = FloatArray(HEXES) { (s3 * (hexQ[it] + hexR[it] / 2.0)).toFloat() }
         hexY = FloatArray(HEXES) { (1.5 * hexR[it]).toFloat() }
@@ -69,23 +67,61 @@ object RealmMap {
         coast = (0 until EDGES).filter { e -> vertHexes[edgeA[e]].intersect(vertHexes[edgeB[e]].toSet()).size == 1 }
             .sortedBy { e -> atan2((vertY[edgeA[e]] + vertY[edgeB[e]]).toDouble(), (vertX[edgeA[e]] + vertX[edgeB[e]]).toDouble()) }
             .toIntArray()
+        extent = (0 until VERTS).maxOf { sqrt(vertX[it] * vertX[it] + vertY[it] * vertY[it]) }
     }
 
-    /** The seven piers painted on the board art, in hex units; each portal sits on the coast edge nearest one. */
-    val DOCK_X = floatArrayOf(-2.82f, 2.80f, -4.06f, 4.13f, -3.69f, 3.75f, 0.12f)
-    val DOCK_Y = floatArrayOf(-3.14f, -3.14f, -1.03f, -0.95f, 2.07f, 2.03f, 4.21f)
+    /** One portal per painted pier: the outermost coast edge facing that pier. */
     val docks: IntArray by lazy {
         val used = HashSet<Int>()
-        IntArray(DOCK_X.size) { k ->
+        IntArray(RealmMap.DOCK_PX.size) { k ->
+            val want = atan2((RealmMap.DOCK_PY[k] - RealmMap.ISLAND_CY).toDouble(), (RealmMap.DOCK_PX[k] - RealmMap.ISLAND_CX).toDouble())
             coast.filter { it !in used }.minBy { e ->
-                val mx = (vertX[edgeA[e]] + vertX[edgeB[e]]) / 2 - DOCK_X[k]; val my = (vertY[edgeA[e]] + vertY[edgeB[e]]) / 2 - DOCK_Y[k]
-                mx * mx + my * my
+                val mx = (vertX[edgeA[e]] + vertX[edgeB[e]]) / 2.0; val my = (vertY[edgeA[e]] + vertY[edgeB[e]]) / 2.0
+                var d = abs(atan2(my, mx) - want); if (d > Math.PI) d = 2 * Math.PI - d
+                d * 4 - sqrt(mx * mx + my * my) * 0.25
             }.also { used += it }
         }
     }
 
     fun edgeOf(a: Int, b: Int): Int = vertEdges[a].firstOrNull { edgeA[it] == b || edgeB[it] == b } ?: -1
     fun other(e: Int, v: Int) = if (edgeA[e] == v) edgeB[e] else edgeA[e]
+}
+
+/** Board shapes by level, plus where the painted island and its piers sit in rt_island. */
+object RealmMap {
+    /** Island art: centre and the radius (px, in the 1254-px source) the board's outer corners reach. */
+    const val ISLAND_CX = 630f
+    const val ISLAND_CY = 590f
+    const val ISLAND_FIT = 462f
+    /** The seven painted piers, in source px. */
+    val DOCK_PX = floatArrayOf(285f, 965f, 130f, 1130f, 185f, 1075f, 640f)
+    val DOCK_PY = floatArrayOf(205f, 210f, 455f, 465f, 830f, 830f, 1090f)
+
+    private val cache = HashMap<Int, RealmGrid>()
+
+    /** Extra hexes from the third ring at each level (0 at Easy, the full ring at Extreme). */
+    private val EXTRA = intArrayOf(0, 3, 6, 9, 12, 18)
+
+    fun forLevel(level: Int): RealmGrid = cache.getOrPut(level.coerceIn(0, 5)) { build(EXTRA[level.coerceIn(0, 5)]) }
+
+    val standard: RealmGrid get() = forLevel(0)
+
+    private fun build(extra: Int): RealmGrid {
+        val qs = ArrayList<Int>(); val rs = ArrayList<Int>()
+        for (r in -2..2) for (q in -2..2) if (abs(q + r) <= 2) { qs += q; rs += r }
+        val ring3 = ArrayList<Pair<Int, Int>>()
+        for (r in -3..3) for (q in -3..3) if (maxOf(abs(q), abs(r), abs(q + r)) == 3) ring3 += q to r
+        val s3 = sqrt(3.0)
+        ring3.sortBy { (q, r) -> atan2(1.5 * r, s3 * (q + r / 2.0)) }
+        if (extra > 0) for (k in 0 until extra) { val (q, r) = ring3[(k * ring3.size) / extra]; qs += q; rs += r }
+        return RealmGrid(qs.toIntArray(), rs.toIntArray())
+    }
+
+    /** Rebuilds the grid a save was made on (old saves: the standard board). */
+    fun fromCoords(q: IntArray, r: IntArray): RealmGrid {
+        for (lv in 0..5) { val g = forLevel(lv); if (g.hexQ.contentEquals(q) && g.hexR.contentEquals(r)) return g }
+        return RealmGrid(q, r)
+    }
 }
 
 /** One move in Realmforge. Codes are plain ints so the AI and saves stay simple. */
@@ -110,7 +146,7 @@ sealed class RAct {
  * Player 0 is you, player 1 the computer. Three twists: the Unmapped Realm (fog of war),
  * Dragon's Wake (a growing, walking dragon you can slay) and Night & Day.
  */
-class Realm(val twist: Int, val target: Int) {
+class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.standard, val level: Int = 0) {
     companion object {
         const val TIMBER = 0; const val ORE = 1; const val GRAIN = 2; const val BEASTS = 3; const val MANA = 4; const val WASTE = 5
         val RES = listOf("timber", "ore", "grain", "beasts", "mana")
@@ -145,8 +181,24 @@ class Realm(val twist: Int, val target: Int) {
             else -> 12
         }
 
+        /** Wastelands on the board at each level. */
+        private val WASTES = intArrayOf(1, 1, 2, 2, 3, 3)
+        /** Share of tiles visible at the start, by level, when fog is on. */
+        private val CLEAR = floatArrayOf(0.37f, 0.32f, 0.27f, 0.22f, 0.17f, 0.12f)
+        /** Wyrmrise: how many wild dragons may wake from newly found wastelands. */
+        val WILD_CAP = intArrayOf(0, 0, 1, 2, 9, 9)
+
+        /** Rebuilds a game (with its island shape) from [state]. */
+        fun fromState(s: IntArray): Realm {
+            if (s[2] != -77) return Realm(s[0], s[1]).also { it.load(s) }
+            var i = 3
+            fun get(): IntArray { val n = s[i++]; val a = s.copyOfRange(i, i + n); i += n; return a }
+            val q = get(); val r = get(); val lv = s[i]
+            return Realm(s[0], s[1], RealmMap.fromCoords(q, r), lv).also { it.load(s) }
+        }
+
         fun newGame(twist: Int, d: Difficulty, rng: Random): Realm {
-            val g = Realm(twist, target(d))
+            val g = Realm(twist, target(d), RealmMap.forLevel(d.ordinal), d.ordinal)
             g.diceDeck = d.ordinal <= 1
             g.deal(rng)
             return g
@@ -155,18 +207,18 @@ class Realm(val twist: Int, val target: Int) {
 
     // ---------------------------------------------------------------- state
 
-    val terrain = IntArray(RealmMap.HEXES)
-    val number = IntArray(RealmMap.HEXES)
-    val revealed = BooleanArray(RealmMap.HEXES) { true }
-    val ruin = BooleanArray(RealmMap.HEXES)
+    val terrain = IntArray(map.HEXES)
+    val number = IntArray(map.HEXES)
+    val revealed = BooleanArray(map.HEXES) { true }
+    val ruin = BooleanArray(map.HEXES)
     var ley = IntArray(0)
     var portEdge = IntArray(7)
     /** 0..4 = 2:1 for that resource, 5 = 3:1 any. */
     var portType = IntArray(7)
 
-    val vOwner = IntArray(RealmMap.VERTS) { -1 }
-    val vLevel = IntArray(RealmMap.VERTS)
-    val eOwner = IntArray(RealmMap.EDGES) { -1 }
+    val vOwner = IntArray(map.VERTS) { -1 }
+    val vLevel = IntArray(map.VERTS)
+    val eOwner = IntArray(map.EDGES) { -1 }
 
     val res = Array(2) { IntArray(5) }
     val spells = Array(2) { IntArray(5) }
@@ -178,6 +230,10 @@ class Realm(val twist: Int, val target: Int) {
     var freeRoads = 0
 
     var dragon = 0
+    /** Wyrmrise: wild dragons woken from newly found wastelands. They block their tiles and walk with the dragon. */
+    val wild = ArrayList<Int>()
+    /** Who has claimed each tile's wasteland (-1: nobody). */
+    var wasteClaim = IntArray(map.HEXES) { -1 }
     var dragonHp = 3
     var dragonWounds = 0
     var dragonGone = false
@@ -207,33 +263,52 @@ class Realm(val twist: Int, val target: Int) {
 
     // ---------------------------------------------------------------- setup
 
+    /** True when this game hides tiles under fog: always in the Unmapped Realm, from Hard up in the others. */
+    val foggy get() = twist == FOG || level >= 2
+
     private fun deal(rng: Random) {
+        val n = map.HEXES
+        val wastes = WASTES[level.coerceIn(0, 5)]
+        // resources in the classic 4:3:4:4:3 mix, scaled to the island
+        val base = intArrayOf(4, 3, 4, 4, 3); val m = n - wastes
+        val counts = IntArray(5) { base[it] * m / 18 }
+        var left = m - counts.sum(); var k = 0
+        while (left > 0) { counts[intArrayOf(0, 2, 3, 1, 4)[k % 5]]++; left--; k++ }
         val tiles = ArrayList<Int>()
-        repeat(4) { tiles += TIMBER }; repeat(3) { tiles += ORE }; repeat(4) { tiles += GRAIN }; repeat(4) { tiles += BEASTS }; repeat(3) { tiles += MANA }; tiles += WASTE
-        val nums = listOf(2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12)
+        for (r in 0..4) repeat(counts[r]) { tiles += r }
+        repeat(wastes) { tiles += WASTE }
+        val std = listOf(2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12)
+        var tries = 0
         while (true) {
             tiles.shuffle(rng)
+            val nums = ArrayList<Int>()
+            while (nums.size < m) nums += std.shuffled(rng).take(minOf(18, m - nums.size))
             val ns = nums.shuffled(rng).iterator()
-            for (h in 0 until RealmMap.HEXES) { terrain[h] = tiles[h]; number[h] = if (tiles[h] == WASTE) 0 else ns.next() }
-            val ok = (0 until RealmMap.HEXES).none { h -> number[h] in setOf(6, 8) && RealmMap.hexNbrs[h].any { number[it] in setOf(6, 8) } }
-            if (ok) break
+            for (h in 0 until n) { terrain[h] = tiles[h]; number[h] = if (tiles[h] == WASTE) 0 else ns.next() }
+            val ok = (0 until n).none { h -> number[h] in setOf(6, 8) && map.hexNbrs[h].any { number[it] in setOf(6, 8) } }
+            if (ok || ++tries > 400) break
         }
-        dragon = terrain.indexOf(WASTE)
-        val c = RealmMap.coast
-        portEdge = RealmMap.docks.copyOf()
+        dragon = (0 until n).filter { terrain[it] == WASTE }.minBy { map.ring[it] * 10 + rng.nextInt(10) }
+        portEdge = map.docks.copyOf()
         portType = (listOf(5, 5) + (0..4)).shuffled(rng).toIntArray()
         deck.clear()
         repeat(14) { deck += KNIGHT }; repeat(5) { deck += RELIC }; repeat(2) { deck += EARTH }; repeat(2) { deck += HARVEST }; repeat(2) { deck += FIREBALL }
         deck.shuffle(rng)
+        if (foggy) {
+            val clear = maxOf(4, (n * CLEAR[level.coerceIn(0, 5)]).roundToInt())
+            val order = (0 until n).sortedBy { sqrt(map.hexX[it] * map.hexX[it] + map.hexY[it] * map.hexY[it]) + rng.nextFloat() * 0.6f }
+            for (h in 0 until n) revealed[h] = false
+            order.take(clear).forEach { revealed[it] = true }
+            revealed[dragon] = true
+        }
         if (twist == FOG) {
-            for (h in 0 until RealmMap.HEXES) revealed[h] = RealmMap.ring[h] <= 1 || h == dragon
-            val outer = (0 until RealmMap.HEXES).filter { RealmMap.ring[it] == 2 && terrain[it] != WASTE }.shuffled(rng)
-            outer.take(3).forEach { ruin[it] = true }
-            val tips = (0 until RealmMap.VERTS).filter { RealmMap.vertHexes[it].size == 1 }
+            val hidden = (0 until n).filter { !revealed[it] && terrain[it] != WASTE }.shuffled(rng)
+            hidden.take(3 + level / 2).forEach { ruin[it] = true }
+            val tips = (0 until map.VERTS).filter { map.vertHexes[it].size == 1 }
             ley = intArrayOf(45, 135, 225, 315).map { deg ->
                 tips.minBy { v ->
-                    val a = Math.toDegrees(atan2(RealmMap.vertY[v].toDouble(), RealmMap.vertX[v].toDouble())).let { if (it < 0) it + 360 else it }
-                    minOf(abs(a - deg), 360 - abs(a - deg))
+                    val a = Math.toDegrees(atan2(map.vertY[v].toDouble(), map.vertX[v].toDouble())).let { if (it < 0) it + 360 else it }
+                    minOf(abs(a - deg), 360 - abs(a - deg)) - sqrt(map.vertX[v] * map.vertX[v] + map.vertY[v] * map.vertY[v]) * 2
                 }
             }.toIntArray()
         }
@@ -251,47 +326,70 @@ class Realm(val twist: Int, val target: Int) {
 
     fun total(p: Int) = res[p].sum()
     fun can(p: Int, cost: IntArray) = (0..4).all { res[p][it] >= cost[it] }
-    fun count(p: Int, level: Int) = (0 until RealmMap.VERTS).count { vOwner[it] == p && vLevel[it] == level }
+    fun count(p: Int, level: Int) = (0 until map.VERTS).count { vOwner[it] == p && vLevel[it] == level }
     fun roads(p: Int) = eOwner.count { it == p }
 
     fun vp(p: Int, withRelics: Boolean = true): Int =
         count(p, 1) + 2 * count(p, 2) + (if (roadHolder == p) 2 else 0) + (if (hostHolder == p) 2 else 0) +
-            (if (slayer == p) 2 else 0) + (if (withRelics) spells[p][RELIC] else 0)
+            (if (slayer == p) 2 else 0) + (if (withRelics) spells[p][RELIC] else 0) + wasteClaim.count { it == p }
+
+    /** Is [h] blocked by a dragon? */
+    fun blocked(h: Int) = (h == dragon && !dragonGone) || h in wild
+
+    /** Progress toward claiming wasteland [h]: (roads around it, has a tower on it). */
+    fun claimProgress(h: Int, p: Int): Pair<Int, Boolean> {
+        val vs = map.hexVerts[h]
+        val roads = (0 until 6).count { k -> map.edgeOf(vs[k], vs[(k + 1) % 6]).let { it >= 0 && eOwner[it] == p } }
+        return roads to vs.any { vOwner[it] == p && vLevel[it] == 2 }
+    }
+
+    /** The first to ring a wasteland with 2+ roads and raise a tower on it claims it: 1 point and a free spell. */
+    private fun checkClaims(p: Int) {
+        for (h in 0 until map.HEXES) {
+            if (terrain[h] != WASTE || wasteClaim[h] >= 0) continue
+            val (r, t) = claimProgress(h, p)
+            if (r >= 2 && t) {
+                wasteClaim[h] = p
+                log += (if (p == 0) "You claim" else "The rival claims") + " the Dragon's Waste! +1 point"
+                if (deck.isNotEmpty()) { val sp = deck.removeAt(deck.lastIndex); spells[p][sp]++; if (turn == p) fresh[sp]++ }
+            }
+        }
+    }
 
     fun portRate(p: Int, r: Int): Int {
         var best = 4
         for (k in portEdge.indices) {
             val e = portEdge[k]
-            val mine = vOwner[RealmMap.edgeA[e]] == p || vOwner[RealmMap.edgeB[e]] == p
+            val mine = vOwner[map.edgeA[e]] == p || vOwner[map.edgeB[e]] == p
             if (!mine) continue
             if (portType[k] == 5) best = minOf(best, 3) else if (portType[k] == r) best = 2
         }
         return best
     }
 
-    fun portAt(v: Int): Int = portEdge.indices.firstOrNull { RealmMap.edgeA[portEdge[it]] == v || RealmMap.edgeB[portEdge[it]] == v }?.let { portType[it] } ?: -1
+    fun portAt(v: Int): Int = portEdge.indices.firstOrNull { map.edgeA[portEdge[it]] == v || map.edgeB[portEdge[it]] == v }?.let { portType[it] } ?: -1
 
-    private fun spacingOk(v: Int) = vOwner[v] < 0 && RealmMap.vertNbrs[v].all { vOwner[it] < 0 }
+    private fun spacingOk(v: Int) = vOwner[v] < 0 && map.vertNbrs[v].all { vOwner[it] < 0 }
 
     fun villageSpots(p: Int): List<Int> {
         if (count(p, 1) >= MAX_VILLAGES) return emptyList()
-        return (0 until RealmMap.VERTS).filter { v ->
-            spacingOk(v) && (phase == SETUP || RealmMap.vertEdges[v].any { eOwner[it] == p })
+        return (0 until map.VERTS).filter { v ->
+            spacingOk(v) && (phase == SETUP || map.vertEdges[v].any { eOwner[it] == p })
         }
     }
 
-    fun towerSpots(p: Int): List<Int> = if (count(p, 2) >= MAX_TOWERS) emptyList() else (0 until RealmMap.VERTS).filter { vOwner[it] == p && vLevel[it] == 1 }
+    fun towerSpots(p: Int): List<Int> = if (count(p, 2) >= MAX_TOWERS) emptyList() else (0 until map.VERTS).filter { vOwner[it] == p && vLevel[it] == 1 }
 
     fun roadSpots(p: Int): List<Int> {
         if (roads(p) >= MAX_ROADS) return emptyList()
-        if (phase == SETUP) return if (setupVillage >= 0) RealmMap.vertEdges[setupVillage].filter { eOwner[it] < 0 } else emptyList()
-        return (0 until RealmMap.EDGES).filter { e -> eOwner[e] < 0 && roadReaches(p, e) }
+        if (phase == SETUP) return if (setupVillage >= 0) map.vertEdges[setupVillage].filter { eOwner[it] < 0 } else emptyList()
+        return (0 until map.EDGES).filter { e -> eOwner[e] < 0 && roadReaches(p, e) }
     }
 
     private fun roadReaches(p: Int, e: Int): Boolean {
-        for (v in intArrayOf(RealmMap.edgeA[e], RealmMap.edgeB[e])) {
+        for (v in intArrayOf(map.edgeA[e], map.edgeB[e])) {
             if (vOwner[v] == p) return true
-            if (vOwner[v] < 0 && RealmMap.vertEdges[v].any { it != e && eOwner[it] == p }) return true
+            if (vOwner[v] < 0 && map.vertEdges[v].any { it != e && eOwner[it] == p }) return true
         }
         return false
     }
@@ -299,17 +397,17 @@ class Realm(val twist: Int, val target: Int) {
     /** Rival roads Fireball may burn: an end touching none of their own pieces. */
     fun fireballTargets(p: Int): List<Int> {
         val o = 1 - p
-        return (0 until RealmMap.EDGES).filter { e ->
-            eOwner[e] == o && intArrayOf(RealmMap.edgeA[e], RealmMap.edgeB[e]).any { v ->
-                vOwner[v] != o && RealmMap.vertEdges[v].none { it != e && eOwner[it] == o }
+        return (0 until map.EDGES).filter { e ->
+            eOwner[e] == o && intArrayOf(map.edgeA[e], map.edgeB[e]).any { v ->
+                vOwner[v] != o && map.vertEdges[v].none { it != e && eOwner[it] == o }
             }
         }
     }
 
-    fun dragonTiles(): List<Int> = (0 until RealmMap.HEXES).filter { it != dragon }
+    fun dragonTiles(): List<Int> = (0 until map.HEXES).filter { it != dragon }
 
     /** Players with a building on [tile]. */
-    fun ownersAt(tile: Int) = RealmMap.hexVerts[tile].filter { vOwner[it] >= 0 }.map { vOwner[it] }.toSet()
+    fun ownersAt(tile: Int) = map.hexVerts[tile].filter { vOwner[it] >= 0 }.map { vOwner[it] }.toSet()
 
     fun canPlay(p: Int, kind: Int): Boolean {
         if (spellPlayed || turn != p || kind == RELIC) return false
@@ -323,9 +421,9 @@ class Realm(val twist: Int, val target: Int) {
         }
     }
 
-    fun leyPower(p: Int): Int = if (twist != FOG) 0 else ley.count { v -> RealmMap.vertEdges[v].any { eOwner[it] == p } || vOwner[v] == p } / 2
+    fun leyPower(p: Int): Int = if (twist != FOG) 0 else ley.count { v -> map.vertEdges[v].any { eOwner[it] == p } || vOwner[v] == p } / 2
 
-    fun leyVisible(v: Int) = RealmMap.vertHexes[v].any { revealed[it] }
+    fun leyVisible(v: Int) = map.vertHexes[v].any { revealed[it] }
 
     // ---------------------------------------------------------------- actions
 
@@ -339,7 +437,7 @@ class Realm(val twist: Int, val target: Int) {
             is RAct.Road -> (phase == SETUP && setupVillage >= 0 || phase == MAIN && (freeRoads > 0 || can(p, COST_ROAD))) && a.e in roadSpots(p)
             is RAct.Village -> (phase == SETUP && setupVillage < 0 || phase == MAIN && freeRoads == 0 && can(p, COST_VILLAGE)) && a.v in villageSpots(p)
             is RAct.Tower -> phase == MAIN && freeRoads == 0 && can(p, COST_TOWER) && a.v in towerSpots(p)
-            is RAct.Dragon -> phase == DRAGON && a.tile != dragon && a.tile in 0 until RealmMap.HEXES
+            is RAct.Dragon -> phase == DRAGON && a.tile != dragon && a.tile in 0 until map.HEXES
             is RAct.Discard -> phase == DISCARD && a.counts.sum() == discardNeed[p] && (0..4).all { a.counts[it] in 0..res[p][it] }
             is RAct.Trade -> phase == MAIN && freeRoads == 0 && a.give != a.get && res[p][a.give] >= portRate(p, a.give)
             is RAct.Spell -> canPlay(p, a.kind) && when (a.kind) {
@@ -364,14 +462,15 @@ class Realm(val twist: Int, val target: Int) {
             }
             is RAct.Road -> {
                 if (phase == SETUP) {
-                    eOwner[a.e] = p; reveal(intArrayOf(RealmMap.edgeA[a.e], RealmMap.edgeB[a.e]), p, rng)
+                    eOwner[a.e] = p; reveal(intArrayOf(map.edgeA[a.e], map.edgeB[a.e]), p, rng)
                     setupVillage = -1; setupStep++
                     if (setupStep >= 4) { phase = ROLL; turn = 0; round = 0 }
                 } else {
                     if (freeRoads > 0) freeRoads-- else pay(p, COST_ROAD)
                     eOwner[a.e] = p
-                    reveal(intArrayOf(RealmMap.edgeA[a.e], RealmMap.edgeB[a.e]), p, rng)
+                    reveal(intArrayOf(map.edgeA[a.e], map.edgeB[a.e]), p, rng)
                     updateRoad()
+                    checkClaims(p)
                     if (freeRoads > 0 && roadSpots(p).isEmpty()) freeRoads = 0
                 }
             }
@@ -379,12 +478,12 @@ class Realm(val twist: Int, val target: Int) {
                 vOwner[a.v] = p; vLevel[a.v] = 1
                 if (phase == SETUP) {
                     setupVillage = a.v
-                    if (setupStep >= 2) for (h in RealmMap.vertHexes[a.v]) if (terrain[h] != WASTE) res[p][terrain[h]]++
+                    if (setupStep >= 2) for (h in map.vertHexes[a.v]) if (terrain[h] != WASTE) res[p][terrain[h]]++
                 } else pay(p, COST_VILLAGE)
                 reveal(intArrayOf(a.v), p, rng)
                 updateRoad()
             }
-            is RAct.Tower -> { pay(p, COST_TOWER); vLevel[a.v] = 2 }
+            is RAct.Tower -> { pay(p, COST_TOWER); vLevel[a.v] = 2; checkClaims(p) }
             is RAct.Dragon -> moveDragon(a.tile, p, rng, steal = 1 + (if (twist == WAKE && dragonHp >= 5) 1 else 0))
             is RAct.Discard -> {
                 for (r in 0..4) res[p][r] -= a.counts[r]
@@ -405,9 +504,14 @@ class Realm(val twist: Int, val target: Int) {
     private fun pay(p: Int, cost: IntArray) { for (r in 0..4) res[p][r] -= cost[r] }
 
     private fun reveal(verts: IntArray, p: Int, rng: Random) {
-        if (twist != FOG) return
-        for (v in verts) for (h in RealmMap.vertHexes[v]) if (!revealed[h]) {
+        if (!foggy) return
+        for (v in verts) for (h in map.vertHexes[v]) if (!revealed[h]) {
             revealed[h] = true
+            if (terrain[h] == WASTE && twist == WAKE && !dragonGone && wild.size < WILD_CAP[level.coerceIn(0, 5)]) {
+                wild += h
+                log += "A wild dragon wakes in the wasteland!"
+            }
+            if (twist != FOG) { log += (if (p == 0) "You" else "Rival") + " uncovered a ${TERRAIN[terrain[h]].lowercase()}"; continue }
             if (terrain[h] != WASTE) {
                 res[p][terrain[h]]++
                 log += (if (p == 0) "You" else "Rival") + " explored a ${TERRAIN[terrain[h]].lowercase()} (+1 ${RES[terrain[h]]})"
@@ -446,11 +550,11 @@ class Realm(val twist: Int, val target: Int) {
 
     fun production(p: Int, n: Int): IntArray {
         val got = IntArray(5)
-        for (h in 0 until RealmMap.HEXES) {
-            if (number[h] != n || (h == dragon && !dragonGone) || terrain[h] == WASTE) continue
+        for (h in 0 until map.HEXES) {
+            if (number[h] != n || blocked(h) || terrain[h] == WASTE) continue
             var mult = 1
             if (night && terrain[h] == MANA) mult = 2
-            for (v in RealmMap.hexVerts[h]) if (vOwner[v] == p) got[terrain[h]] += vLevel[v] * mult
+            for (v in map.hexVerts[h]) if (vOwner[v] == p) got[terrain[h]] += vLevel[v] * mult
         }
         return got
     }
@@ -493,6 +597,7 @@ class Realm(val twist: Int, val target: Int) {
                     dragonWounds++
                     if (dragonWounds >= dragonHp) {
                         dragonGone = true; slayer = p
+                        if (wild.isNotEmpty()) { wild.clear(); log += "The wild dragons flee with it" }
                         log += if (p == 0) "You drove the dragon off for good! +2 points" else "The rival slew the dragon! +2 points"
                         return
                     } else log += "The dragon is wounded ($dragonWounds of $dragonHp)"
@@ -521,18 +626,24 @@ class Realm(val twist: Int, val target: Int) {
     fun leader(): Int = if (vp(1, false) > vp(0, false)) 1 else 0
 
     /** How much a dragon on [tile] hurts [p]: pips times building levels. */
-    fun harm(tile: Int, p: Int): Int = if (terrain[tile] == WASTE) 0 else RealmMap.hexVerts[tile].sumOf { v -> if (vOwner[v] == p) vLevel[v] * pips(number[tile]) else 0 }
+    fun harm(tile: Int, p: Int): Int = if (terrain[tile] == WASTE) 0 else map.hexVerts[tile].sumOf { v -> if (vOwner[v] == p) vLevel[v] * pips(number[tile]) else 0 }
 
     private fun dragonWalk() {
         val lead = leader()
-        val next = RealmMap.hexNbrs[dragon].maxBy { harm(it, lead) * 10 - harm(it, 1 - lead) * 3 + it % 3 }
+        val next = map.hexNbrs[dragon].maxBy { harm(it, lead) * 10 - harm(it, 1 - lead) * 3 + it % 3 }
         dragon = next
         log += "The dragon walks to the ${TERRAIN[terrain[next]].lowercase()}"
+        for (i in wild.indices) {
+            val w = wild[i]
+            val to = map.hexNbrs[w].filter { it != dragon && it !in wild }.maxByOrNull { harm(it, lead) * 10 - harm(it, 1 - lead) * 3 + it % 3 } ?: continue
+            wild[i] = to
+        }
+        if (wild.isNotEmpty()) log += if (wild.size == 1) "A wild dragon stalks closer" else "${wild.size} wild dragons stalk closer"
     }
 
     private fun nightRaid(rng: Random) {
         val lead = leader()
-        val best = (0 until RealmMap.HEXES).filter { it != dragon }.maxBy { harm(it, lead) * 10 - harm(it, 1 - lead) * 3 + it % 5 }
+        val best = (0 until map.HEXES).filter { it != dragon }.maxBy { harm(it, lead) * 10 - harm(it, 1 - lead) * 3 + it % 5 }
         dragon = best
         log += "Night falls. The dragon raids the ${TERRAIN[terrain[best]].lowercase()}"
         if (lead in ownersAt(best)) stealFrom(lead, -1, 1, rng)
@@ -542,16 +653,16 @@ class Realm(val twist: Int, val target: Int) {
 
     fun longestRoad(p: Int): Int {
         var best = 0
-        val mine = (0 until RealmMap.EDGES).filter { eOwner[it] == p }
-        val used = BooleanArray(RealmMap.EDGES)
+        val mine = (0 until map.EDGES).filter { eOwner[it] == p }
+        val used = BooleanArray(map.EDGES)
         fun dfs(v: Int, len: Int) {
             best = maxOf(best, len)
             if (vOwner[v] >= 0 && vOwner[v] != p && len > 0) return
-            for (e in RealmMap.vertEdges[v]) if (eOwner[e] == p && !used[e]) {
-                used[e] = true; dfs(RealmMap.other(e, v), len + 1); used[e] = false
+            for (e in map.vertEdges[v]) if (eOwner[e] == p && !used[e]) {
+                used[e] = true; dfs(map.other(e, v), len + 1); used[e] = false
             }
         }
-        for (e in mine) { dfs(RealmMap.edgeA[e], 0); dfs(RealmMap.edgeB[e], 0) }
+        for (e in mine) { dfs(map.edgeA[e], 0); dfs(map.edgeB[e], 0) }
         return best
     }
 
@@ -585,18 +696,21 @@ class Realm(val twist: Int, val target: Int) {
         val o = ArrayList<Int>()
         fun put(a: IntArray) { o += a.size; a.forEach { o += it } }
         o += twist; o += target
+        o += -77; put(map.hexQ); put(map.hexR); o += level
         put(terrain); put(number); put(revealed.map { if (it) 1 else 0 }.toIntArray()); put(ruin.map { if (it) 1 else 0 }.toIntArray())
         put(ley); put(portEdge); put(portType); put(vOwner); put(vLevel); put(eOwner)
         put(res[0]); put(res[1]); put(spells[0]); put(spells[1]); put(fresh); put(deck.toIntArray()); put(knights)
         put(intArrayOf(if (spellPlayed) 1 else 0, freeRoads, dragon, dragonHp, dragonWounds, if (dragonGone) 1 else 0, slayer,
             roadHolder, hostHolder, turn, phase, setupStep, setupVillage, round, afterDragon, if (diceDeck) 1 else 0, lastRoll, lastDie[0], lastDie[1], winner))
         put(discardNeed); put(dice.toIntArray())
+        put(wild.toIntArray()); put(wasteClaim)
         return o.toIntArray()
     }
 
     fun load(s: IntArray) {
         var i = 2
         fun get(): IntArray { val n = s[i++]; val a = s.copyOfRange(i, i + n); i += n; return a }
+        if (s[2] == -77) { i = 3; get(); get(); i++ }
         get().copyInto(terrain); get().copyInto(number)
         get().forEachIndexed { k, b -> revealed[k] = b == 1 }; get().forEachIndexed { k, b -> ruin[k] = b == 1 }
         ley = get(); portEdge = get(); portType = get(); get().copyInto(vOwner); get().copyInto(vLevel); get().copyInto(eOwner)
@@ -607,7 +721,8 @@ class Realm(val twist: Int, val target: Int) {
         roadHolder = m[7]; hostHolder = m[8]; turn = m[9]; phase = m[10]; setupStep = m[11]; setupVillage = m[12]; round = m[13]
         afterDragon = m[14]; diceDeck = m[15] == 1; lastRoll = m[16]; lastDie = intArrayOf(m[17], m[18]); winner = m[19]
         get().copyInto(discardNeed); dice.clear(); dice += get().toList()
+        if (i < s.size) { wild.clear(); wild += get().toList(); wasteClaim = get() }
     }
 
-    fun copy(): Realm { val s = state(); return Realm(s[0], s[1]).also { it.load(s) } }
+    fun copy(): Realm = fromState(state())
 }

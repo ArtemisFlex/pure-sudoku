@@ -9,6 +9,8 @@ object StrategyLessons {
         "Each turn: roll, collect from tiles touching your buildings, then build, trade or cast a spell, and end your turn.",
         "Road = timber + mana. Village = timber, mana, grain, beasts. Tower = 3 ore + 2 grain. Spell = ore, grain, beasts.",
         "A 7 wakes the dragon: more than 7 cards and you lose half. The roller moves the dragon to block a tile and steal a card.",
+        "Claim a Dragon's Waste: be first to build 2 roads around it and a tower on one of its corners for 1 point and a free spell.",
+        "Harder levels bring bigger islands, more wastelands and thicker fog.",
     )
 
     private fun levels(twist: List<String>) = listOf(
@@ -29,7 +31,7 @@ object StrategyLessons {
             "Fog hides the rival's future land too: claim the best edges before they're seen.",
             "Mix exploring and building: a road that reveals and reaches a spot is worth double.",
         ))),
-        GameKind.REALM_DRAGON to Course(basics + "The dragon gains strength on every 7 and walks one tile per round toward the leader. Each Knight wounds it; the final blow is worth 2 points.", levels(listOf(
+        GameKind.REALM_DRAGON to Course(basics + "The dragon gains strength on every 7 and walks one tile per round toward the leader. Each Knight wounds it; the final blow is worth 2 points. From Hard up, wild dragons wake in wastelands as the fog lifts, and flee only when the great dragon falls.", levels(listOf(
             "Stay level with the rival early: the dragon hunts whoever leads.",
             "Save a Knight for when the dragon sits on your best tile.",
             "Count its health: be the one who lands the last wound.",

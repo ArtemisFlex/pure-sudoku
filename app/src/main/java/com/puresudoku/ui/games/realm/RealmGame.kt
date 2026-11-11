@@ -86,6 +86,7 @@ import com.puresudoku.core.board.RAct
 import com.puresudoku.core.board.Realm
 import com.puresudoku.core.board.RealmAi
 import com.puresudoku.core.board.RealmMap
+import com.puresudoku.core.board.RealmGrid
 import com.puresudoku.ui.components.GameIcon
 import com.puresudoku.ui.games.GameDef
 import com.puresudoku.ui.games.board.CellTargets
@@ -136,7 +137,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
 
     private fun spotWords(v: Int): String {
         val names = listOf("forest", "mountain", "fields", "meadow", "spires", "waste")
-        val parts = RealmMap.vertHexes[v].filter { g.revealed[it] && g.terrain[it] != Realm.WASTE }.map { "${g.number[it]} ${names[g.terrain[it]]}" }
+        val parts = g.map.vertHexes[v].filter { g.revealed[it] && g.terrain[it] != Realm.WASTE }.map { "${g.number[it]} ${names[g.terrain[it]]}" }
         return if (parts.isEmpty()) "On the edge of the unknown" else "Touching " + parts.joinToString(", ")
     }
 
@@ -250,8 +251,8 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     }
 
     private fun code(a: RAct): Int = when (a) {
-        is RAct.Village -> a.v; is RAct.Tower -> a.v; is RAct.Road -> 100 + a.e; is RAct.Dragon -> 200 + a.tile
-        is RAct.Spell -> if (a.kind == Realm.FIREBALL) 100 + a.a else -1
+        is RAct.Village -> a.v; is RAct.Tower -> a.v; is RAct.Road -> 1000 + a.e; is RAct.Dragon -> 2000 + a.tile
+        is RAct.Spell -> if (a.kind == Realm.FIREBALL) 1000 + a.a else -1
         else -> -1
     }
 
@@ -342,7 +343,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         fun restore(kind: GameKind, o: JSONObject): RealmSession {
             val st = o.getJSONObject("state").getJSONArray("s")
             val arr = IntArray(st.length()) { st.getInt(it) }
-            val g = Realm(arr[0], arr[1]).also { it.load(arr) }
+            val g = Realm.fromState(arr)
             return RealmSession(kind, Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.restoreCommon(o) }
         }
     }
@@ -383,7 +384,13 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
             }
         }
     }
-    override fun levelInfo(d: Difficulty) = "First to ${Realm.target(d)} points · " + if (d.ordinal <= 1) "fair dice deck" else "real dice"
+    override fun levelInfo(d: Difficulty): String {
+        val tiles = com.puresudoku.core.board.RealmMap.forLevel(d.ordinal).HEXES
+        val wastes = intArrayOf(1, 1, 2, 2, 3, 3)[d.ordinal]
+        val fog = twist == Realm.FOG || d.ordinal >= 2
+        return "First to ${Realm.target(d)} · $tiles tiles · $wastes waste${if (wastes > 1) "s" else ""}" + (if (fog) " · fog" else "") +
+            (if (twist == Realm.WAKE && Realm.WILD_CAP[d.ordinal] > 0) " · wild dragons" else "") + " · " + (if (d.ordinal <= 1) "fair dice" else "real dice")
+    }
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A careless rival who offers generous deals."
         Difficulty.MEDIUM -> "Builds sensibly and still trades kindly."
@@ -412,6 +419,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
             LessonStep("Costs: a road is timber + mana. A village is timber, mana, grain and beasts. A tower is 3 ore + 2 grain. A spell is ore, grain and beasts. Short of something? Trade 4 of one resource for 1 of another, or less at a portal you've settled."),
             LessonStep("A 7 wakes the dragon: anyone holding more than 7 cards loses half, and the roller moves the dragon to block a tile and steal a card. Knight spells chase it away."),
             LessonStep(twistText),
+            LessonStep("The Dragon's Waste grows nothing, but it can be claimed: be first to build 2 roads around it and a tower on one of its corners for 1 point and a free spell."),
             LessonStep("Spread out early, then turn villages into towers. The longest road (5+) and the most Knights (3+) are worth 2 points each. Good luck!"),
         )
     }
@@ -452,14 +460,19 @@ object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
 // =====================================================================  board geometry
 
 /** Board layout: at zoom 1 the board fits the gap between [top] and [bottom] (px); zoomed, it spreads under everything. */
-private class RGeo(val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f) {
+private class RGeo(val m: RealmGrid, val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f) {
     val fh = (h - top - bottom).coerceAtLeast(h * 0.35f)
-    val unit = min(w, fh) / 10.4f * zoom
+    /** Island art scale (screen px per source px): the whole island fits the gap at zoom 1. */
+    val art = min(w, fh) / 1150f * zoom
+    /** Hex size: the board's outer corners reach the island's buildable edge. */
+    val unit = art * RealmMap.ISLAND_FIT / m.extent
     val cx = w / 2 + pan.x; val cy = top + fh / 2 + pan.y
     fun pt(x: Float, y: Float) = Offset(cx + x * unit, cy + y * unit)
-    fun vert(v: Int) = pt(RealmMap.vertX[v], RealmMap.vertY[v])
-    fun hex(h: Int) = pt(RealmMap.hexX[h], RealmMap.hexY[h])
-    fun edgeMid(e: Int) = (vert(RealmMap.edgeA[e]) + vert(RealmMap.edgeB[e])) / 2f
+    /** A point on the island picture (source px). */
+    fun artPt(px: Float, py: Float) = Offset(cx + (px - RealmMap.ISLAND_CX) * art, cy + (py - RealmMap.ISLAND_CY) * art)
+    fun vert(v: Int) = pt(m.vertX[v], m.vertY[v])
+    fun hex(h: Int) = pt(m.hexX[h], m.hexY[h])
+    fun edgeMid(e: Int) = (vert(m.edgeA[e]) + vert(m.edgeB[e])) / 2f
     fun portPos(e: Int): Offset { val m = edgeMid(e); val d = m - Offset(cx, cy); val l = d.getDistance(); return m + d / l * unit * 0.62f }
 }
 
@@ -471,7 +484,7 @@ private fun nearest(o: Offset, cands: List<Int>, pos: (Int) -> Offset, maxD: Flo
 private fun DrawScope.hexPath(g: RGeo, h: Int, shrink: Float = 0.97f): Path {
     val c = g.hex(h)
     return Path().apply {
-        RealmMap.hexVerts[h].forEachIndexed { k, v -> val p = c + (g.vert(v) - c) * shrink; if (k == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
+        g.m.hexVerts[h].forEachIndexed { k, v -> val p = c + (g.vert(v) - c) * shrink; if (k == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
         close()
     }
 }
@@ -587,81 +600,104 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 }
             }.pointerInput(s, vT, eT, tT) {
                 detectTapGestures { o ->
-                    val geo = RGeo(size.width.toFloat(), size.height.toFloat(), zoom, pan, fitTop, fitBottom)
+                    val geo = RGeo(g.map, size.width.toFloat(), size.height.toFloat(), zoom, pan, fitTop, fitBottom)
                     val reach = maxOf(geo.unit * 0.55f, 18.dp.toPx())
                     nearest(o, vT, geo::vert, reach)?.let { s.tapVertex(it); return@detectTapGestures }
                     nearest(o, eT, geo::edgeMid, reach)?.let { s.tapEdge(it); return@detectTapGestures }
                     nearest(o, tT, geo::hex, geo.unit * 0.9f)?.let { s.tapTile(it) }
                 }
             }) {
-                val geo = RGeo(size.width, size.height, zoom, pan, fitTop, fitBottom); val u = geo.unit
-                // the painted island, coast, piers and gold ring
+                val geo = RGeo(g.map, size.width, size.height, zoom, pan, fitTop, fitBottom); val u = geo.unit; val m = g.map
+                // the painted island
                 run {
-                    val k = u / FRAME_R
-                    drawImage(art.frame, dstOffset = IntOffset((geo.cx - FRAME_CX * k).toInt(), (geo.cy - FRAME_CY * k).toInt()),
-                        dstSize = IntSize((art.frame.width * k).toInt(), (art.frame.height * k).toInt()), filterQuality = FilterQuality.Medium)
+                    val k = geo.art * 1254f / art.island.width
+                    val o = geo.artPt(0f, 0f)
+                    drawImage(art.island, dstOffset = IntOffset(o.x.toInt(), o.y.toInt()),
+                        dstSize = IntSize((art.island.width * k).toInt(), (art.island.height * k).toInt()), filterQuality = FilterQuality.Medium)
                 }
                 // tiles: painted art, or fog
                 val tw = (sqrt3 * u).toInt() + 2; val th = (2 * u).toInt() + 2
-                for (h in 0 until RealmMap.HEXES) {
+                for (h in 0 until m.HEXES) {
                     val c = geo.hex(h)
                     val img = if (!g.revealed[h]) art.fog[h % art.fog.size] else art.tile(g, h)
                     drawImage(img, dstOffset = IntOffset((c.x - tw / 2f).toInt(), (c.y - th / 2f).toInt()), dstSize = IntSize(tw, th), filterQuality = FilterQuality.Medium)
                 }
                 if (g.night) {
                     drawRect(Color(0xFF0B1030).copy(alpha = 0.42f))
-                    for (h in 0 until RealmMap.HEXES) if (g.revealed[h] && g.terrain[h] == Realm.MANA) drawPath(hexPath(geo, h, 0.95f), Color(0xFFB388FF).copy(alpha = 0.22f))
+                    for (h in 0 until m.HEXES) if (g.revealed[h] && g.terrain[h] == Realm.MANA) drawPath(hexPath(geo, h, 0.95f), Color(0xFFB388FF).copy(alpha = 0.22f))
                 }
                 // gold borders
-                for (h in 0 until RealmMap.HEXES) {
+                for (h in 0 until m.HEXES) {
                     val p = hexPath(geo, h, 1f)
                     drawPath(p, Color(0xFF4A3510), style = Stroke(u * 0.08f))
                     drawPath(p, Brush.linearGradient(listOf(Color(0xFFF6E3A1), Color(0xFFC9972F), Color(0xFFF2D27A)), start = geo.hex(h) - Offset(u, u), end = geo.hex(h) + Offset(u, u)), style = Stroke(u * 0.05f))
                 }
-                // portals on the painted piers
+                // portals: a badge on each painted pier, roped to the coast edge it serves
                 for (k in g.portEdge.indices) {
                     val e = g.portEdge[k]
-                    val dock = RealmMap.docks.indexOf(e)
-                    val pp = if (dock >= 0) {
-                        val d = Offset(RealmMap.DOCK_X[dock], RealmMap.DOCK_Y[dock]); val out = d / d.getDistance()
-                        geo.pt(d.x + out.x * 0.42f, d.y + out.y * 0.42f)
-                    } else geo.portPos(e)
+                    val dock = m.docks.indexOf(e)
+                    val pp = if (dock >= 0) geo.artPt(RealmMap.DOCK_PX[dock], RealmMap.DOCK_PY[dock]) else geo.edgeMid(e) * 1f
+                    val bs = maxOf(u * 0.55f, geo.art * 62f)
+                    for (v in intArrayOf(m.edgeA[e], m.edgeB[e])) {
+                        val q = geo.vert(v)
+                        drawLine(Color(0xFF3A2410).copy(alpha = 0.7f), pp, q, bs * 0.12f, StrokeCap.Round)
+                        drawLine(Color(0xFFF2D27A), pp, q, bs * 0.06f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(bs * 0.16f, bs * 0.1f)))
+                        drawCircle(Color(0xFFF2D27A), bs * 0.1f, q)
+                    }
                     val t = g.portType[k]
                     val pin = if (t == 5) art.pinAny else art.pins[t]
-                    val ph = u * 0.95f; val pw = ph * pin.width / pin.height
-                    drawImage(pin, dstOffset = IntOffset((pp.x - pw / 2).toInt(), (pp.y - ph * 0.3f).toInt()), dstSize = IntSize(pw.toInt(), ph.toInt()), filterQuality = FilterQuality.Medium)
+                    drawCircle(Color.Black.copy(alpha = 0.35f), bs * 0.5f, pp + Offset(0f, bs * 0.06f))
+                    drawImage(pin, dstOffset = IntOffset((pp.x - bs / 2).toInt(), (pp.y - bs / 2).toInt()), dstSize = IntSize(bs.toInt(), bs.toInt()), filterQuality = FilterQuality.Medium)
                     if (t != 5) {
-                        val ic = art.icons[t]; val iw = u * 0.36f; val ih = iw * ic.height / ic.width
-                        drawCircle(Color(0xFFF8EED6), iw * 0.62f, pp + Offset(pw * 0.55f, -ph * 0.18f))
-                        drawImage(ic, dstOffset = IntOffset((pp.x + pw * 0.55f - iw / 2).toInt(), (pp.y - ph * 0.18f - ih / 2).toInt()), dstSize = IntSize(iw.toInt(), ih.toInt()), filterQuality = FilterQuality.Medium)
+                        val ic = art.icons[t]; val iw = bs * 0.55f; val ih = iw * ic.height / ic.width; val ic0 = pp + Offset(bs * 0.5f, -bs * 0.38f)
+                        drawCircle(Color(0xFFF8EED6), iw * 0.62f, ic0); drawCircle(Color(0xFFC9972F), iw * 0.62f, ic0, style = Stroke(bs * 0.04f))
+                        drawImage(ic, dstOffset = IntOffset((ic0.x - iw / 2).toInt(), (ic0.y - ih / 2).toInt()), dstSize = IntSize(iw.toInt(), ih.toInt()), filterQuality = FilterQuality.Medium)
                     }
                 }
-                for (h in 0 until RealmMap.HEXES) {
+                // resource bubble and number token on every known tile
+                for (h in 0 until m.HEXES) {
                     if (!g.revealed[h]) continue
                     val c = geo.hex(h); val path = hexPath(geo, h)
+                    val t = g.terrain[h]
+                    val bc = c + Offset(0f, if (t == Realm.WASTE) 0f else -u * 0.3f)
+                    val br = u * (if (t == Realm.WASTE) 0.26f else 0.2f)
+                    drawCircle(Color.Black.copy(alpha = 0.25f), br, bc + Offset(0f, u * 0.025f))
+                    drawCircle(Color(0xFFF8EED6), br, bc)
+                    drawCircle(Color(0xFFC9972F), br, bc, style = Stroke(u * 0.03f))
+                    if (t != Realm.WASTE) {
+                        val ic = art.icons[t]; val iw = br * 1.45f; val ih = iw * ic.height / ic.width
+                        drawImage(ic, dstOffset = IntOffset((bc.x - iw / 2).toInt(), (bc.y - ih / 2).toInt()), dstSize = IntSize(iw.toInt(), ih.toInt()), filterQuality = FilterQuality.Medium)
+                    } else {
+                        val owner = g.wasteClaim[h]
+                        actionIcon(RI.CROWN, bc, br * 1.3f)
+                        if (owner >= 0) drawCircle(if (owner == 0) YOU else RIVAL, br, bc, style = Stroke(u * 0.06f))
+                    }
                     if (g.number[h] > 0) {
                         val tc = c + Offset(0f, u * 0.2f)
-                        drawCircle(Color.Black.copy(alpha = 0.25f), u * 0.31f, tc + Offset(0f, u * 0.03f))
-                        drawCircle(Color(0xFFFFF4DE), u * 0.3f, tc)
+                        drawCircle(Color.Black.copy(alpha = 0.25f), u * 0.27f, tc + Offset(0f, u * 0.03f))
+                        drawCircle(Color(0xFFFFF4DE), u * 0.26f, tc)
                         val hot = g.number[h] == 6 || g.number[h] == 8
-                        glyph("${g.number[h]}", tc - Offset(0f, u * 0.05f), u * 0.3f, if (hot) Color(0xFFC62828) else Color(0xFF2B2B2B))
+                        glyph("${g.number[h]}", tc - Offset(0f, u * 0.04f), u * 0.27f, if (hot) Color(0xFFC62828) else Color(0xFF2B2B2B))
                         val pips = Realm.pips(g.number[h])
-                        for (k in 0 until pips) drawCircle(if (hot) Color(0xFFC62828) else Color(0xFF2B2B2B), u * 0.022f, tc + Offset((k - (pips - 1) / 2f) * u * 0.06f, u * 0.17f))
+                        for (k in 0 until pips) drawCircle(if (hot) Color(0xFFC62828) else Color(0xFF2B2B2B), u * 0.02f, tc + Offset((k - (pips - 1) / 2f) * u * 0.055f, u * 0.15f))
                     }
                     if (g.number[h] == g.lastRoll && g.lastRoll != 7 && g.phase != Realm.SETUP) drawPath(path, Color(0xFFFFF59D).copy(alpha = 0.9f), style = Stroke(u * 0.07f))
                 }
                 // tile targets (dragon)
                 for (h in tT) drawPath(hexPath(geo, h, 0.86f), Color(0xFFFF7043).copy(alpha = pulse), style = Stroke(u * 0.08f))
-                // ley stones
+                // ley stones: violet glow, white heart
                 for (v in g.ley) if (g.leyVisible(v)) {
                     val p = geo.vert(v)
-                    drawCircle(Color(0xFFB388FF).copy(alpha = 0.35f), u * 0.26f, p)
-                    drawPath(Path().apply { moveTo(p.x, p.y - u * 0.17f); lineTo(p.x + u * 0.11f, p.y); lineTo(p.x, p.y + u * 0.17f); lineTo(p.x - u * 0.11f, p.y); close() }, Color(0xFF7C4DFF))
+                    drawCircle(Brush.radialGradient(listOf(Color(0xFFD1B3FF).copy(alpha = 0.9f), Color(0xFF9C5CFF).copy(alpha = 0.45f), Color.Transparent), center = p, radius = u * 0.42f), u * 0.42f, p)
+                    val dia = Path().apply { moveTo(p.x, p.y - u * 0.2f); lineTo(p.x + u * 0.13f, p.y); lineTo(p.x, p.y + u * 0.2f); lineTo(p.x - u * 0.13f, p.y); close() }
+                    drawPath(dia, Color(0xFF6A2FE0)); drawPath(dia, Color.White, style = Stroke(u * 0.025f))
+                    val core = Path().apply { moveTo(p.x, p.y - u * 0.1f); lineTo(p.x + u * 0.065f, p.y); lineTo(p.x, p.y + u * 0.1f); lineTo(p.x - u * 0.065f, p.y); close() }
+                    drawPath(core, Color.White)
                 }
                 // roads
-                for (e in 0 until RealmMap.EDGES) {
+                for (e in 0 until m.EDGES) {
                     val o = g.eOwner[e]; if (o < 0) continue
-                    val a = geo.vert(RealmMap.edgeA[e]); val b = geo.vert(RealmMap.edgeB[e]); val d = (b - a) * 0.14f
+                    val a = geo.vert(m.edgeA[e]); val b = geo.vert(m.edgeB[e])
                     val img = if (o == 0) art.roadYou else art.roadRival
                     val mid = (a + b) / 2f; val len = (b - a).getDistance() * 0.74f; val hh = len * img.height / img.width
                     rotate(Math.toDegrees(kotlin.math.atan2((b - a).y.toDouble(), (b - a).x.toDouble())).toFloat(), mid) {
@@ -669,12 +705,12 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                     }
                 }
                 for (e in eT) {
-                    val a = geo.vert(RealmMap.edgeA[e]); val b = geo.vert(RealmMap.edgeB[e]); val d = (b - a) * 0.18f
+                    val a = geo.vert(m.edgeA[e]); val b = geo.vert(m.edgeB[e]); val d = (b - a) * 0.18f
                     drawLine((if (s.mode == RealmSession.Mode.FIREBALL) Color(0xFFFF7043) else Color.White).copy(alpha = pulse), a + d, b - d, u * 0.12f, StrokeCap.Round,
                         pathEffect = if (s.mode == RealmSession.Mode.FIREBALL) null else PathEffect.dashPathEffect(floatArrayOf(u * 0.12f, u * 0.08f)))
                 }
                 // buildings
-                for (v in 0 until RealmMap.VERTS) {
+                for (v in 0 until m.VERTS) {
                     val o = g.vOwner[v]; if (o < 0) continue
                     val col = if (o == 0) YOU else RIVAL
                     if (g.vLevel[v] == 2) tower(geo.vert(v), u, col)
@@ -686,24 +722,26 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 }
                 for (v in vT) drawCircle(Color.White.copy(alpha = pulse), u * 0.17f, geo.vert(v), style = Stroke(u * 0.07f))
                 // dragon
-                if (!g.dragonGone) {
-                    val img = art.dragon; val w = u * 1.35f; val h = w * img.height / img.width; val c = geo.hex(g.dragon) + Offset(0f, -u * 0.32f)
-                    drawCircle(Color(0xFFFF5722).copy(alpha = 0.25f), u * 0.62f, c)
-                    drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - h / 2).toInt()), dstSize = IntSize(w.toInt(), h.toInt()), filterQuality = FilterQuality.Medium)
+                fun dragonAt(h: Int, scale: Float) {
+                    val img = art.dragon; val w = u * 1.3f * scale; val hh = w * img.height / img.width; val c = geo.hex(h)
+                    drawCircle(Brush.radialGradient(listOf(Color(0xFFFF2A1A).copy(alpha = 0.75f), Color(0xFFD50000).copy(alpha = 0.35f), Color.Transparent), center = c, radius = u * 0.9f * scale), u * 0.9f * scale, c)
+                    drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh / 2).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
                 }
+                if (!g.dragonGone) dragonAt(g.dragon, 1f)
+                for (h in g.wild) dragonAt(h, 0.8f)
                 // computer's last move
                 val la = s.lastAi
                 if (la >= 0) {
-                    val p = when { la >= 200 -> geo.hex(la - 200); la >= 100 -> geo.edgeMid(la - 100); else -> geo.vert(la) }
+                    val p = when { la >= 2000 -> geo.hex(la - 2000); la >= 1000 -> geo.edgeMid(la - 1000); else -> geo.vert(la) }
                     drawCircle(RIVAL.copy(alpha = 0.8f), u * 0.34f, p, style = Stroke(u * 0.05f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.1f, u * 0.07f))))
                 }
                 val cf = s.coachFrom
-                if (cf >= 0) coachRings(listOf(when { cf >= 200 -> geo.hex(cf - 200); cf >= 100 -> geo.edgeMid(cf - 100); else -> geo.vert(cf) }), u * 0.4f)
+                if (cf >= 0) coachRings(listOf(when { cf >= 2000 -> geo.hex(cf - 2000); cf >= 1000 -> geo.edgeMid(cf - 1000); else -> geo.vert(cf) }), u * 0.4f)
             }
             if (targets != null) {
-                val geo = RGeo(wPx, hPx, 1f, Offset.Zero, fitTop, fitBottom)
+                val geo = RGeo(g.map, wPx, hPx, 1f, Offset.Zero, fitTop, fitBottom)
                 val r = geo.unit * 0.3f
-                CellTargets(targets, (0 until RealmMap.VERTS).map { "v-$it" to Rect(geo.vert(it), r) } + (0 until RealmMap.EDGES).map { "e-$it" to Rect(geo.edgeMid(it), r) })
+                CellTargets(targets, (0 until g.map.VERTS).map { "v-$it" to Rect(geo.vert(it), r) } + (0 until g.map.EDGES).map { "e-$it" to Rect(geo.edgeMid(it), r) })
             }
         }
     }
@@ -760,7 +798,7 @@ private fun BuildButton(label: String, icon: RI, cost: IntArray?, active: Boolea
 private fun TwistChip(g: Realm) {
     val (icon, text) = when (g.twist) {
         Realm.FOG -> RI.LEY to "Ley power: you ${g.leyPower(0)} · rival ${g.leyPower(1)}"
-        Realm.WAKE -> RI.DRAGON to (if (g.dragonGone) (if (g.slayer == 0) "You slew the dragon!" else "The rival slew the dragon") else "Dragon health ${g.dragonHp - g.dragonWounds} of ${g.dragonHp}")
+        Realm.WAKE -> RI.DRAGON to (if (g.dragonGone) (if (g.slayer == 0) "You slew the dragon!" else "The rival slew the dragon") else "Dragon health ${g.dragonHp - g.dragonWounds} of ${g.dragonHp}" + if (g.wild.isNotEmpty()) " · ${g.wild.size} wild" else "")
         else -> if (g.night) RI.MOON to "Night · mana pays double · the dragon hunts" else RI.SUN to "Day · night falls next round"
     }
     Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1078,13 +1116,10 @@ private fun HeraldCard(s: RealmSession, modifier: Modifier = Modifier) {
 
 // =====================================================================  painted board art
 
-private const val FRAME_CX = 549.2f   // centre hex in rt_frame.webp (px)
-private const val FRAME_CY = 513.2f
-private const val FRAME_R = 106.14f   // hex radius in rt_frame.webp (px)
 private val sqrt3 = kotlin.math.sqrt(3f)
 
 internal class RealmArt(
-    val frame: ImageBitmap, val fog: List<ImageBitmap>, private val byTerrain: List<List<ImageBitmap>>,
+    val island: ImageBitmap, val fog: List<ImageBitmap>, private val byTerrain: List<List<ImageBitmap>>,
     val dragon: ImageBitmap, val houseYou: ImageBitmap, val houseRival: ImageBitmap, val roadYou: ImageBitmap, val roadRival: ImageBitmap,
     val pinAny: ImageBitmap, val pins: List<ImageBitmap>, val icons: List<ImageBitmap>,
 ) {
@@ -1101,7 +1136,7 @@ internal class RealmArt(
 internal fun rememberRealmArt(): RealmArt {
     @Composable fun img(id: Int) = ImageBitmap.imageResource(id)
     return RealmArt(
-        img(com.puresudoku.R.drawable.rt_frame),
+        img(com.puresudoku.R.drawable.rt_island),
         listOf(img(com.puresudoku.R.drawable.rt_fog_1), img(com.puresudoku.R.drawable.rt_fog_2)),
         listOf(
             listOf(img(com.puresudoku.R.drawable.rt_timber_1), img(com.puresudoku.R.drawable.rt_timber_2), img(com.puresudoku.R.drawable.rt_timber_3), img(com.puresudoku.R.drawable.rt_timber_4)),
