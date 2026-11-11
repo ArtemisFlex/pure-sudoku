@@ -52,6 +52,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.layout.onSizeChanged
@@ -401,17 +406,17 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
 
 object RealmforgeDef : RealmDefBase(GameKind.REALMFORGE, Realm.FOG) {
     override fun hint(d: Difficulty) = "Settle villages on good numbers, build roads to explore the fog, and reach the points goal first. 7s wake the dragon."
-    override fun background(session: Session) = com.puresudoku.R.drawable.vbg_realm_fog
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
 }
 
 object RealmDragonDef : RealmDefBase(GameKind.REALM_DRAGON, Realm.WAKE) {
     override fun hint(d: Difficulty) = "Build and trade to reach the points goal. The dragon grows on every 7 and walks toward the leader each round. Wound it with Knights; the final blow is worth 2 points."
-    override fun background(session: Session) = com.puresudoku.R.drawable.vbg_realm_dragon
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
 }
 
 object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
     override fun hint(d: Difficulty) = "Rounds alternate day and night. At night mana tiles pay double, but the dragon raids whoever leads. Reach the points goal first."
-    override fun background(session: Session) = com.puresudoku.R.drawable.vbg_realm_night
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
 }
 
 // =====================================================================  board geometry
@@ -526,6 +531,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
     val vT = s.vertexTargets(); val eT = s.edgeTargets(); val tT = s.tileTargets()
+    val art = rememberRealmArt()
     var zoom by remember(s) { mutableFloatStateOf(1f) }
     var pan by remember(s) { mutableStateOf(Offset.Zero) }
     BoxWithConstraints(modifier.clipToBounds()) {
@@ -559,30 +565,46 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 }
             }) {
                 val geo = RGeo(size.width, size.height, zoom, pan, fitTop, fitBottom); val u = geo.unit
-                // sea
-                drawCircle(Brush.radialGradient(listOf(Color(0xFF3B8FC2), Color(0xFF1C4E7A)), center = Offset(geo.cx, geo.cy), radius = u * 5.4f), u * 5.15f, Offset(geo.cx, geo.cy))
-                // portals
-                for (k in 0 until 9) {
-                    val e = g.portEdge[k]; val pp = geo.portPos(e)
-                    for (v in intArrayOf(RealmMap.edgeA[e], RealmMap.edgeB[e])) drawLine(Color(0xFFE8D5B5), pp, geo.vert(v), u * 0.06f, StrokeCap.Round)
-                    val col = if (g.portType[k] == 5) Color(0xFFF4E9D8) else RES_COLOR[g.portType[k]]
-                    drawCircle(Color(0xFF6A3FB5), u * 0.3f, pp)
-                    drawCircle(col, u * 0.24f, pp)
-                    glyph(if (g.portType[k] == 5) "3:1" else "2:1", pp, u * 0.2f, if (g.portType[k] == 5) Color(0xFF3B2A5A) else Color.White)
+                // the painted island, coast, piers and gold ring
+                run {
+                    val k = u / FRAME_R
+                    drawImage(art.frame, dstOffset = IntOffset((geo.cx - FRAME_CX * k).toInt(), (geo.cy - FRAME_CY * k).toInt()),
+                        dstSize = IntSize((art.frame.width * k).toInt(), (art.frame.height * k).toInt()), filterQuality = FilterQuality.Medium)
                 }
-                // tiles
+                // tiles: painted art, or fog
+                val tw = (sqrt3 * u).toInt() + 2; val th = (2 * u).toInt() + 2
                 for (h in 0 until RealmMap.HEXES) {
+                    val c = geo.hex(h)
+                    val img = if (!g.revealed[h]) art.fog[h % art.fog.size] else art.tile(g, h)
+                    drawImage(img, dstOffset = IntOffset((c.x - tw / 2f).toInt(), (c.y - th / 2f).toInt()), dstSize = IntSize(tw, th), filterQuality = FilterQuality.Medium)
+                }
+                if (g.night) {
+                    drawRect(Color(0xFF0B1030).copy(alpha = 0.42f))
+                    for (h in 0 until RealmMap.HEXES) if (g.revealed[h] && g.terrain[h] == Realm.MANA) drawPath(hexPath(geo, h, 0.95f), Color(0xFFB388FF).copy(alpha = 0.22f))
+                }
+                // gold borders
+                for (h in 0 until RealmMap.HEXES) {
+                    val p = hexPath(geo, h, 1f)
+                    drawPath(p, Color(0xFF4A3510), style = Stroke(u * 0.08f))
+                    drawPath(p, Brush.linearGradient(listOf(Color(0xFFF6E3A1), Color(0xFFC9972F), Color(0xFFF2D27A)), start = geo.hex(h) - Offset(u, u), end = geo.hex(h) + Offset(u, u)), style = Stroke(u * 0.05f))
+                }
+                // portals on the painted piers
+                for (k in g.portEdge.indices) {
+                    val e = g.portEdge[k]
+                    val dock = RealmMap.docks.indexOf(e)
+                    val pp = if (dock >= 0) {
+                        val d = Offset(RealmMap.DOCK_X[dock], RealmMap.DOCK_Y[dock]); val out = d / d.getDistance()
+                        geo.pt(d.x + out.x * 0.42f, d.y + out.y * 0.42f)
+                    } else geo.portPos(e)
+                    val col = if (g.portType[k] == 5) Color(0xFFF4E9D8) else RES_COLOR[g.portType[k]]
+                    drawCircle(Color.Black.copy(alpha = 0.35f), u * 0.27f, pp + Offset(0f, u * 0.03f))
+                    drawCircle(Color(0xFFC9972F), u * 0.27f, pp)
+                    drawCircle(col, u * 0.22f, pp)
+                    glyph(if (g.portType[k] == 5) "3:1" else "2:1", pp, u * 0.19f, if (g.portType[k] == 5) Color(0xFF3B2A5A) else Color.White)
+                }
+                for (h in 0 until RealmMap.HEXES) {
+                    if (!g.revealed[h]) continue
                     val c = geo.hex(h); val path = hexPath(geo, h)
-                    if (!g.revealed[h]) {
-                        drawPath(path, Brush.radialGradient(listOf(Color(0xFFF1F3F5), Color(0xFFB7C0C9)), center = c, radius = u))
-                        for ((dx, dy, r) in listOf(Triple(-0.3f, 0.1f, 0.3f), Triple(0.15f, -0.1f, 0.36f), Triple(0.35f, 0.2f, 0.25f))) drawCircle(Color.White.copy(alpha = 0.7f), r * u, c + Offset(dx * u, dy * u))
-                        glyph("?", c + Offset(0f, 0.05f * u), u * 0.5f, Color(0xFF8A96A3))
-                        continue
-                    }
-                    val t = g.terrain[h]
-                    drawPath(path, Brush.radialGradient(listOf(TERRAIN_COLOR[t].copy(alpha = 1f), TERRAIN_DARK[t]), center = c - Offset(0f, u * 0.3f), radius = u * 1.2f))
-                    terrainArt(t, c, u)
-                    if (g.night) drawPath(path, Color(0xFF0D1333).copy(alpha = if (t == Realm.MANA) 0.15f else 0.32f))
                     if (g.number[h] > 0) {
                         val tc = c + Offset(0f, u * 0.2f)
                         drawCircle(Color.Black.copy(alpha = 0.25f), u * 0.31f, tc + Offset(0f, u * 0.03f))
@@ -1006,4 +1028,39 @@ private fun HeraldCard(s: RealmSession, modifier: Modifier = Modifier) {
             Box(Modifier.fillMaxWidth(time.value).height(3.dp).background(accent))
         }
     }
+}
+
+// =====================================================================  painted board art
+
+private const val FRAME_CX = 549.2f   // centre hex in rt_frame.webp (px)
+private const val FRAME_CY = 513.2f
+private const val FRAME_R = 106.14f   // hex radius in rt_frame.webp (px)
+private val sqrt3 = kotlin.math.sqrt(3f)
+
+internal class RealmArt(val frame: ImageBitmap, val fog: List<ImageBitmap>, private val byTerrain: List<List<ImageBitmap>>) {
+    /** Each tile shows its own painting: the n-th tile of a terrain gets that terrain's n-th variant. */
+    fun tile(g: Realm, h: Int): ImageBitmap {
+        val t = g.terrain[h]
+        val nth = (0 until h).count { g.terrain[it] == t }
+        val list = byTerrain[t]
+        return list[nth % list.size]
+    }
+}
+
+@Composable
+internal fun rememberRealmArt(): RealmArt {
+    @Composable fun img(id: Int) = ImageBitmap.imageResource(id)
+    val R = com.puresudoku.R.drawable
+    return RealmArt(
+        img(R.rt_frame),
+        listOf(img(R.rt_fog_1), img(R.rt_fog_2)),
+        listOf(
+            listOf(img(R.rt_timber_1), img(R.rt_timber_2), img(R.rt_timber_3), img(R.rt_timber_4)),
+            listOf(img(R.rt_ore_1), img(R.rt_ore_2), img(R.rt_ore_3), img(R.rt_ore_4)),
+            listOf(img(R.rt_grain_1), img(R.rt_grain_2)),
+            listOf(img(R.rt_beasts_1), img(R.rt_beasts_2), img(R.rt_beasts_3), img(R.rt_beasts_4), img(R.rt_beasts_5)),
+            listOf(img(R.rt_mana_1), img(R.rt_mana_2), img(R.rt_mana_3)),
+            listOf(img(R.rt_waste_1)),
+        ),
+    )
 }

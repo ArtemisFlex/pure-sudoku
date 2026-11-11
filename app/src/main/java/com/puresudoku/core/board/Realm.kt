@@ -71,6 +71,19 @@ object RealmMap {
             .toIntArray()
     }
 
+    /** The seven piers painted on the board art, in hex units; each portal sits on the coast edge nearest one. */
+    val DOCK_X = floatArrayOf(-2.82f, 2.80f, -4.06f, 4.13f, -3.69f, 3.75f, 0.12f)
+    val DOCK_Y = floatArrayOf(-3.14f, -3.14f, -1.03f, -0.95f, 2.07f, 2.03f, 4.21f)
+    val docks: IntArray by lazy {
+        val used = HashSet<Int>()
+        IntArray(DOCK_X.size) { k ->
+            coast.filter { it !in used }.minBy { e ->
+                val mx = (vertX[edgeA[e]] + vertX[edgeB[e]]) / 2 - DOCK_X[k]; val my = (vertY[edgeA[e]] + vertY[edgeB[e]]) / 2 - DOCK_Y[k]
+                mx * mx + my * my
+            }.also { used += it }
+        }
+    }
+
     fun edgeOf(a: Int, b: Int): Int = vertEdges[a].firstOrNull { edgeA[it] == b || edgeB[it] == b } ?: -1
     fun other(e: Int, v: Int) = if (edgeA[e] == v) edgeB[e] else edgeA[e]
 }
@@ -147,9 +160,9 @@ class Realm(val twist: Int, val target: Int) {
     val revealed = BooleanArray(RealmMap.HEXES) { true }
     val ruin = BooleanArray(RealmMap.HEXES)
     var ley = IntArray(0)
-    val portEdge = IntArray(9)
+    var portEdge = IntArray(7)
     /** 0..4 = 2:1 for that resource, 5 = 3:1 any. */
-    val portType = IntArray(9)
+    var portType = IntArray(7)
 
     val vOwner = IntArray(RealmMap.VERTS) { -1 }
     val vLevel = IntArray(RealmMap.VERTS)
@@ -207,8 +220,8 @@ class Realm(val twist: Int, val target: Int) {
         }
         dragon = terrain.indexOf(WASTE)
         val c = RealmMap.coast
-        val types = (listOf(5, 5, 5, 5) + (0..4)).shuffled(rng)
-        for (k in 0 until 9) { portEdge[k] = c[(k * c.size + c.size / 2) / 9]; portType[k] = types[k] }
+        portEdge = RealmMap.docks.copyOf()
+        portType = (listOf(5, 5) + (0..4)).shuffled(rng).toIntArray()
         deck.clear()
         repeat(14) { deck += KNIGHT }; repeat(5) { deck += RELIC }; repeat(2) { deck += EARTH }; repeat(2) { deck += HARVEST }; repeat(2) { deck += FIREBALL }
         deck.shuffle(rng)
@@ -247,7 +260,7 @@ class Realm(val twist: Int, val target: Int) {
 
     fun portRate(p: Int, r: Int): Int {
         var best = 4
-        for (k in 0 until 9) {
+        for (k in portEdge.indices) {
             val e = portEdge[k]
             val mine = vOwner[RealmMap.edgeA[e]] == p || vOwner[RealmMap.edgeB[e]] == p
             if (!mine) continue
@@ -256,7 +269,7 @@ class Realm(val twist: Int, val target: Int) {
         return best
     }
 
-    fun portAt(v: Int): Int = (0 until 9).firstOrNull { RealmMap.edgeA[portEdge[it]] == v || RealmMap.edgeB[portEdge[it]] == v }?.let { portType[it] } ?: -1
+    fun portAt(v: Int): Int = portEdge.indices.firstOrNull { RealmMap.edgeA[portEdge[it]] == v || RealmMap.edgeB[portEdge[it]] == v }?.let { portType[it] } ?: -1
 
     private fun spacingOk(v: Int) = vOwner[v] < 0 && RealmMap.vertNbrs[v].all { vOwner[it] < 0 }
 
@@ -586,7 +599,7 @@ class Realm(val twist: Int, val target: Int) {
         fun get(): IntArray { val n = s[i++]; val a = s.copyOfRange(i, i + n); i += n; return a }
         get().copyInto(terrain); get().copyInto(number)
         get().forEachIndexed { k, b -> revealed[k] = b == 1 }; get().forEachIndexed { k, b -> ruin[k] = b == 1 }
-        ley = get(); get().copyInto(portEdge); get().copyInto(portType); get().copyInto(vOwner); get().copyInto(vLevel); get().copyInto(eOwner)
+        ley = get(); portEdge = get(); portType = get(); get().copyInto(vOwner); get().copyInto(vLevel); get().copyInto(eOwner)
         get().copyInto(res[0]); get().copyInto(res[1]); get().copyInto(spells[0]); get().copyInto(spells[1]); get().copyInto(fresh)
         deck.clear(); deck += get().toList(); get().copyInto(knights)
         val m = get()
