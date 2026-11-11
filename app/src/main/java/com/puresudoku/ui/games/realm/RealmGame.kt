@@ -701,7 +701,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 for (v in vT) drawCircle(Color.White.copy(alpha = pulse), u * 0.17f, geo.vert(v), style = Stroke(u * 0.07f))
                 // dragon
                 fun dragonAt(h: Int, scale: Float) {
-                    val img = art.dragon; val w = u * 1.3f * scale; val hh = w * img.height / img.width; val c = geo.hex(h)
+                    val img = art.dragon; val hh = u * 1.4f * scale; val w = hh * img.width / img.height; val c = geo.hex(h)
                     drawCircle(Brush.radialGradient(listOf(Color(0xFFFF2A1A).copy(alpha = 0.75f), Color(0xFFD50000).copy(alpha = 0.35f), Color.Transparent), center = c, radius = u * 0.9f * scale), u * 0.9f * scale, c)
                     drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh / 2).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
                 }

@@ -353,7 +353,7 @@ internal class WisteriaArt(val water: ImageBitmap, val knight: ImageBitmap)
 @Composable
 private fun rememberWisteriaArt() = WisteriaArt(
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_water),
-    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_knight),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_knight_piece),
 )
 
 private fun DrawScope.castle(p: Offset, u: Float, color: Color) {
@@ -470,10 +470,10 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                     }
                     val k = g.knights[h]
                     if (k > 0) {
-                        val kc = c + Offset(0f, u * 0.5f); val kw = u * 0.3f
+                        val kh = u * 0.48f; val kw = kh * wart.knight.width / wart.knight.height; val base = c.y + u * 0.78f
                         for (i in 0 until k) {
-                            val x = kc.x + (i - (k - 1) / 2f) * kw * 0.85f
-                            drawImage(wart.knight, dstOffset = IntOffset((x - kw / 2).toInt(), (kc.y - kw / 2).toInt()), dstSize = IntSize(kw.toInt(), kw.toInt()), filterQuality = FilterQuality.Medium)
+                            val x = c.x + (i - (k - 1) / 2f) * kw * 0.95f
+                            drawImage(wart.knight, dstOffset = IntOffset((x - kw / 2).toInt(), (base - kh).toInt()), dstSize = IntSize(kw.toInt(), kh.toInt()), filterQuality = FilterQuality.Medium)
                         }
                     }
                 }
@@ -496,13 +496,13 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                 route(a.pos, a.route, col.copy(alpha = 0.85f), false)
                 val b = from + Offset(u * 0.38f, -u * 0.05f)
                 drawCircle(Color.Black.copy(alpha = 0.35f), u * 0.27f, b + Offset(0f, u * 0.03f)); drawCircle(col, u * 0.27f, b)
-                val kw = u * 0.34f
-                drawImage(wart.knight, dstOffset = IntOffset((b.x - kw / 2).toInt(), (b.y - kw / 2 - u * 0.03f).toInt()), dstSize = IntSize(kw.toInt(), kw.toInt()), filterQuality = FilterQuality.Medium)
+                val kh = u * 0.46f; val kw = kh * wart.knight.width / wart.knight.height
+                drawImage(wart.knight, dstOffset = IntOffset((b.x - kw / 2).toInt(), (b.y - kh * 0.62f).toInt()), dstSize = IntSize(kw.toInt(), kh.toInt()), filterQuality = FilterQuality.Medium)
                 glyph("${a.size}", b + Offset(u * 0.2f, u * 0.17f), u * 0.18f, Color.White)
             }
             // dragon
             run {
-                val c = geo.hex(g.dragon); val img = art.dragon; val w = u * 1.3f; val hh = w * img.height / img.width
+                val c = geo.hex(g.dragon); val img = art.dragon; val hh = u * 1.4f; val w = hh * img.width / img.height
                 drawCircle(Brush.radialGradient(listOf(Color(0xFFFF2A1A).copy(alpha = 0.75f), Color(0xFFD50000).copy(alpha = 0.35f), Color.Transparent), center = c, radius = u * 0.9f), u * 0.9f, c)
                 drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh / 2).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
                 val tb = c + Offset(u * 0.45f, u * 0.48f)
