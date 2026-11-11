@@ -160,10 +160,11 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
             g.pass(p); message = "$drawText${if (drew > 0) " and " else "$who "}passed"
         }
         moves++
+        announce(message.substringBefore(" · "), if (g.hands[p].size == 1) "Last card!" else "${g.hands[p].size} cards left in their hand")
         bump()
         if (checkEnd()) return
         changed()
-        if (g.turn == 0) { thinking = false; bump() } else AiWorker.later(900) { opponentStep() }
+        if (g.turn == 0) { thinking = false; bump() } else whenQuiet { AiWorker.later(300) { opponentStep() } }
     }
 
     override fun resume() { if (outcome == Outcome.PLAYING && g.turn != 0) runOpponents() }

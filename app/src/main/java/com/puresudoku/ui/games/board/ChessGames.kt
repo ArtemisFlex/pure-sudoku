@@ -162,6 +162,11 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
         computer(think = { val m = AlphaBeta(copy.searchable(), lvl, Random(seed)).best(); m?.let { it to copy.san(it) } }) { r ->
             if (r == null) return@computer
             message = "Computer played ${r.second}"
+            val names = listOf("", "pawn", "knight", "bishop", "rook", "queen", "king")
+            fun sq(i: Int) = "${'a' + i % 8}${8 - i / 8}"
+            val f = Chess.src(r.first); val t = Chess.dst(r.first); val v = abs(g.b[t])
+            announce("Computer plays ${r.second}", "Its ${names[abs(g.b[f])]} moves from ${sq(f)} to ${sq(t)}" +
+                (if (v != 0) ", taking your ${names[v]}" else "") + (if (r.second.endsWith("#")) ". Checkmate!" else if (r.second.endsWith("+")) ". Check!" else "."))
             apply(r.first)
         }
     }
@@ -396,7 +401,14 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
 
     private fun reply() {
         val copy = Xiangqi(); copy.load(g.state()); val lvl = Xiangqi.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
+        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
+            if (m == null) return@computer
+            val roles = listOf("", "General", "Advisor", "Elephant", "Horse", "Chariot", "Cannon", "Soldier")
+            val f = Xiangqi.src(m); val t = Xiangqi.dst(m); val p = abs(g.b[f]); val v = abs(g.b[t])
+            announce("Computer moves its ${roles[p]} ${Xiangqi.BLACK_NAMES[p]}", moveWords(t / 9 - f / 9, t % 9 - f % 9).replaceFirstChar { it.uppercase() } +
+                (if (v != 0) ", taking your ${roles[v]}." else "."))
+            apply(m)
+        }
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
@@ -606,7 +618,18 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
 
     private fun reply() {
         val copy = Shogi(); copy.load(g.state()); val lvl = Shogi.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
+        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
+            if (m == null) return@computer
+            val names = listOf("", "Pawn", "Lance", "Knight", "Silver", "Gold", "Bishop", "Rook", "King", "Tokin", "Promoted lance", "Promoted knight", "Promoted silver", "Horse", "Dragon")
+            val t = Shogi.dst(m)
+            if (Shogi.isDrop(m)) { val p = Shogi.src(m) - Shogi.DROP; announce("Computer drops a ${names[p]} ${Shogi.NAMES[p]}", "From its hand of captured pieces onto the board.") }
+            else {
+                val f = Shogi.src(m); val p = abs(g.b[f]); val v = abs(g.b[t])
+                announce("Computer moves its ${names[p]} ${Shogi.NAMES[p]}", moveWords(t / 9 - f / 9, t % 9 - f % 9).replaceFirstChar { it.uppercase() } +
+                    (if (v != 0) ", capturing your ${names[v]}" else "") + (if (Shogi.promotes(m)) ", and promotes it." else "."))
+            }
+            apply(m)
+        }
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }

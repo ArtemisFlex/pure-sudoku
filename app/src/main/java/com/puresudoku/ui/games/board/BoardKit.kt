@@ -166,6 +166,7 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
             if (outcome != Outcome.PLAYING) return@later
             thinking = false
             apply(code)
+            if (!heraldBusy) announce("The computer replies", "Its move is part of the lesson: look at what changed on the board.")
             bump()
         }
     }
@@ -191,8 +192,9 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
         finish(true, extra + BonusLine("Time bonus", Scoring.finish(rules, elapsedMs, 0).timeBonus))
     }
 
-    protected fun lose() { thinking = false; finish(false) }
-    protected fun draw() { thinking = false; score += rules.basePoints * 3; finishDraw() }
+    /** Losing and drawing wait until the computer's last move has been shown. */
+    protected fun lose() { thinking = false; whenQuiet { if (outcome == Outcome.PLAYING) finish(false) } }
+    protected fun draw() { thinking = false; whenQuiet { if (outcome == Outcome.PLAYING) { score += rules.basePoints * 3; finishDraw() } } }
 
     /** Called once after restoring, to restart the computer's turn if it was thinking. */
     abstract fun resume()
@@ -252,6 +254,15 @@ fun ScoreChip(label: String, value: String, color: Color, active: Boolean, modif
 }
 
 fun Dp.half() = this / 2
+
+/** A move's direction from where you sit (the computer plays from the far side). */
+fun moveWords(dr: Int, dc: Int): String {
+    val v = when { dr > 0 -> "toward you"; dr < 0 -> "back"; else -> "" }
+    val h = when { dc < 0 -> "left"; dc > 0 -> "right"; else -> "" }
+    val dist = maxOf(kotlin.math.abs(dr), kotlin.math.abs(dc))
+    val dir = listOf(v, h).filter { it.isNotEmpty() }.joinToString(" and ")
+    return if (dist > 1 && (dr == 0 || dc == 0 || kotlin.math.abs(dr) == kotlin.math.abs(dc))) "$dist squares $dir" else "one step $dir"
+}
 
 /** Gold rings marking the coach's suggested move. */
 fun DrawScope.coachRings(points: List<Offset>, r: Float) {

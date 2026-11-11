@@ -59,6 +59,35 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
         }
     }
 
+    // ---------------- heralds: the computer's actions, shown as cards one at a time
+
+    var herald by mutableStateOf<Herald?>(null); private set
+    private val heraldQ = ArrayDeque<Herald>()
+    private var heraldSeq = 0
+    private var heraldToken = 0
+    private var afterHeralds: (() -> Unit)? = null
+    val heraldBusy: Boolean get() = herald != null || heraldQ.isNotEmpty()
+
+    /** Queues a card describing what the computer just did. [art] is a game-specific icon key. */
+    fun announce(title: String, detail: String = "", ms: Long = 1600, mine: Boolean = false, art: Any? = null) {
+        heraldQ += Herald(++heraldSeq, title, detail, ms, mine, art)
+        if (herald == null) nextHerald()
+    }
+
+    private fun nextHerald() {
+        val h = heraldQ.removeFirstOrNull()
+        herald = h
+        if (h == null) { val f = afterHeralds; afterHeralds = null; f?.invoke(); return }
+        val tok = ++heraldToken
+        heraldHandler.postDelayed({ if (tok == heraldToken) nextHerald() }, h.ms)
+    }
+
+    /** A tap on the card: move straight on. */
+    fun skipHerald() { if (herald != null) { heraldToken++; nextHerald() } }
+
+    /** Runs [f] once every queued card has been shown (now, if none are). */
+    fun whenQuiet(f: () -> Unit) { if (!heraldBusy) f() else afterHeralds = f }
+
     /** Latest "that didn't work" message; the play screen shows it with a buzz. */
     var nudgeFx by mutableStateOf<Nudge?>(null); private set
 
@@ -138,3 +167,8 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
 
 /** One scripted lesson step: what the coach says, and the goal that moves the lesson on (null = Next button). */
 class LessonStep(val text: String, val done: ((Session) -> Boolean)? = null)
+
+/** One computer action shown to the player. */
+class Herald(val id: Int, val title: String, val detail: String, val ms: Long, val mine: Boolean, val art: Any?)
+
+private val heraldHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }

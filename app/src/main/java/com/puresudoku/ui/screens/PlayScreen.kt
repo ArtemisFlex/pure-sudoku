@@ -122,6 +122,7 @@ fun PlayScreen(vm: AppViewModel) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 def.Play(session)
                 NudgePill(session, Modifier.align(Alignment.TopCenter))
+                if (session !is com.puresudoku.ui.games.realm.RealmSession) com.puresudoku.ui.components.HeraldOverlay(session, def, Modifier.align(Alignment.TopCenter))
                 if (session.training) com.puresudoku.ui.training.CoachPanel(
                     session, coachOpen, onToggle = { coachOpen = !coachOpen }, modifier = Modifier.align(Alignment.BottomCenter),
                 )

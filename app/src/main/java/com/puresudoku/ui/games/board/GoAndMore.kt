@@ -115,6 +115,8 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
         computer(minMs = 500, think = { copy.aiMove(lvl, Random(seed)) }) { m ->
             val caps = g.play(m) ?: g.play(-1)!!
             moves++
+            announce(when { m < 0 -> "Computer passes"; caps.isNotEmpty() -> "Computer captures ${caps.size} stone${if (caps.size > 1) "s" else ""}"; else -> "Computer places a stone" },
+                when { m < 0 -> if (g.over) "Both passed: the game is scored." else "Pass too to end the game, or keep playing."; caps.isNotEmpty() -> "Those stones had no liberties left."; else -> "Row ${m / g.n + 1}, column ${m % g.n + 1}." })
             message = when {
                 m < 0 -> if (g.over) "White passes too" else "White passes. Pass to end the game, or keep playing"
                 caps.isNotEmpty() -> "White captured ${caps.size}"
@@ -353,7 +355,12 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
         message = "Computer rolled ${g.rolled.joinToString(" and ")}"
         bump()
         val snap = Backgammon(); snap.load(g.state()); val lvl = Backgammon.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 700, think = { snap.aiSequence(lvl, Random(seed)) }) { seq -> playOut(seq, 0) }
+        computer(minMs = 700, think = { snap.aiSequence(lvl, Random(seed)) }) { seq ->
+            fun name(p: Int) = when (p) { Backgammon.BAR -> "the bar"; Backgammon.OFF -> "off"; else -> "${p + 1}" }
+            announce("Computer rolls ${g.rolled.joinToString(" and ")}",
+                if (seq.isEmpty()) "It has no legal move." else "It moves " + seq.joinToString(", ") { "${name(it.from)} → ${name(it.to)}" + if (it.hit) " (hit!)" else "" } + ".", 2200)
+            playOut(seq, 0)
+        }
     }
 
     private fun playOut(seq: List<Backgammon.Step>, k: Int) {

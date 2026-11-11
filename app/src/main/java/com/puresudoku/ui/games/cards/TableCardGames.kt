@@ -140,7 +140,11 @@ class BlackjackSession(difficulty: Difficulty, val t: BlackjackTable, chips0: In
     private fun nextHand() { if (!t.nextHand()) conclude() else after() }
 
     private fun conclude() {
+        val shown = t.dealer.size
         t.dealerPlays()
+        val (tot, _) = BlackjackRules.total(t.dealer)
+        announce("The dealer plays", t.dealer.joinToString(" ") { Cards.label(it) } + " = $tot" +
+            (if (tot > 21) ": bust!" else "") + (if (t.dealer.size > shown) " (drew ${t.dealer.size - shown})" else ""), 2000)
         val net = t.settle()
         chips += net.sum()
         val bj = BlackjackRules.isBlackjack(t.hands[0]) && t.hands.size == 1
@@ -329,14 +333,16 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
 
     private fun best() = (1 until g.players).maxBy { g.books[it].size }
 
+    private var said = mutableListOf<String>()
+
     private fun say(events: List<FishEvent>) {
-        for (e in events) log += when (e) {
+        for (e in events) log += (when (e) {
             is FishEvent.Asked -> "${FISH_NAMES[e.from]} asked ${if (e.to == 0) "you" else FISH_NAMES[e.to]} for ${Cards.plural(e.rank)}: " +
                 if (e.got > 0) "got ${e.got}!" else "Go fish!"
             is FishEvent.Fished -> if (e.lucky) "…and fished one up! Another turn." else if (e.player == 0) "You drew ${Cards.label(e.card)}." else continue
             is FishEvent.Book -> "${FISH_NAMES[e.player]} completed the ${Cards.plural(e.rank)}!"
             is FishEvent.Drew -> continue
-        }
+        }).also { said += it }
         while (log.size > 6) log.removeAt(0)
     }
 
@@ -376,13 +382,16 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
         if (outcome != Outcome.PLAYING || g.turn == 0 || g.over) return
         if (othersEmpty) { lonelyDraw(); return }
         val (to, r) = g.aiChoice(g.turn)
+        said.clear()
         say(g.ask(g.turn, to, r))
+        said.toList().takeIf { it.isNotEmpty() }?.let { announce(it.first(), it.drop(1).joinToString("\n"), 2000) }
         after()
     }
 
     override fun onTick(dtMs: Long) {
         if (outcome != Outcome.PLAYING) return
         if (g.turn == 0 && !(othersEmpty && !g.over)) return
+        if (heraldBusy) { clock = 0; return }
         clock += dtMs
         if (clock < 1100) return
         clock = 0
@@ -614,6 +623,13 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
     /** One opponent action. */
     fun step() {
         if (outcome != Outcome.PLAYING || g.over || actor() != 1) return
+        val before = g.log.size
+        stepInner()
+        g.log.drop(before).takeIf { it.isNotEmpty() }?.let { announce(it.first(), it.drop(1).joinToString("\n"), 2000) }
+        after()
+    }
+
+    private fun stepInner() {
         when (val w = g.wait) {
             CWait.Move -> g.play(if (g.allMoves(1).isEmpty()) CMove.Pass() else g.aiMove(1, cfg.skill))
             is CWait.Counter -> g.counter(1, g.aiCounter(1, cfg.skill))
@@ -621,13 +637,12 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
             is CWait.ScrapPick -> g.pickScrap(1, g.aiScrapPick())
             is CWait.Seven -> g.play(g.aiSeven(1, w.card, cfg.skill))
         }
-        after()
     }
 
     override fun onTick(dtMs: Long) {
         if (outcome != Outcome.PLAYING || g.over) return
         val autoPass = actor() == 0 && g.wait is CWait.Counter && g.hands[0].none { Cuttle.r(it) == 2 }
-        if (actor() != 1 && !autoPass) { clock = 0; return }
+        if ((actor() != 1 && !autoPass) || heraldBusy) { clock = 0; return }
         clock += dtMs
         if (clock < (if (autoPass) 1600 else 1000)) return
         clock = 0

@@ -122,30 +122,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
 
     // ---------------- heralds: one card per rival action, shown in order
 
-    internal var herald by mutableStateOf<Herald?>(null); private set
-    private val heraldQ = ArrayDeque<Herald>()
-    private var heraldId = 0
-    private var heraldToken = 0
-    private var afterHeralds: (() -> Unit)? = null
-    val heraldBusy get() = herald != null || heraldQ.isNotEmpty()
-
-    private fun announce(icon: RI, title: String, detail: String = "", ms: Long = 1700, mine: Boolean = false) {
-        heraldQ += Herald(++heraldId, icon, title, detail, ms, mine)
-        if (herald == null) nextHerald()
-    }
-
-    private fun nextHerald() {
-        val h = heraldQ.removeFirstOrNull()
-        herald = h; bump()
-        if (h == null) { val f = afterHeralds; afterHeralds = null; f?.invoke(); return }
-        val tok = ++heraldToken
-        AiWorker.later(h.ms) { if (tok == heraldToken) nextHerald() }
-    }
-
-    /** Tap on a card: move straight on to the next one. */
-    fun skipHerald() { if (herald != null) { heraldToken++; nextHerald() } }
-
-    private fun whenQuiet(f: () -> Unit) { if (!heraldBusy) f() else afterHeralds = f }
+    private fun announce(icon: RI, title: String, detail: String = "", ms: Long = 1700, mine: Boolean = false) = announce(title, detail, ms, mine, icon)
 
     private fun spotWords(v: Int): String {
         val names = listOf("forest", "mountain", "fields", "meadow", "spires", "waste")
@@ -361,7 +338,6 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     }
 }
 
-internal class Herald(val id: Int, val icon: RI, val title: String, val detail: String, val ms: Long, val mine: Boolean)
 
 // =====================================================================  game definitions
 
@@ -994,7 +970,7 @@ private fun HeraldCard(s: RealmSession, modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxWidth().clip(PANEL).parchment(PANEL, accent, 2.dp).clickable { s.skipHerald() }) {
             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(46.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)).border(1.5.dp, accent, CircleShape), contentAlignment = Alignment.Center) {
-                    RIcon(32.dp) { c, sz -> actionIcon(h.icon, c, sz) }
+                    RIcon(32.dp) { c, sz -> actionIcon(h.art as? RI ?: RI.DICE, c, sz) }
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {

@@ -104,7 +104,11 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
     private fun reply() {
         val copy = TicTacToe(g.cells.copyOf(), g.turn); val lvl = TicTacToe.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 500, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
-            if (m != null) { g.make(m); moves++; placedAt[m] = moves }
+            if (m != null) {
+                g.make(m); moves++; placedAt[m] = moves
+                val where = when (m) { 4 -> "the centre"; 0, 2, 6, 8 -> "a corner"; else -> "an edge" }
+                announce("Computer takes $where", if (g.winner == 2) "Three in a row!" else "Watch its lines: two Os in a row need blocking.")
+            }
             checkRound(); changed()
         }
     }
@@ -302,7 +306,9 @@ class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKin
         val copy = Gomoku(g.n); for (m in g.moves) copy.play(m)
         val lvl = Gomoku.level(aiDifficulty); val seed = rng.nextLong()
         computer(minMs = 500, think = { copy.aiMove(lvl, Random(seed)) }) { m ->
-            g.play(m); moves++; message = "Your move"; end()
+            g.play(m); moves++; message = "Your move"
+            announce("Computer places a stone", "Row ${m / g.n + 1}, column ${m % g.n + 1}. Check its lines of three and four.")
+            end()
         }
     }
 
@@ -486,7 +492,12 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
 
     private fun reply() {
         val copy = Morris(); copy.loadState(g.copyState()); val lvl = Morris.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
+        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
+            if (m == null) return@computer
+            announce(if (m.from < 0) "Computer places a man" else "Computer moves a man",
+                if (m.remove >= 0) "It formed a mill and takes one of your men!" else "Look for mills it's building: three in a line.")
+            apply(m)
+        }
     }
 
     override fun resume() { if (g.turn == 2 && outcome == Outcome.PLAYING) reply() }
@@ -652,12 +663,17 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
             return
         }
         changed()
-        if (g.turn == 1) reply()
+        if (g.turn == 1) AiWorker.later(60) { whenQuiet { if (outcome == Outcome.PLAYING && g.turn == 1) reply() } }
     }
 
     private fun reply() {
         val copy = Mancala(g.pits.copyOf(), g.turn); val lvl = Mancala.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 700, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) sow(m) }
+        computer(minMs = 700, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
+            if (m == null) return@computer
+            val n = g.pits[m]
+            sow(m)
+            announce("Computer sows $n seed${if (n == 1) "" else "s"}", message.takeIf { it.isNotEmpty() && it != "Your turn" } ?: "Counting round its side, then yours.")
+        }
     }
 
     override fun resume() { if (g.turn == 1 && outcome == Outcome.PLAYING) reply() }
@@ -845,7 +861,14 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
 
     private fun reply() {
         val copy = Checkers(); copy.load(g.state()); val lvl = Checkers.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m -> if (m != null) apply(m) }
+        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
+            if (m == null) return@computer
+            val wasMan = abs(g.b[m.from]) == 1
+            apply(m)
+            val crowned = wasMan && abs(g.b[m.to]) == 2
+            announce(when (m.captured.size) { 0 -> "Computer moves a piece"; 1 -> "Computer jumps your piece"; else -> "Computer jumps ${m.captured.size} of your pieces!" },
+                moveWords(m.to / 8 - m.from / 8, m.to % 8 - m.from % 8).replaceFirstChar { it.uppercase() } + if (crowned) ", and it's crowned a king." else ".")
+        }
     }
 
     override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
