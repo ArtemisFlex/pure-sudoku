@@ -431,15 +431,6 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                 drawPath(p, Brush.linearGradient(listOf(Color(0xFFF6E3A1), Color(0xFFC9972F), Color(0xFFF2D27A)), start = geo.hex(h) - Offset(u, u), end = geo.hex(h) + Offset(u, u)), style = Stroke(u * 0.05f))
                 if (o >= 0) drawPath(hexPath(geo, h, 0.9f), if (o == 0) YOU else RIVAL, style = Stroke(u * 0.07f))
             }
-            // walls
-            for (e in 0 until m.EDGES) {
-                val o = g.wall[e]; if (o < 0) continue
-                val a = geo.vert(m.edgeA[e]); val b = geo.vert(m.edgeB[e]); val d = (b - a) * 0.08f
-                drawLine(Color(0xFF2B2B2B), a + d, b - d, u * 0.2f, StrokeCap.Round)
-                drawLine(Color(0xFFB8B2A6), a + d, b - d, u * 0.14f, StrokeCap.Round)
-                drawLine(if (o == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
-            }
-            if (s.mode == WisteriaSession.Mode.SIEGE) for (e in g.siegeTargets(0)) drawCircle(Color(0xFFFF7043).copy(alpha = pulse), u * 0.22f, geo.edgeMid(e), style = Stroke(u * 0.06f))
             // tile contents: yields, building, knights
             for (h in 0 until g.H) {
                 if (!g.revealed[h]) continue
@@ -512,7 +503,6 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             // highlights
             val warm = s.mode == WisteriaSession.Mode.STRIKE || s.mode == WisteriaSession.Mode.MARCH
             for (h in lit) drawPath(hexPath(geo, h, 0.84f), (if (warm) Color(0xFFFF7043) else Color.White).copy(alpha = pulse), style = Stroke(u * 0.07f))
-            if (s.selected >= 0) drawPath(hexPath(geo, s.selected, 0.94f), Color(0xFFFFD54F), style = Stroke(u * 0.09f))
             val la = s.lastAi
             if (la >= 0) {
                 val p = if (la >= 1000) geo.edgeMid(la - 1000) else geo.hex(la)
@@ -520,6 +510,17 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             }
             val cf = s.coachFrom
             if (cf >= 0) coachRings(listOf(if (cf >= 1000) geo.edgeMid(cf - 1000) else geo.hex(cf)), u * 0.5f)
+            // walls sit above everything but the selected-tile highlight, so they always show
+            for (e in 0 until m.EDGES) {
+                val o = g.wall[e]; if (o < 0) continue
+                val a = geo.vert(m.edgeA[e]); val b = geo.vert(m.edgeB[e]); val d = (b - a) * 0.08f
+                drawLine(Color(0xFF2B2B2B), a + d, b - d, u * 0.2f, StrokeCap.Round)
+                drawLine(Color(0xFFB8B2A6), a + d, b - d, u * 0.14f, StrokeCap.Round)
+                drawLine(if (o == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
+            }
+            if (s.mode == WisteriaSession.Mode.SIEGE) for (e in g.siegeTargets(0)) drawCircle(Color(0xFFFF7043).copy(alpha = pulse), u * 0.22f, geo.edgeMid(e), style = Stroke(u * 0.06f))
+            // selected tile, on top of everything
+            if (s.selected >= 0) drawPath(hexPath(geo, s.selected, 0.94f), Color(0xFFFFD54F), style = Stroke(u * 0.09f))
         }
     }
 }
