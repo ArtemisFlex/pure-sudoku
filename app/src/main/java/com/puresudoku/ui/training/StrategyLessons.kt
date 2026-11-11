@@ -39,6 +39,22 @@ object StrategyLessons {
             "Once it's slain, 7s only cost cards: plan big hands around that.",
             "Time your lead: overtake just before you can finish the game.",
         ))),
+        GameKind.WISTERIA to Course(listOf(
+            "No dice: every tile you hold pays out at the start of your turn. Most give 1 each of three resources; some give 2 of two; the richest give 3 of one.",
+            "Claim free land touching your territory. The price is a village's cost, plus extra for rich tiles, plus a card for every three tiles you hold.",
+            "Villages are worth 1 point, towers 2, castles 3. First to the points goal wins. Water can't be held or crossed.",
+            "Knights: a village's single knight strikes a touching rival tile at once. A tower's 2 or a castle's 3 march together along a route you plot, one tile per turn.",
+            "Each knight burns a village or knocks a castle or tower down a level. Armies that meet fight: the bigger side keeps the difference.",
+            "Walls guard one side of a tile: they stop a whole attack from that side, and hold the dragon back a turn, then break.",
+            "Every 5 turns the dragon moves one tile toward the leader. It burns a village or knocks a tower down a level, then returns to its lair.",
+        ), listOf(
+            listOf("Settle a rich tile with free land around it.", "Claim every turn early: more land, more income."),
+            listOf("Raise a tower on your richest tile before the dragon comes.", "Don't lead by too much too early: the dragon hunts the leader."),
+            listOf("Wall the sides that face rival villages with knights.", "A village knight is cheap and strikes instantly: use them on weak neighbours."),
+            listOf("Plot long marches to come round an unwalled side.", "Keep a garrison home: armies that meet cancel out."),
+            listOf("Castles are worth 3 and take three hits: build them deep inside your land.", "Strike when the rival can't afford to retake the land."),
+            listOf("Time your last upgrades so you win before the dragon or an army arrives.", "Break walls with Siege Fire right before your army lands."),
+        )),
         GameKind.REALM_NIGHT to Course(basics + "Rounds alternate day and night. At night crystal spires pay double mana, and the dragon raids the leader's best tile.", levels(listOf(
             "Crystal spires are worth more here: settle one early.",
             "Use night mana for roads and villages.",

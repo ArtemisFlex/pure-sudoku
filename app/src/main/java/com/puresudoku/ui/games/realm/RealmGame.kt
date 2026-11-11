@@ -360,29 +360,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
 
     @Composable
     override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) {
-        val version = when (twist) { Realm.WAKE -> "Wyrmrise · "; Realm.NIGHT -> "Nightfall · "; else -> "" }
-        Box(Modifier.fillMaxWidth().height(52.dp)) {
-            RoundArtButton(Modifier.align(Alignment.CenterStart), onClick = actions.back) {
-                RIcon(20.dp) { c, sz ->
-                    drawLine(PARCH_TOP, c + Offset(sz * 0.35f, 0f), c - Offset(sz * 0.35f, 0f), sz * 0.14f, StrokeCap.Round)
-                    drawLine(PARCH_TOP, c - Offset(sz * 0.35f, 0f), c + Offset(-sz * 0.05f, -sz * 0.3f), sz * 0.14f, StrokeCap.Round)
-                    drawLine(PARCH_TOP, c - Offset(sz * 0.35f, 0f), c + Offset(-sz * 0.05f, sz * 0.3f), sz * 0.14f, StrokeCap.Round)
-                }
-            }
-            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(session.difficulty.accent()))
-                    Spacer(Modifier.width(5.dp))
-                    Text((if (session.training) "Training · " else "") + version + session.difficulty.label, fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = INK)
-                }
-            }
-            Row(Modifier.align(Alignment.CenterEnd), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.size(42.dp).clip(CircleShape).clickable(onClick = actions.info)) { ArtImg(com.puresudoku.R.drawable.rt_btn_info, 42.dp) }
-                Box(Modifier.size(42.dp).clip(CircleShape).alpha(if (actions.canPause) 1f else 0.5f).clickable(enabled = actions.canPause, onClick = actions.pause)) {
-                    ArtImg(com.puresudoku.R.drawable.rt_btn_pause, 42.dp)
-                }
-            }
-        }
+        RealmHeader(session, actions, when (twist) { Realm.WAKE -> "Wyrmrise · "; Realm.NIGHT -> "Nightfall · "; else -> "" })
     }
     override fun levelInfo(d: Difficulty): String {
         val tiles = com.puresudoku.core.board.RealmMap.forLevel(d.ordinal).HEXES
@@ -460,7 +438,7 @@ object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
 // =====================================================================  board geometry
 
 /** Board layout: at zoom 1 the board fits the gap between [top] and [bottom] (px); zoomed, it spreads under everything. */
-private class RGeo(val m: RealmGrid, val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f) {
+internal class RGeo(val m: RealmGrid, val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f) {
     val fh = (h - top - bottom).coerceAtLeast(h * 0.35f)
     /** Island art scale (screen px per source px): the whole island fits the gap at zoom 1. */
     val art = min(w, fh) / 1150f * zoom
@@ -476,12 +454,12 @@ private class RGeo(val m: RealmGrid, val w: Float, val h: Float, zoom: Float = 1
     fun portPos(e: Int): Offset { val m = edgeMid(e); val d = m - Offset(cx, cy); val l = d.getDistance(); return m + d / l * unit * 0.62f }
 }
 
-private fun nearest(o: Offset, cands: List<Int>, pos: (Int) -> Offset, maxD: Float): Int? =
+internal fun nearest(o: Offset, cands: List<Int>, pos: (Int) -> Offset, maxD: Float): Int? =
     cands.minByOrNull { (pos(it) - o).getDistance() }?.takeIf { (pos(it) - o).getDistance() <= maxD }
 
 // =====================================================================  drawing
 
-private fun DrawScope.hexPath(g: RGeo, h: Int, shrink: Float = 0.97f): Path {
+internal fun DrawScope.hexPath(g: RGeo, h: Int, shrink: Float = 0.97f): Path {
     val c = g.hex(h)
     return Path().apply {
         g.m.hexVerts[h].forEachIndexed { k, v -> val p = c + (g.vert(v) - c) * shrink; if (k == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
@@ -540,7 +518,7 @@ private fun DrawScope.village(p: Offset, u: Float, color: Color) {
     drawPath(path, Color.White, style = Stroke(s * 0.16f))
 }
 
-private fun DrawScope.tower(p: Offset, u: Float, color: Color) {
+internal fun DrawScope.tower(p: Offset, u: Float, color: Color) {
     val s = 0.22f * u
     val path = Path().apply {
         moveTo(p.x - s, p.y + s); lineTo(p.x - s, p.y - s * 1.1f); lineTo(p.x - s * 0.55f, p.y - s * 1.1f); lineTo(p.x - s * 0.55f, p.y - s * 0.8f)
@@ -749,16 +727,16 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
 
 // =====================================================================  panels
 
-private val PANEL = RoundedCornerShape(14.dp)
+internal val PANEL = RoundedCornerShape(14.dp)
 
 @Composable
-private fun InkText(text: String, size: Int = 13, bold: Boolean = false, color: Color = INK, modifier: Modifier = Modifier, align: TextAlign? = null, lines: Int = Int.MAX_VALUE) {
+internal fun InkText(text: String, size: Int = 13, bold: Boolean = false, color: Color = INK, modifier: Modifier = Modifier, align: TextAlign? = null, lines: Int = Int.MAX_VALUE) {
     Text(text, fontSize = size.sp, lineHeight = (size + 3).sp, fontFamily = SERIF, fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium, color = color,
         modifier = modifier, textAlign = align, maxLines = lines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }
 
 @Composable
-private fun ResChip(r: Int, n: Int, modifier: Modifier = Modifier) {
+internal fun ResChip(r: Int, n: Int, modifier: Modifier = Modifier) {
     Column(modifier.parchment(PANEL).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ResImg(r, 24.dp)
@@ -770,14 +748,14 @@ private fun ResChip(r: Int, n: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CostIcons(cost: IntArray, size: Dp = 13.dp) {
+internal fun CostIcons(cost: IntArray, size: Dp = 13.dp) {
     Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         for (r in 0..4) repeat(cost[r]) { ResImg(r, size) }
     }
 }
 
 @Composable
-private fun BuildButton(label: String, icon: RI, cost: IntArray?, active: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun BuildButton(label: String, icon: RI, cost: IntArray?, active: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         modifier.alpha(if (enabled || active) 1f else 0.45f).clip(shape)
@@ -815,7 +793,7 @@ private fun TwistChip(g: Realm) {
 }
 
 @Composable
-private fun PlayerBanner(name: String, vp: String, color: Color, active: Boolean, extra: String, modifier: Modifier = Modifier) {
+internal fun PlayerBanner(name: String, vp: String, color: Color, active: Boolean, extra: String, modifier: Modifier = Modifier) {
     Row(modifier.parchment(PANEL, if (active) color else GOLD, if (active) 2.5.dp else 1.5.dp).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(contentAlignment = Alignment.Center) {
             RIconOf(RI.SHIELD, 30.dp, color)
@@ -846,7 +824,7 @@ private fun ScoreBar(s: RealmSession) {
 }
 
 @Composable
-private fun WoodButton(text: String, icon: RI?, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun WoodButton(text: String, icon: RI?, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Row(modifier.alpha(if (enabled) 1f else 0.5f).clip(shape).wood(shape).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
@@ -856,7 +834,7 @@ private fun WoodButton(text: String, icon: RI?, modifier: Modifier = Modifier, e
 }
 
 @Composable
-private fun PromptRibbon(text: String, busy: Boolean) {
+internal fun PromptRibbon(text: String, busy: Boolean) {
     Row(Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(10.dp)).wood(RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (busy) { androidx.compose.material3.CircularProgressIndicator(Modifier.size(14.dp), color = PARCH_TOP, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
@@ -991,7 +969,7 @@ private fun DiscardPanel(s: RealmSession) {
 }
 
 @Composable
-private fun ResPicker(selected: Int, label: (Int) -> String?, enabled: (Int) -> Boolean, onPick: (Int) -> Unit) {
+internal fun ResPicker(selected: Int, label: (Int) -> String?, enabled: (Int) -> Boolean, onPick: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (r in 0..4) {
             val on = selected == r; val ok = enabled(r)
@@ -1086,7 +1064,7 @@ private fun SpellsDialog(s: RealmSession, onDismiss: () -> Unit) {
 
 /** The rival's current action, as a card over the board. Tap to skip ahead. */
 @Composable
-private fun HeraldCard(s: RealmSession, modifier: Modifier = Modifier) {
+internal fun HeraldCard(s: Session, modifier: Modifier = Modifier) {
     androidx.compose.animation.AnimatedContent(
         s.herald, modifier = modifier, label = "herald",
         transitionSpec = {
@@ -1116,10 +1094,10 @@ private fun HeraldCard(s: RealmSession, modifier: Modifier = Modifier) {
 
 // =====================================================================  painted board art
 
-private val sqrt3 = kotlin.math.sqrt(3f)
+internal val sqrt3 = kotlin.math.sqrt(3f)
 
 internal class RealmArt(
-    val island: ImageBitmap, val fog: List<ImageBitmap>, private val byTerrain: List<List<ImageBitmap>>,
+    val island: ImageBitmap, val fog: List<ImageBitmap>, val byTerrain: List<List<ImageBitmap>>,
     val dragon: ImageBitmap, val houseYou: ImageBitmap, val houseRival: ImageBitmap, val roadYou: ImageBitmap, val roadRival: ImageBitmap,
     val pinAny: ImageBitmap, val pins: List<ImageBitmap>, val icons: List<ImageBitmap>,
 ) {
@@ -1156,7 +1134,7 @@ internal fun rememberRealmArt(): RealmArt {
 
 /** A navy round button with a gold ring, matching the painted info and pause buttons. */
 @Composable
-private fun RoundArtButton(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable () -> Unit) {
+internal fun RoundArtButton(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier.size(42.dp).clip(CircleShape)
             .background(Brush.radialGradient(listOf(Color(0xFF2D4466), Color(0xFF0F1D33))))
@@ -1165,3 +1143,30 @@ private fun RoundArtButton(modifier: Modifier = Modifier, onClick: () -> Unit, c
         contentAlignment = Alignment.Center,
     ) { content() }
 }
+
+/** Eiseria's slim themed top bar: back, version and level, info, pause. */
+@Composable
+internal fun RealmHeader(session: Session, actions: com.puresudoku.ui.games.HeaderActions, version: String) {
+        Box(Modifier.fillMaxWidth().height(52.dp)) {
+            RoundArtButton(Modifier.align(Alignment.CenterStart), onClick = actions.back) {
+                RIcon(20.dp) { c, sz ->
+                    drawLine(PARCH_TOP, c + Offset(sz * 0.35f, 0f), c - Offset(sz * 0.35f, 0f), sz * 0.14f, StrokeCap.Round)
+                    drawLine(PARCH_TOP, c - Offset(sz * 0.35f, 0f), c + Offset(-sz * 0.05f, -sz * 0.3f), sz * 0.14f, StrokeCap.Round)
+                    drawLine(PARCH_TOP, c - Offset(sz * 0.35f, 0f), c + Offset(-sz * 0.05f, sz * 0.3f), sz * 0.14f, StrokeCap.Round)
+                }
+            }
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(session.difficulty.accent()))
+                    Spacer(Modifier.width(5.dp))
+                    Text((if (session.training) "Training · " else "") + version + session.difficulty.label, fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = INK)
+                }
+            }
+            Row(Modifier.align(Alignment.CenterEnd), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(42.dp).clip(CircleShape).clickable(onClick = actions.info)) { ArtImg(com.puresudoku.R.drawable.rt_btn_info, 42.dp) }
+                Box(Modifier.size(42.dp).clip(CircleShape).alpha(if (actions.canPause) 1f else 0.5f).clickable(enabled = actions.canPause, onClick = actions.pause)) {
+                    ArtImg(com.puresudoku.R.drawable.rt_btn_pause, 42.dp)
+                }
+            }
+        }
+    }
