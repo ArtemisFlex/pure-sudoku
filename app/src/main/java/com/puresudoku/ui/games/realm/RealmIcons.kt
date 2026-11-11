@@ -229,3 +229,26 @@ internal fun DrawScope.die(c: Offset, s: Float, v: Int, hot: Boolean) {
 }
 
 internal fun spellIcon(k: Int) = when (k) { Realm.KNIGHT -> RI.KNIGHT; Realm.RELIC -> RI.RELIC; Realm.EARTH -> RI.EARTH; Realm.HARVEST -> RI.MOON; else -> RI.FIRE }
+
+// =====================================================================  painted icons
+
+private val RES_ICON_IDS = intArrayOf(com.puresudoku.R.drawable.rt_ic_timber, com.puresudoku.R.drawable.rt_ic_ore, com.puresudoku.R.drawable.rt_ic_grain, com.puresudoku.R.drawable.rt_ic_beasts, com.puresudoku.R.drawable.rt_ic_mana)
+private val RES_SHIELD_IDS = intArrayOf(com.puresudoku.R.drawable.rt_sh_timber, com.puresudoku.R.drawable.rt_sh_ore, com.puresudoku.R.drawable.rt_sh_grain, com.puresudoku.R.drawable.rt_sh_beasts, com.puresudoku.R.drawable.rt_sh_mana)
+
+@Composable
+internal fun ArtImg(id: Int, size: Dp, modifier: Modifier = Modifier) =
+    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(id), null, modifier.size(size), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+
+/** A resource's painted icon. */
+@Composable internal fun ResImg(r: Int, size: Dp, modifier: Modifier = Modifier) = ArtImg(RES_ICON_IDS[r], size, modifier)
+
+/** A resource's painted shield, for bigger pickers. */
+@Composable internal fun ShieldImg(r: Int, size: Dp, modifier: Modifier = Modifier) = ArtImg(RES_SHIELD_IDS[r], size, modifier)
+
+/** An action icon: painted where the art has one (knight, dragon), drawn otherwise. */
+@Composable
+internal fun RIconOf(icon: RI, size: Dp, tint: Color = INK, modifier: Modifier = Modifier) = when (icon) {
+    RI.KNIGHT -> ArtImg(com.puresudoku.R.drawable.rt_knight, size, modifier)
+    RI.DRAGON -> ArtImg(com.puresudoku.R.drawable.rt_dragon, size * 1.25f, modifier)
+    else -> RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+}

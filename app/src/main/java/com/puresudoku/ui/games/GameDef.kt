@@ -41,6 +41,10 @@ interface GameDef {
     /** The game draws edge to edge under the top bar, and hides the status row and hint. */
     val fullBleed: Boolean get() = false
 
+    /** A game can draw its own themed top bar in place of the standard one. */
+    val hasHeader: Boolean get() = false
+    @Composable fun Header(session: Session, actions: HeaderActions) {}
+
     fun lesson(): Pair<Session, List<com.puresudoku.ui.session.LessonStep>>? = null
 
     val tutorial: List<TutorialStep>
@@ -95,3 +99,6 @@ object Games {
 
     fun of(kind: GameKind): GameDef = all.first { it.kind == kind }
 }
+
+/** What a custom top bar can do. */
+class HeaderActions(val back: () -> Unit, val info: () -> Unit, val pause: () -> Unit, val paused: Boolean, val canPause: Boolean)

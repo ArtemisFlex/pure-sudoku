@@ -89,6 +89,10 @@ fun PlayScreen(vm: AppViewModel) {
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (def.hasHeader) def.Header(session, com.puresudoku.ui.games.HeaderActions(
+                back = vm::leaveGame, info = { vm.openTutorial(session.kind) },
+                pause = { if (vm.paused) vm.unpause() else vm.pause() }, paused = vm.paused, canPause = playing,
+            )) else {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::leaveGame) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to ${session.kind.title}")
@@ -110,6 +114,7 @@ fun PlayScreen(vm: AppViewModel) {
                 IconButton(onClick = { if (vm.paused) vm.unpause() else vm.pause() }, enabled = playing) {
                     Icon(if (vm.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, contentDescription = "Pause")
                 }
+            }
             }
             if (!def.fullBleed) {
                 StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))

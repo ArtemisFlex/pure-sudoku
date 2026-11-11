@@ -33,6 +33,16 @@ import com.puresudoku.ui.theme.Poppins
  */
 @Composable
 fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
+    val logo = when (kind) {
+        GameKind.REALMFORGE -> com.puresudoku.R.drawable.rt_logo
+        GameKind.REALM_DRAGON -> com.puresudoku.R.drawable.rt_logo_wyrm
+        GameKind.REALM_NIGHT -> com.puresudoku.R.drawable.rt_logo_night
+        else -> 0
+    }
+    if (logo != 0) {
+        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(logo), null, modifier.size(size), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+        return
+    }
     val colors = LocalBoardColors.current
     val tm = rememberTextMeasurer()
     Canvas(modifier.size(size)) {
