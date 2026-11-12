@@ -183,13 +183,12 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         !myMove -> emptyList()
         g.phase == Realm.SETUP && g.setupVillage >= 0 -> g.roadSpots(0)
         g.phase == Realm.MAIN && (mode == Mode.ROAD || g.freeRoads > 0) -> g.roadSpots(0)
-        g.phase == Realm.MAIN && mode == Mode.FIREBALL && g.twist != Realm.ASH -> g.fireballTargets(0)
+        g.phase == Realm.MAIN && mode == Mode.FIREBALL -> g.fireballTargets(0)
         else -> emptyList()
     }
 
     fun tileTargets(): List<Int> = when {
         myMove && g.phase == Realm.DRAGON -> g.dragonTiles()
-        myMove && g.twist == Realm.ASH && g.phase == Realm.MAIN && mode == Mode.FIREBALL -> g.forecast.flatMap { it.toList() }.distinct()
         else -> emptyList()
     }
 
@@ -223,7 +222,6 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
 
     fun tapTile(t: Int) {
         if (t !in tileTargets()) return
-        if (g.twist == Realm.ASH && mode == Mode.FIREBALL) { val f = g.flowAt(t); mode = Mode.NONE; if (f >= 0) act(RAct.Spell(Realm.FIREBALL, f)); return }
         act(RAct.Dragon(t))
     }
 
@@ -312,7 +310,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         mode == Mode.ROAD -> "Tap a glowing edge for your road"
         mode == Mode.VILLAGE -> "Tap a glowing corner for your village"
         mode == Mode.TOWER -> "Tap one of your villages to raise a tower"
-        mode == Mode.FIREBALL -> if (g.twist == Realm.ASH) "Tap a tile on a lava flow to shift that flow" else "Tap a rival road to burn"
+        mode == Mode.FIREBALL -> "Tap a rival road to burn"
         else -> "Build, trade or cast, then end your turn"
     }
 
@@ -393,7 +391,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
         val g = s.g
         val twistText = when (twist) {
             Realm.FOG -> "This is the Unmapped Realm: the outer tiles are hidden in fog. Building next to one reveals it and gives you one of its resource. Some hide ruins with a free spell, and violet ley stones sit on the coast: touch two with your roads for +1 mana every turn."
-            Realm.ASH -> "In Ashfall a volcano replaces the dragon. Every 7 it erupts down the glowing arrows, burying the tiles in its path: they pay no one, you or your rival, until they recover, and roads the lava crosses burn. Recovered land is renewed, and pays every building on it one extra."
+            Realm.ASH -> "In Ashfall a volcano replaces the dragon. Every 7 it erupts: a second die picks which way, and lava runs out in a straight row, burying the tiles in its path. They pay no one, you or your rival, until they recover, and roads the lava crosses burn. Recovered land is renewed, and pays every building on it one extra."
             Realm.WAKE -> "In Wyrmrise the dragon is a boss. Every 7 makes it stronger, and each round it walks one tile toward whoever leads. Each Knight wounds it; land the final blow and you earn 2 points."
             else -> "In Nightfall the rounds alternate. At night the crystal spires pay double mana, but the dragon raids whoever leads, landing on their best tile and burning a card."
         }
@@ -423,10 +421,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
                 tap("e-${e.e}") { s.tapEdge(e.e) }; wait(1600)
             }) { t -> RealmUi(s, t) }
         },
-        TutorialStep("Build and trade", "Spend resources on roads, villages, towers and spells. Trade 4 for 1 with the merchant, or better at a portal. First to the points goal wins.") { active ->
-            var s by remember { mutableStateOf(RealmSession(kind, Difficulty.EASY, Realm.newGame(twist, Difficulty.EASY, Random(9)))) }
-            DemoStage(active, script = { s.cancelThinking(); wait(500); highlight(listOf("build"), 1800) }) { t -> RealmUi(s, t) }
-        },
+        eiseriaBuildStep(kind, twist),
     )
 }
 
@@ -441,7 +436,7 @@ object RealmDragonDef : RealmDefBase(GameKind.REALM_DRAGON, Realm.WAKE) {
 }
 
 object RealmAshDef : RealmDefBase(GameKind.REALM_ASH, Realm.ASH) {
-    override fun hint(d: Difficulty) = "Every 7 the volcano erupts down its glowing arrows, burying the tiles in its path for both players. Build where the lava won't run, and claim the richer renewed land."
+    override fun hint(d: Difficulty) = "Every 7 the volcano erupts and a second die picks which way its lava runs, burying a straight row of tiles for both players. Settle between the rows, and build on the richer renewed land."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
 }
 
@@ -728,15 +723,11 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                     }
                     if (g.number[h] == g.lastRoll && g.lastRoll != 7 && g.phase != Realm.SETUP) drawPath(path, Color(0xFFFFF59D).copy(alpha = 0.9f), style = Stroke(u * 0.07f))
                 }
-                // Ashfall: the next eruption's lava flows, as arrows from tile to tile
-                if (g.twist == Realm.ASH) for (f in g.forecast) {
+                // Ashfall: where the last eruption's lava ran, and the die that sent it (the next way is a secret until it's rolled)
+                if (g.twist == Realm.ASH) {
                     var prev = geo.hex(g.volcano)
-                    for (t in f) {
-                        val p = geo.hex(t)
-                        if (g.inDanger(t)) drawPath(hexPath(geo, t, 0.9f), Color(0xFFFF5722).copy(alpha = 0.12f + 0.18f * pulse))
-                        flowArrow(prev, p, u, Color(0xFFFF6D00), flow, 0.5f + 0.15f * pulse)
-                        prev = p
-                    }
+                    for (t in g.lastFlow) { val p = geo.hex(t); flowArrow(prev, p, u, Color(0xFFFF6D00), flow, 0.45f); prev = p }
+                    if (g.lastAshDie in 1..6) die(geo.hex(g.volcano) + Offset(u * 0.42f, u * 0.45f), u * 0.36f, g.lastAshDie, true)
                 }
                 // tile targets (dragon)
                 for (h in tT) drawPath(hexPath(geo, h, 0.86f), Color(0xFFFF7043).copy(alpha = pulse), style = Stroke(u * 0.08f))
@@ -835,7 +826,8 @@ internal fun CostIcons(cost: IntArray, size: Dp = 13.dp) {
 internal fun BuildButton(label: String, icon: RI, cost: IntArray?, active: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
-        modifier.alpha(if (enabled || active) 1f else 0.45f).clip(shape)
+        modifier.demoTarget(com.puresudoku.ui.tutorial.LocalDemoTargets.current, "b-" + label.substringBefore(' ').lowercase())
+            .alpha(if (enabled || active) 1f else 0.45f).clip(shape)
             .then(if (active) Modifier.wood(shape) else Modifier.parchment(shape))
             .clickable(enabled = enabled || active, onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -854,7 +846,7 @@ private fun TwistChip(g: Realm) {
     val (icon, text) = when (g.twist) {
         Realm.FOG -> RI.LEY to "Ley power: you ${g.leyPower(0)} · rival ${g.leyPower(1)}"
         Realm.WAKE -> RI.DRAGON to (if (g.dragonGone) (if (g.slayer == 0) "You slew the dragon!" else "The rival slew the dragon") else "Dragon health ${g.dragonHp - g.dragonWounds} of ${g.dragonHp}" + if (g.wild.isNotEmpty()) " · ${g.wild.size} wild" else "")
-        Realm.ASH -> RI.FIRE to "Volcano · erupts on a 7 · ${g.forecast.size} flow${if (g.forecast.size == 1) "" else "s"} · ${(0 until g.map.HEXES).count { g.scorched(it) }} tiles ruined"
+        Realm.ASH -> RI.FIRE to "Volcano · erupts on a 7 · lava runs ${g.rowLength()} tile${if (g.rowLength() == 1) "" else "s"} · ${(0 until g.map.HEXES).count { g.scorched(it) }} ruined"
         else -> if (g.night) RI.MOON to "Night · mana pays double · the dragon hunts" else RI.SUN to "Day · night falls next round"
     }
     Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -904,7 +896,7 @@ private fun ScoreBar(s: RealmSession) {
 @Composable
 internal fun WoodButton(text: String, icon: RI?, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
-    Row(modifier.alpha(if (enabled) 1f else 0.5f).clip(shape).wood(shape).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp, vertical = 9.dp),
+    Row(modifier.demoTarget(com.puresudoku.ui.tutorial.LocalDemoTargets.current, "w-" + text.substringBefore(' ').lowercase()).alpha(if (enabled) 1f else 0.5f).clip(shape).wood(shape).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) { RIconOf(icon, 22.dp, PARCH_TOP); Spacer(Modifier.width(8.dp)) }
         Text(text, color = PARCH_TOP, fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 16.sp)

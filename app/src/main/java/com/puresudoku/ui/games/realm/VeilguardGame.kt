@@ -322,16 +322,7 @@ object VeilguardDef : GameDef {
         )
     }
 
-    override val tutorial: List<TutorialStep> get() = listOf(
-        TutorialStep("Secret orders", "Both players give up to three hidden orders. Then they're revealed and played out together.") { active ->
-            val s = remember { VeilguardSession(Difficulty.EASY, Veilguard.newGame(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> VeilguardUi(s, t) }
-        },
-        TutorialStep("Find the Crown", "Hide your Crown and bluff with decoys. Take the rival's Crown to win at once, and beware the Veilnight Thief: he robs and wrecks the leader's land.") { active ->
-            val s = remember { VeilguardSession(Difficulty.EASY, Veilguard.newGame(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> VeilguardUi(s, t) }
-        },
-    )
+    override val tutorial: List<TutorialStep> get() = veilguardTutorial()
 }
 
 // =====================================================================  board
@@ -543,6 +534,10 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop: F
             val cf = s.coachFrom
             if (cf >= 0) coachRings(listOf(geo.hex(cf)), u * 0.5f)
             if (s.selected >= 0) drawPath(hexPath(geo, s.selected, 0.94f), Color(0xFFFFD54F), style = Stroke(u * 0.09f))
+        }
+        com.puresudoku.ui.tutorial.LocalDemoTargets.current?.let { t ->
+            val geo = RGeo(g.map, wPx, hPx, 1f, Offset.Zero, fitTop, fitBottom)
+            com.puresudoku.ui.games.board.CellTargets(t, (0 until g.H).map { "h-$it" to Rect(geo.hex(it), geo.unit * 0.45f) })
         }
     }
 }

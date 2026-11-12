@@ -49,14 +49,12 @@ object RealmAi {
 
     /** Ashfall: lava in the forecast, ruined land, and richer renewed land. */
     private fun ashFactor(g: Realm, h: Int): Double = if (g.twist != Realm.ASH) 1.0 else when {
-        g.inDanger(h) -> 0.35
+        g.inDanger(h) -> 0.85
         g.scorched(h) -> 0.6
         g.stage[h] == 3 -> 1.3
         else -> 1.0
     }
 
-    /** How much lava flow [i] would cost [p] more than their rival: pips times buildings on the tiles it buries. */
-    fun flowHarm(g: Realm, p: Int, i: Int): Int = g.forecast[i].filter { g.fresh(it) }.sumOf { g.harm(it, p) - g.harm(it, 1 - p) }
 
     fun spotValue(g: Realm, p: Int, v: Int, w: DoubleArray = weights(g, p)): Double {
         var s = g.map.vertHexes[v].sumOf { tileValue(g, it, w) }
@@ -200,10 +198,7 @@ object RealmAi {
             }
         }
         if (g.canPlay(p, Realm.EARTH) && plan != null) return RAct.Spell(Realm.EARTH)
-        if (g.twist == Realm.ASH && g.canPlay(p, Realm.FIREBALL)) {
-            g.forecast.indices.maxByOrNull { flowHarm(g, p, it) }?.takeIf { flowHarm(g, p, it) >= 4 }?.let { return RAct.Spell(Realm.FIREBALL, it) }
-        }
-        if (g.twist != Realm.ASH && lvl.fireball && g.canPlay(p, Realm.FIREBALL) && g.longestRoad(o) >= 4) {
+        if (lvl.fireball && g.canPlay(p, Realm.FIREBALL) && g.longestRoad(o) >= 4) {
             val before = g.longestRoad(o)
             val t = g.fireballTargets(p).maxBy { e -> val c = g.copy(); c.eOwner[e] = -1; before - c.longestRoad(o) }
             return RAct.Spell(Realm.FIREBALL, t)

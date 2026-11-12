@@ -434,8 +434,8 @@ internal object RulebookText {
 
         ch("The Volcano")
         drop("The volcano stands in the middle of the island. **Every time a 7 is rolled, it erupts.**")
-        p("**The forecast.** The next eruption's lava flows are always shown as **glowing arrows** running out from the volcano, tile by tile. Both players see them.")
-        p("**The volcano wakes.** The first eruption sends one short flow. Each eruption the flows run **one tile further**, and every other eruption adds **one more flow**, up to 2 to 4 by level.")
+        p("**The die decides.** No one knows where the lava will go until it erupts. Then **a second die is rolled**: each face is one of the volcano's six sides, and the lava runs out that way **in a straight row**. Afterwards, glowing arrows show where it ran.")
+        p("**The volcano wakes.** At first the lava only reaches the tile beside the volcano. Every other eruption the row runs **one tile further**, up to 6.")
         bl("Lava **buries every fresh tile** in its path. Buildings on its corners survive, but the tile **pays no one** until it recovers.",
             "Lava **burns every road it crosses**, yours or your rival's.",
             "Lava never buries a tile that's still ruined or ashen: it runs over it to reach fresh ground. Wastelands are never buried.")
@@ -448,21 +448,21 @@ internal object RulebookText {
         )
 
         ch("Spells")
-        drop("Spells cost **ore, grain and beasts**. Cast one per turn, but not on the turn you bought it. The deck holds 14 Knights, 5 Relics, 2 Earthshapers, 2 Harvest Moons and 2 Rifts.")
+        drop("Spells cost **ore, grain and beasts**. Cast one per turn, but not on the turn you bought it. The deck holds 14 Knights, 5 Relics, 2 Earthshapers, 2 Harvest Moons and 2 Fireballs.")
         spells(
             Triple(RI.KNIGHT, "Knight", "Steal a card from your rival. Three or more Knights, and the most, earns the Mightiest Host (2 points)."),
             Triple(RI.RELIC, "Relic", "A hidden treasure worth 1 point."),
             Triple(RI.EARTH, "Earthshaper", "Build two roads for free."),
             Triple(RI.MOON, "Harvest Moon", "Take any two resources from the supply."),
-            Triple(RI.FIRE, "Rift", "Shift one forecast lava flow onto a new path from the volcano. It may run toward your rival."),
+            Triple(RI.FIRE, "Fireball", "Burn one of your rival's roads that has a loose end."),
         )
 
         ch("Advice from the Ash-Wardens")
-        bl("Look at the arrows before you settle: a village beside the first flows will go hungry early.",
+        bl("Tiles between the volcano's six rows are never hit: settle on their corners.",
             "Share tiles with your rival: when lava takes them, you both lose.",
-            "Keep your roads off the arrows.",
+            "Keep your roads off the six rows out of the volcano.",
             "Renewed land is rich: build on its corners.",
-            "Rift the flow that hurts you most, toward the tiles your rival needs.")
+            "Spread out: one roll can silence a whole row of tiles.")
     }
 
     fun ashfall(): Book = book(com.puresudoku.R.drawable.rt_logo_ashfall, Color(0xFFB23A12),
@@ -484,14 +484,15 @@ internal object RulebookText {
             "There is **no fog**: the whole island is always in view.")
 
         ch("The Volcano")
-        drop("The volcano erupts **every 4 turns** (2 of yours and 2 of your rival's). The number on the volcano counts down to the next eruption.")
-        p("**The forecast.** The next eruption's **lava flows are shown on the board** as glowing arrows running out from the volcano, tile by tile. Both players see them, so you always know what is coming.")
-        p("**The volcano wakes.** The first flows are short and only reach the tiles beside the volcano. Each eruption the flows run **one tile further**, and every other eruption adds **one more flow**, up to 3 to 5 by level.")
+        drop("The volcano erupts **at the end of every turn**, yours and your rival's.")
+        p("**The die decides.** No one knows where the lava will go until it erupts. Then **a die is rolled**: each face is one of the volcano's six sides, and the lava runs out that way **in a straight row**. Afterwards, glowing arrows show where it ran, and the die shows what was rolled.")
+        p("**The volcano wakes.** At first the lava only reaches the tile beside the volcano. Every other eruption the row runs **one tile further**. Lava with length to spare when it reaches the coast spills into the sea beside the row's end.")
         bl("Lava **buries every fresh tile in its path**: villages, towers and castles are lost, and the land becomes molten lava.",
             "**Lava never buries land that is still ruined or ashen.** Flows run across it, unharmed, to reach fresh ground, and only fresh tiles count toward a flow's length.",
             "Knights on a buried tile **flee to a touching tile of yours** that has room. Any that can't are lost, and so is any army standing there.",
             "Where a flow reaches **the sea or a lake**, it stops and the water becomes **new land**.",
-            "Lava **never buries a player's last tile**: it cools at the edge.")
+            "Lava **never buries a player's last tile**: it cools at the edge.",
+            "Lava never buries land that is **still ruined or ashen**: it runs over it.")
 
         ch("From Lava to Riches")
         steps(
@@ -502,9 +503,9 @@ internal object RulebookText {
         p("Being forced out today means rich land later. New land from the sea goes through the same steps.")
 
         ch("Turning the Lava")
-        drop("You can't stop the volcano, but you can steer it.")
-        p("**Walls turn lava aside.** When a flow crosses a side with a wall on it, the wall **breaks** and the lava turns down another path, away from the wall's owner if it can. A wall still keeps out knights as in Wisteria.")
-        p("**Quench** cools one of your tiles so the next eruption can't bury it: the lava stops there. **Rift** sends one forecast flow out of the volcano by a new side. It may run toward your rival.")
+        drop("You can't choose where the lava goes, but you can stand in its way.")
+        p("**Walls stop lava.** Walls here are heavy stone and cost more: 2 timber, 2 ore and 1 mana. **No wall may face the volcano itself**, so the lava can always leave it. When lava reaches a side with a wall on it, the wall **breaks** and the lava stops there, sparing the tile and everything beyond it. A wall still keeps out knights as in Wisteria.")
+        p("**Quench** cools one of your tiles so the next eruption can't bury it: the lava stops there.")
 
         ch("Land, Buildings and Knights")
         drop("Everything else works as in Wisteria. Each player settles one tile to start, but not beside the volcano.")
@@ -513,30 +514,29 @@ internal object RulebookText {
             CostRow("Tower", Piece.TOWER, Wisteria.COST_TOWER, "Raise a village. 2 points; holds 2 knights."),
             CostRow("Castle", Piece.CASTLE, Wisteria.COST_CASTLE, "Raise a tower. 3 points; holds 3 knights."),
             CostRow("Knight", Piece.KNIGHT, Wisteria.COST_KNIGHT, "Hire onto a tile with room."),
-            CostRow("Wall", Piece.WALL, Wisteria.COST_WALL, "Guards one side of your tile, against knights and lava."),
+            CostRow("Wall", Piece.WALL, Wisteria.ASH_COST_WALL, "Guards one side of your tile, against knights and lava. Never on a side facing the volcano."),
             CostRow("Spell", Piece.SPELL, Wisteria.COST_SPELL, "Draw the top spell."),
         )
         p("A village's knight strikes a touching rival tile at once. A full tower or castle garrison marches along a route you plot. Lava, the sea and the volcano block marches.")
 
         ch("Spells")
-        drop("Spells cost **ore, grain and beasts**. You may cast one per turn, but not on the turn you bought it. The deck holds 9 Rally, 4 Relic, 4 Quench, 3 Harvest Moon, 2 Siege Fire and 3 Rift.")
+        drop("Spells cost **ore, grain and beasts**. You may cast one per turn, but not on the turn you bought it. The deck holds 10 Rally, 4 Relic, 5 Quench, 4 Harvest Moon and 2 Siege Fire.")
         spells(
             Triple(RI.KNIGHT, "Rally", "A free knight joins one of your tiles that has room."),
             Triple(RI.RELIC, "Relic", "A hidden treasure worth 1 point."),
             Triple(RI.LEY, "Quench", "Cool one of your tiles: the next eruption can't bury it."),
             Triple(RI.MOON, "Harvest Moon", "Take any two resources from the supply."),
             Triple(RI.FIRE, "Siege Fire", "Break one of your rival's walls, to let knights or lava in."),
-            Triple(RI.EARTH, "Rift", "Shift one forecast lava flow onto a new path from the volcano."),
         )
 
         ch("Trading")
         drop("At any time on your turn, trade **4 of one resource for 1 of another** with the bank.")
 
         ch("Advice from the Ash-Wardens")
-        bl("Read the forecast before you build: never raise a castle in a lava path.",
+        bl("Tiles between the volcano's six rows are never hit: they're the safest place for castles.",
             "Claim the ashen waste early. It's cheap now and rich once renewed.",
-            "Watch the sea: where the flows reach the coast, new land is coming.",
-            "A wall on the side the lava enters by turns it, maybe toward your rival.",
+            "As the rows lengthen, they reach the coast and build new land: be ready to claim it.",
+            "A wall on the side facing the volcano along a row stops the lava there.",
             "Quench your best castle when a flow is heading for it.",
             "The goal is high: plan for a long game, and rebuild as the island changes.")
     }

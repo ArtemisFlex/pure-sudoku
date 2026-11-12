@@ -62,19 +62,20 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
             "Cool one of your tiles: the next eruption can't bury it.",
             "Take any two resources from the supply.",
             "Break one of your rival's walls.",
-            "Shift one forecast lava flow onto a new path from the volcano.",
+            "No longer used: the volcano's way is decided by a die.",
         )
 
         /** Ashfall: turns between eruptions, flows per eruption at most, turns lava stays molten, turns ash takes to ripen. */
-        val ERUPT_EVERY = intArrayOf(4, 4, 4, 4, 4, 4)
-        val MAX_FLOWS = intArrayOf(3, 3, 4, 4, 5, 5)
+        val ERUPT_EVERY = intArrayOf(1, 1, 1, 1, 1, 1)
+        val MAX_FLOWS = intArrayOf(3, 3, 3, 3, 3, 3)
         const val MOLTEN = 4
         const val RIPEN = 1
         /** Ashfall's goal is half again Wisteria's. */
         const val ASH_GOAL = 1.5f
 
-        private val NB_Q = intArrayOf(1, 1, 0, -1, -1, 0)
-        private val NB_R = intArrayOf(0, -1, -1, 0, 1, 1)
+        /** The six directions out of a tile, one per face of the volcano's die. */
+        val NB_Q = intArrayOf(1, 1, 0, -1, -1, 0)
+        val NB_R = intArrayOf(0, -1, -1, 0, 1, 1)
         private val gridCache = HashMap<String, RealmGrid>()
         private fun grid(q: IntArray, r: IntArray): RealmGrid = synchronized(gridCache) {
             gridCache.getOrPut(q.joinToString(",") + "/" + r.joinToString(",")) { RealmMap.fromCoords(q, r) }
@@ -101,6 +102,8 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         val COST_CASTLE = intArrayOf(2, 3, 3, 0, 2)
         val COST_KNIGHT = intArrayOf(0, 1, 1, 1, 0)
         val COST_WALL = intArrayOf(1, 0, 0, 0, 1)
+        /** Ashfall's walls are stone that turns lava: they cost more. */
+        val ASH_COST_WALL = intArrayOf(2, 2, 0, 0, 1)
         val COST_SPELL = intArrayOf(0, 1, 1, 1, 0)
         private val CLAIM_BASE = intArrayOf(1, 0, 1, 1, 1)
 
@@ -176,10 +179,14 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
     val burned = BooleanArray(H)
     /** The next eruption's lava flows, each a path out from the volcano, shown to both players. */
     val forecast = ArrayList<IntArray>()
+    /** The tiles the last eruption's lava ran over, and the die that sent it. */
+    var lastFlow = IntArray(0)
+    var lastDie = 0
     var eruptIn = 0
     var eruptions = 0
     /** How the game ended: 0 points goal, 1 last land lost, 2 the island locked, 3 turn limit. */
     var endReason = -1
+    val wallCost get() = if (ashfall) ASH_COST_WALL else COST_WALL
     val spellNames get() = if (ashfall) ASH_SPELLS else SPELLS
     val spellText get() = if (ashfall) ASH_SPELL_TEXT else SPELL_TEXT
 
@@ -213,10 +220,10 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         repeat(BARRENS[diff]) { while (k < others.size) { val h = others[k++]; if (kind[h] == LAND) { kind[h] = BARREN; break } } }
         for (h in 0 until H) if (kind[h] == LAND) rollYields(h, rng)
         deck.clear()
-        if (ashfall) { repeat(9) { deck += RALLY }; repeat(4) { deck += RELIC }; repeat(4) { deck += QUENCH }; repeat(3) { deck += HARVEST }; repeat(2) { deck += SIEGE }; repeat(3) { deck += RIFT } }
+        if (ashfall) { repeat(9) { deck += RALLY }; repeat(4) { deck += RELIC }; repeat(5) { deck += QUENCH }; repeat(4) { deck += HARVEST }; repeat(2) { deck += SIEGE } }
         else { repeat(10) { deck += RALLY }; repeat(5) { deck += RELIC }; repeat(3) { deck += STONE }; repeat(3) { deck += HARVEST }; repeat(4) { deck += SIEGE } }
         deck.shuffle(rng)
-        if (ashfall) { dragon = -1; eruptIn = ERUPT_EVERY[diff] + 2; planEruption(rng) }
+        if (ashfall) { dragon = -1; eruptIn = ERUPT_EVERY[diff] + 2 }
         if (foggy) for (h in 0 until H) revealed[h] = h == lair || map.hexNbrs[lair].contains(h) || kind[h] == WATER
     }
 
@@ -274,12 +281,10 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         heat[h] > 0 -> 0
         else -> yields[h * 5 + r] + (if (r == art[h]) 1 else 0)
     }
-    /** The forecast flow that runs through [h] (-1: none). */
+    /** The flow through [h] in the forecast (no longer used: the die decides). */
     fun flowAt(h: Int) = forecast.indexOfFirst { h in it }
-    /** [h] lies in a forecast flow and the lava will bury it (land it has burned before is passed over). */
-    fun inDanger(h: Int) = !burned[h] && flowAt(h) >= 0
     /** Open sea and lakes the lava could still turn into land. */
-    fun growthLeft() = (0 until H).count { kind[it] == SEA || kind[it] == WATER }
+    fun growthLeft() = if (!ashfall) 0 else (0 until H).count { kind[it] == SEA } + (0..5).flatMap { row(it) }.distinct().count { kind[it] == WATER }
 
     /** Shared side between two touching tiles (-1 if they don't touch). */
     fun side(a: Int, b: Int): Int {
@@ -322,7 +327,8 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
     /** Sides where [p] may raise a wall: around their own tiles, on sides without one (lake sides too: the dragon flies). */
     fun wallSpots(p: Int): List<Pair<Int, Int>> {
         val out = ArrayList<Pair<Int, Int>>()
-        for (h in 0 until H) if (owner[h] == p) for (n in map.hexNbrs[h]) { val e = side(h, n); if (e >= 0 && wall[e] < 0) out += h to n }
+        // in Ashfall no wall may face the volcano itself: the lava must be able to leave it
+        for (h in 0 until H) if (owner[h] == p) for (n in map.hexNbrs[h]) { val e = side(h, n); if (e >= 0 && wall[e] < 0 && !(ashfall && n == lair)) out += h to n }
         return out
     }
 
@@ -334,7 +340,7 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         return when (k) {
             RALLY -> (0 until H).any { owner[it] == p && knights[it] < CAPACITY[level[it]] }
             QUENCH -> if (ashfall) (0 until H).any { owner[it] == p && !quench[it] } else wallSpots(p).isNotEmpty()
-            RIFT -> ashfall && forecast.isNotEmpty()
+            RIFT -> false
             SIEGE -> siegeTargets(p).isNotEmpty()
             else -> true
         }
@@ -389,7 +395,7 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
             is WAct.Hire -> canHire(p, a.h)
             is WAct.Strike -> a.to in (if (a.black) blackStrikeTargets(p, a.from) else strikeTargets(p, a.from))
             is WAct.March -> validRoute(p, a.from, a.route, a.black)
-            is WAct.Wall -> owner[a.a] == p && side(a.a, a.b).let { it >= 0 && wall[it] < 0 } && (freeWalls > 0 || can(p, COST_WALL))
+            is WAct.Wall -> owner[a.a] == p && side(a.a, a.b).let { it >= 0 && wall[it] < 0 } && !(ashfall && a.b == lair) && (freeWalls > 0 || can(p, wallCost))
             is WAct.Trade -> a.give != a.get && res[p][a.give] >= 4
             is WAct.Spell -> canPlay(p, a.kind) && when (a.kind) {
                 RALLY -> owner.getOrNull(a.a) == p && knights[a.a] < CAPACITY[level[a.a]]
@@ -437,7 +443,7 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
                 }
             }
             is WAct.Wall -> {
-                if (freeWalls > 0) freeWalls-- else pay(p, COST_WALL)
+                if (freeWalls > 0) freeWalls-- else pay(p, wallCost)
                 wall[side(a.a, a.b)] = p
                 log += "$who raised a wall"
                 if (freeWalls > 0 && wallSpots(p).isEmpty()) freeWalls = 0
@@ -450,7 +456,7 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
                     RALLY -> { knights[a.a]++; log += "$who rallied a knight" }
                     STONE -> if (ashfall) { quench[a.a] = true; log += "$who quenched ${tileName(a.a)}: the next eruption can't bury it" }
                         else { freeWalls = 2; log += "$who cast Stonewright" }
-                    RIFT -> { rift(a.a, rng); log += "$who cast Rift: a lava flow shifted" }
+                    RIFT -> {}
                     HARVEST -> { res[p][a.a]++; res[p][a.b]++; log += "$who cast Harvest Moon" }
                     SIEGE -> { wall[a.a] = -1; log += "$who broke a wall with Siege Fire" }
                 }
@@ -613,42 +619,25 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         return (kotlin.math.abs(dq) + kotlin.math.abs(dr) + kotlin.math.abs(dq + dr)) / 2
     }
 
-    /** Neighbours of [h] further from the volcano: lava only runs downhill, out to sea. */
-    private fun outward(h: Int) = map.hexNbrs[h].filter { dist(it, lair) > dist(h, lair) }
+    private val byCoord: Map<Long, Int> by lazy { (0 until H).associateBy { map.hexQ[it] * 1000L + map.hexR[it] } }
 
-    /** A lava path starting on [start] that covers [len] fresh tiles at most, ending early where it meets the sea or a lake. */
-    private fun walk(start: Int, len: Int, rng: Random): IntArray {
-        val out = arrayListOf(start); var cur = start
-        // only fresh ground counts toward a flow's length: it runs across old burns to reach new land
-        fun freshCount() = out.count { !burned[it] }
-        while (freshCount() < len && out.size < 24 && kind[cur] != SEA && kind[cur] != WATER) {
-            val next = outward(cur); if (next.isEmpty()) break
-            // the lava seeks fresh ground: it only runs over land it has burned when there's no other way
-            val fresh = next.filter { !burned[it] }
-            val pick = if (fresh.isNotEmpty()) fresh else next
-            cur = pick[rng.nextInt(pick.size)]; out += cur
-        }
-        return out.toIntArray()
+    /** The straight row of tiles running out from the volcano in direction [k] (0..5, one per die face), [len] long at most. */
+    fun row(k: Int, len: Int = 99): List<Int> {
+        val out = ArrayList<Int>()
+        for (i in 1..len) out += byCoord[(map.hexQ[lair] + NB_Q[k] * i) * 1000L + (map.hexR[lair] + NB_R[k] * i)] ?: break
+        return out
     }
 
-    /** Flows per eruption and their length both grow as the volcano wakes. */
-    fun flowCount() = minOf(1 + eruptions / 2, MAX_FLOWS[diff])
-    fun flowLength() = minOf(1 + eruptions, 12)
+    /** How many tiles in a row the lava runs: it reaches further as the game goes on. */
+    fun rowLength() = minOf(1 + eruptions / 2, 12)
 
-    private fun planEruption(rng: Random) {
-        forecast.clear()
-        val starts = map.hexNbrs[lair].toList().shuffled(rng).sortedBy { if (burned[it]) 1 else 0 }
-        for (k in 0 until flowCount()) forecast += walk(starts[k % starts.size], flowLength(), rng)
-    }
+    /** [h] could be buried by the next eruption, whichever way the die falls (1 chance in 6). */
+    fun inDanger(h: Int) = ashfall && !burned[h] && (0..5).any { h in row(it, rowLength()) }
 
-    /** Rift: flow [i] leaves the volcano by the next free side and finds a new path. */
-    private fun rift(i: Int, rng: Random) {
-        val old = forecast[i]
-        val sides = map.hexNbrs[lair]
-        val used = forecast.map { it[0] }.toSet()
-        val k = sides.indexOf(old[0])
-        val start = (1..sides.size).map { sides[(k + it) % sides.size] }.firstOrNull { it !in used } ?: sides[(k + 1) % sides.size]
-        forecast[i] = walk(start, old.size.coerceAtLeast(2), rng)
+    /** The side of [h] that faces the volcano along its row, as the tile lava would come from (-1: not on a row). */
+    fun lavaFrom(h: Int): Int {
+        for (k in 0..5) { val r = row(k); val i = r.indexOf(h); if (i >= 0) return if (i == 0) lair else r[i - 1] }
+        return -1
     }
 
     private fun volcanoTick(rng: Random) {
@@ -661,7 +650,6 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         erupt(rng)
         eruptions++; eruptIn = ERUPT_EVERY[diff]
         quench.fill(false)
-        planEruption(rng)
         // nowhere left for the island to grow: the game is locked and the leader wins
         if (growthLeft() == 0 && winner < 0) {
             winner = leader().let { if (it < 0) 2 else it }; endReason = 2; phase = OVER
@@ -669,41 +657,45 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         }
     }
 
+    /** The volcano erupts: a die picks one of its six sides, and lava runs out that way in a straight row. */
     private fun erupt(rng: Random) {
-        log += "The volcano erupts!"
-        for (path in forecast) {
-            var route = path.toMutableList()
-            var prev = lair; var i = 0
-            while (i < route.size) {
-                var h = route[i]
-                val e = side(prev, h)
-                if (e >= 0 && wall[e] >= 0) {
-                    // a wall turns the lava aside, and breaks
-                    val wo = wall[e]; wall[e] = -1
-                    val alts = outward(prev).filter { it != h && it != lair }.sortedBy { (if (owner[it] == wo) 1 else 0) * 10 + rng.nextInt(10) }
-                    log += "A wall turned the lava aside at ${tileName(h)}"
-                    if (alts.isEmpty()) break
-                    h = alts[0]
-                    route = (route.subList(0, i) + walk(h, route.size - i, rng).toList()).toMutableList()
+        val die = rng.nextInt(1, 7); lastDie = die
+        val r = row(die - 1, rowLength())
+        log += "The volcano erupts! The die shows $die" + if (r.isEmpty()) "" else ": lava pours toward ${tileName(r[0])}"
+        val ran = ArrayList<Int>()
+        var prev = lair
+        for (h in r) {
+            val e = side(prev, h)
+            if (e >= 0 && wall[e] >= 0) { wall[e] = -1; log += "A wall stopped the lava at ${tileName(h)}, and broke"; break }
+            if (quench[h]) { log += "The lava hissed against the quenched ${tileName(h).removePrefix("the ")} and stopped"; break }
+            ran += h
+            when (kind[h]) {
+                SEA, WATER -> {
+                    log += if (kind[h] == SEA) "Lava poured into the sea: new land rises" else "Lava boiled the lake away: new land rises"
+                    kind[h] = LAVA; heat[h] = MOLTEN; burned[h] = true; rollYields(h, rng)
+                    break
                 }
-                if (quench[h]) { log += "The lava hissed against the quenched ${tileName(h).removePrefix("the ")} and stopped"; break }
-                when (kind[h]) {
-                    SEA, WATER -> {
-                        log += if (kind[h] == SEA) "Lava poured into the sea: new land rises" else "Lava boiled the lake away: new land rises"
-                        kind[h] = LAVA; heat[h] = MOLTEN; burned[h] = true; rollYields(h, rng)
-                        break
-                    }
-                    LAIR -> {}
-                    else -> if (!burned[h]) {
-                        // the lava never takes anyone's last land
-                        val o = owner[h]
-                        if (o >= 0 && tiles(o) == 1) { log += "The lava cooled at the edge of ${if (o == 0) "your" else "the rival's"} last land"; break }
-                        bury(h, rng)
-                    }
+                LAIR -> {}
+                else -> if (!burned[h]) {
+                    // the lava never takes anyone's last land
+                    val o = owner[h]
+                    if (o >= 0 && tiles(o) == 1) { log += "The lava cooled at the edge of ${if (o == 0) "your" else "the rival's"} last land"; break }
+                    bury(h, rng)
                 }
-                prev = h; i++
+            }
+            prev = h
+        }
+        // lava with length to spare at the island's edge spills into the sea beside the row's last tile
+        val last = ran.lastOrNull()
+        if (last != null && ran.size == r.size && r.size < rowLength() && kind[last] != LAVA) {
+            val sea = map.hexNbrs[last].filter { kind[it] == SEA }
+            if (sea.isNotEmpty()) {
+                val h = sea[rng.nextInt(sea.size)]
+                kind[h] = LAVA; heat[h] = MOLTEN; burned[h] = true; rollYields(h, rng); ran += h
+                log += "Lava spilled into the sea: new land rises"
             }
         }
+        lastFlow = ran.toIntArray()
     }
 
     private fun bury(h: Int, rng: Random) {
@@ -762,6 +754,7 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         put(forecast.flatMap { listOf(it.size) + it.toList() }.toIntArray())
         put(intArrayOf(eruptIn, eruptions, endReason))
         put(burned.map { if (it) 1 else 0 }.toIntArray())
+        put(lastFlow); put(intArrayOf(lastDie))
         return o.toIntArray()
     }
 
@@ -792,6 +785,8 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         }
         if (i < s.size) get().forEachIndexed { k, b -> burned[k] = b == 1 }
         else for (h in 0 until H) if (kind[h] == LAVA || kind[h] == ASH) burned[h] = true
+        if (i < s.size) { lastFlow = get(); lastDie = get()[0] }
+        forecast.clear()
     }
 
     fun copy(): Wisteria = fromState(state())
@@ -823,11 +818,9 @@ object WisteriaAi {
         return v * danger(g, h)
     }
 
-    /** Ashfall: land in a forecast lava flow is worth little. */
-    private fun danger(g: Wisteria, h: Int) = if (g.ashfall && g.inDanger(h)) 0.25 else 1.0
+    /** Ashfall: land the next eruption could reach (1 chance in 6) is worth a little less. */
+    private fun danger(g: Wisteria, h: Int) = if (g.inDanger(h)) 0.8 else 1.0
 
-    /** How much flow [i] would hurt [p] more than their rival. */
-    private fun harm(g: Wisteria, p: Int, i: Int) = g.forecast[i].sumOf { h -> when (g.owner[h]) { p -> g.level[h] + 1; 1 - p -> -(g.level[h] + 1); else -> 0 } }
 
     private fun spotValue(g: Wisteria, p: Int, h: Int): Double {
         var v = tileValue(g, h) * 2
@@ -887,18 +880,16 @@ object WisteriaAi {
         }
         // 3b. Ashfall: save land from the coming eruption
         if (g.ashfall && g.eruptIn <= 4) {
-            val threatened = (0 until g.H).filter { g.owner[it] == p && g.inDanger(it) && !g.quench[it] }.sortedByDescending { g.level[it] * 3 + tileValue(g, it) * 0 }
+            // the die could send the lava any of six ways: guard only the towers and castles in reach
+            val threatened = (0 until g.H).filter { g.owner[it] == p && g.inDanger(it) && !g.quench[it] && g.level[it] >= 2 }.sortedByDescending { g.level[it] }
             if (threatened.isNotEmpty()) {
                 val worst = threatened[0]
-                if (g.level[worst] >= 2 && g.canPlay(p, Wisteria.QUENCH)) return WAct.Spell(Wisteria.QUENCH, worst)
-                if (g.canPlay(p, Wisteria.RIFT)) g.forecast.indices.maxByOrNull { harm(g, p, it) }?.takeIf { harm(g, p, it) > 0 }?.let { return WAct.Spell(Wisteria.RIFT, it) }
-                if (lvl.walls && g.can(p, Wisteria.COST_WALL)) for (h in threatened) {
-                    val path = g.forecast[g.flowAt(h)]; val i = path.indexOf(h)
-                    val prev = if (i <= 0) g.lair else path[i - 1]
-                    val e = g.side(h, prev)
-                    if (e >= 0 && g.wall[e] < 0 && (g.level[h] >= 2 || g.total(p) >= 6)) return WAct.Wall(h, prev)
+                if (g.level[worst] >= 3 && g.canPlay(p, Wisteria.QUENCH)) return WAct.Spell(Wisteria.QUENCH, worst)
+                if (lvl.walls && g.can(p, g.wallCost) && g.total(p) >= 8) for (h in threatened) {
+                    val prev = g.lavaFrom(h)
+                    val e = if (prev >= 0) g.side(h, prev) else -1
+                    if (prev != g.lair && e >= 0 && g.wall[e] < 0) return WAct.Wall(h, prev)
                 }
-                if (g.canPlay(p, Wisteria.QUENCH)) return WAct.Spell(Wisteria.QUENCH, worst)
             }
         }
         // 4. claim land
@@ -912,7 +903,7 @@ object WisteriaAi {
         }
         if (up != null && (claims.isEmpty() || g.res[p][1] >= 4 || near)) return WAct.Upgrade(up)
         // 6. walls where the rival can strike
-        if (lvl.walls && g.can(p, Wisteria.COST_WALL) && g.total(p) >= 6) {
+        if (lvl.walls && g.can(p, g.wallCost) && g.total(p) >= 6) {
             val spot = g.wallSpots(p).firstOrNull { (a, b) -> g.owner[b] == o && g.knights[b] > 0 && g.level[b] == 1 }
             if (spot != null) return WAct.Wall(spot.first, spot.second)
         }

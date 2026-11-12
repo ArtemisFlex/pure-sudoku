@@ -171,7 +171,7 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(if 
                 h in (if (withBlack) g.blackMarchTargets(0, selected) else g.marchTargets(0, selected)) -> g.path(planEnd, h, withBlack)?.let { plan = plan + it }
                 else -> nudge("Plot the march one touching tile at a time")
             }
-            mode == Mode.WALL -> if (h in targets()) { act(WAct.Wall(selected, h)); if (g.freeWalls == 0 && !g.can(0, Wisteria.COST_WALL)) mode = Mode.NONE } else mode = Mode.NONE
+            mode == Mode.WALL -> if (h in targets()) { act(WAct.Wall(selected, h)); if (g.freeWalls == 0 && !g.can(0, g.wallCost)) mode = Mode.NONE } else mode = Mode.NONE
             mode == Mode.RALLY -> if (h in targets()) { if (act(WAct.Spell(Wisteria.RALLY, h))) mode = Mode.NONE } else mode = Mode.NONE
             mode == Mode.QUENCH -> { if (h in targets()) act(WAct.Spell(Wisteria.QUENCH, h)); mode = Mode.NONE }
             mode == Mode.RIFT -> { val f = g.flowAt(h); if (f >= 0) act(WAct.Spell(Wisteria.RIFT, f)); mode = Mode.NONE }
@@ -371,16 +371,7 @@ object WisteriaDef : GameDef {
         )
     }
 
-    override val tutorial: List<TutorialStep> get() = listOf(
-        TutorialStep("Claim the land", "Settle a tile, then claim the land around it. Every tile you hold pays out every turn.") { active ->
-            val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newGame(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
-        },
-        TutorialStep("Conquer", "Raise towers and castles, hire knights to strike or march, and wall your borders. First to the points goal wins.") { active ->
-            val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newGame(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
-        },
-    )
+    override val tutorial: List<TutorialStep> get() = wisteriaTutorial(false)
 }
 
 object AshfallDef : GameDef {
@@ -391,18 +382,18 @@ object AshfallDef : GameDef {
 
     override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newAshfall(d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = WisteriaSession.restore(o).also { it.resume() }
-    override fun hint(d: Difficulty) = "Wisteria on a living island. The volcano erupts every 4 turns and buries what lies in its glowing lava paths. The ashen waste is renewed into rich land, and lava that reaches the sea builds new land."
+    override fun hint(d: Difficulty) = "Wisteria on a living island. The volcano erupts every turn, and a die picks which way its lava runs, in a straight row. The ashen waste is renewed into rich land, and lava that reaches the sea builds new land."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
     override fun levelInfo(d: Difficulty): String {
         val g = Wisteria.newAshfall(d, Random(1))
-        return "First to ${g.target} points · ${RealmMap.forLevel(d.ordinal).HEXES} tiles · up to ${Wisteria.MAX_FLOWS[d.ordinal]} lava flows"
+        return "First to ${g.target} points · ${RealmMap.forLevel(d.ordinal).HEXES} tiles · erupts every turn"
     }
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A timid rival and a sleepy volcano."
         Difficulty.MEDIUM -> "Claims the ash as it cools."
         Difficulty.HARD -> "Walls the lava toward you."
         Difficulty.EXPERT -> "Marches armies between eruptions."
-        Difficulty.MASTER -> "Relentless, with five lava flows."
+        Difficulty.MASTER -> "Relentless, on a big island."
         Difficulty.EXTREME -> "Its best play, on the biggest island."
     }
     @Composable override fun Play(session: Session) = WisteriaUi(session as WisteriaSession, null)
@@ -412,24 +403,15 @@ object AshfallDef : GameDef {
         val s = WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(777)))
         return s to listOf(
             LessonStep("Ashfall plays like Wisteria: every tile you hold pays out every turn. Claim land, raise towers and castles, and send knights against your rival."),
-            LessonStep("Pick your first land: tap a glowing tile, away from the volcano and its glowing lava paths.") { (it as WisteriaSession).g.tiles(0) >= 1 },
-            LessonStep("The volcano erupts every 4 turns; its number counts down. The glowing arrows are the next eruption's lava flows: everything on them is buried, buildings and all."),
+            LessonStep("Pick your first land: tap a glowing tile, away from the volcano.") { (it as WisteriaSession).g.tiles(0) >= 1 },
+            LessonStep("The volcano erupts at the end of every turn. A die picks one of its six sides, and lava runs out that way in a straight row, burying everything on it, buildings and all. No one knows the way until the die is rolled."),
             LessonStep("Buried land is ruined for a while, then an ashen waste anyone can claim. Then it's renewed: ordinary land with a golden edge, the best there is. Flows that reach the sea build new land."),
-            LessonStep("The flows grow longer and more numerous as the volcano wakes. A wall turns lava aside; Quench saves a tile; Rift moves a flow."),
+            LessonStep("The row grows longer as the volcano wakes. A wall on the row stops the lava, and Quench saves a tile. Tiles between the six rows are never hit."),
             LessonStep("The points goal is high, so the game is long. If the sea fills up and the island can't grow, the leader wins. Good luck!"),
         )
     }
 
-    override val tutorial: List<TutorialStep> get() = listOf(
-        TutorialStep("The living island", "The volcano erupts every few turns. Its glowing lava paths bury whatever lies on them.") { active ->
-            val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
-        },
-        TutorialStep("Ash and new land", "The ashen waste is renewed into the richest land, and lava that reaches the sea builds new land to claim.") { active ->
-            val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
-        },
-    )
+    override val tutorial: List<TutorialStep> get() = wisteriaTutorial(true)
 }
 
 // =====================================================================  board
@@ -634,18 +616,15 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             g.dragonPlan()?.let { (_, t) ->
                 drawCircle(Color(0xFFFF3D00).copy(alpha = 0.35f + 0.5f * pulse), u * 0.62f, geo.hex(t), style = Stroke(u * 0.07f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.16f, u * 0.1f))))
             }
-            // Ashfall: the coming eruption's lava flows, and quenched ground
+            // Ashfall: where the last eruption's lava ran (the next one is a secret until the die is rolled), and quenched ground
             if (g.ashfall) {
-                for (f in g.forecast) {
-                    var prev = geo.hex(g.lair)
-                    for (t in f) {
-                        val p = geo.hex(t)
-                        if (g.inDanger(t)) drawPath(hexPath(geo, t, 0.9f), Color(0xFFFF5722).copy(alpha = 0.12f + 0.18f * pulse))
-                        flowArrow(prev, p, u, Color(0xFFFF6D00), flow, 0.5f + 0.15f * pulse)
-                        if (g.kind[t] == Wisteria.SEA) drawPath(hexPath(geo, t, 0.92f), Color(0xFFFFCC80).copy(alpha = 0.5f + 0.4f * pulse), style = Stroke(u * 0.05f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.14f, u * 0.1f))))
-                        prev = p
-                    }
+                var prev = geo.hex(g.lair)
+                for (t in g.lastFlow) {
+                    val p = geo.hex(t)
+                    flowArrow(prev, p, u, Color(0xFFFF6D00), flow, 0.45f)
+                    prev = p
                 }
+                if (g.lastDie in 1..6) die(geo.hex(g.lair) + Offset(-u * 0.45f, u * 0.48f), u * 0.36f, g.lastDie, true)
                 for (h in 0 until g.H) if (g.quench[h]) drawPath(hexPath(geo, h, 0.82f), Color(0xFF4FC3F7), style = Stroke(u * 0.07f))
                 // the volcano's countdown
                 val vc = geo.hex(g.lair) + Offset(u * 0.45f, u * 0.48f)
@@ -682,6 +661,10 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             if (s.mode == WisteriaSession.Mode.SIEGE) for (e in g.siegeTargets(0)) drawCircle(Color(0xFFFF7043).copy(alpha = pulse), u * 0.22f, geo.edgeMid(e), style = Stroke(u * 0.06f))
             // selected tile, on top of everything
             if (s.selected >= 0) drawPath(hexPath(geo, s.selected, 0.94f), Color(0xFFFFD54F), style = Stroke(u * 0.09f))
+        }
+        com.puresudoku.ui.tutorial.LocalDemoTargets.current?.let { t ->
+            val geo = wGeo(g, wPx, hPx, 1f, Offset.Zero, fitTop, fitBottom)
+            com.puresudoku.ui.games.board.CellTargets(t, (0 until g.H).map { "h-$it" to androidx.compose.ui.geometry.Rect(geo.hex(it), geo.unit * 0.45f) })
         }
     }
 }
@@ -723,8 +706,8 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                 if (g.ashfall) {
                     RIconOf(RI.FIRE, 18.dp)
                     Spacer(Modifier.width(6.dp))
-                    val n = g.forecast.size
-                    InkText((if (g.eruptIn <= 1) "Eruption next turn" else "Eruption in ${g.eruptIn} turns") + " · $n flow${if (n == 1) "" else "s"} · ${g.growthLeft()} sea left", 12, bold = true)
+                    val n = g.rowLength()
+                    InkText((if (g.eruptIn <= 1) "Erupts after this turn" else "Erupts in ${g.eruptIn} turns") + " · lava runs $n tile${if (n == 1) "" else "s"} · ${g.growthLeft()} sea left", 12, bold = true)
                 } else if (g.dragonAlive) {
                     RIconOf(RI.DRAGON, 18.dp)
                     Spacer(Modifier.width(6.dp))
@@ -790,8 +773,8 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                             val esc = g.escort(h)
                             BuildButton(if (esc > 0) "Dark March +$esc" else "Dark March", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && s.withBlack, g.blackMarchTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH, black = true) }
                         }
-                        BuildButton("Wall", RI.SHIELD, if (g.freeWalls > 0) null else Wisteria.COST_WALL, s.mode == WisteriaSession.Mode.WALL,
-                            g.wallSpots(0).any { it.first == h } && (g.freeWalls > 0 || g.can(0, Wisteria.COST_WALL))) { s.toggleMode(WisteriaSession.Mode.WALL) }
+                        BuildButton("Wall", RI.SHIELD, if (g.freeWalls > 0) null else g.wallCost, s.mode == WisteriaSession.Mode.WALL,
+                            g.wallSpots(0).any { it.first == h } && (g.freeWalls > 0 || g.can(0, g.wallCost))) { s.toggleMode(WisteriaSession.Mode.WALL) }
                     }
                     BuildButton("Spell", RI.SCROLL, Wisteria.COST_SPELL, false, g.can(0, Wisteria.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
                     BuildButton("Trade", RI.TRADE, null, false, true) { showTrade = true }

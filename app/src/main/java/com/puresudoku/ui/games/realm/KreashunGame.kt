@@ -343,16 +343,7 @@ object KreashunDef : GameDef {
         )
     }
 
-    override val tutorial: List<TutorialStep> get() = listOf(
-        TutorialStep("Wall it in", "Place villages on corners, then build walls. Close every side of a tile to capture it.") { active ->
-            val s = remember { KreashunSession(Difficulty.EASY, Kreashun.newGame(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> KreashunUi(s, t) }
-        },
-        TutorialStep("Storm the castles", "Captured tiles raise castles and hire knights to break walls and take your rival's land.") { active ->
-            val s = remember { KreashunSession(Difficulty.EASY, Kreashun.newGame(Difficulty.EASY, Random(5))) }
-            DemoStage(active, script = { wait(2400) }) { t -> KreashunUi(s, t) }
-        },
-    )
+    override val tutorial: List<TutorialStep> get() = kreashunTutorial()
 }
 
 // =====================================================================  board
@@ -519,7 +510,8 @@ fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier 
             if (targets != null) {
                 val geo = RGeo(g.map, wPx, hPx, 1f, Offset.Zero, fitTop, fitBottom)
                 val r = geo.unit * 0.3f
-                CellTargets(targets, (0 until g.map.VERTS).map { "v-$it" to Rect(geo.vert(it), r) } + (0 until g.map.EDGES).map { "e-$it" to Rect(geo.edgeMid(it), r) })
+                CellTargets(targets, (0 until g.map.VERTS).map { "v-$it" to Rect(geo.vert(it), r) } + (0 until g.map.EDGES).map { "e-$it" to Rect(geo.edgeMid(it), r) } +
+                    (0 until g.H).map { "h-$it" to Rect(geo.hex(it), geo.unit * 0.45f) })
             }
         }
     }

@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,9 @@ import kotlinx.coroutines.launch
 class DemoTargets {
     internal val map = HashMap<String, LayoutCoordinates>()
 }
+
+/** The demo's targets, for components deep inside a demo (buttons tag themselves by their label). */
+val LocalDemoTargets = androidx.compose.runtime.staticCompositionLocalOf<DemoTargets?> { null }
 
 fun Modifier.demoTarget(targets: DemoTargets?, key: String): Modifier =
     if (targets == null) this else this.onGloballyPositioned { targets.map[key] = it }
@@ -176,7 +180,10 @@ fun DemoStage(
 
     val accent = LocalBoardColors.current.entered
     Box(modifier.onGloballyPositioned { stageCoords = it }) {
-        content(targets)
+        androidx.compose.runtime.CompositionLocalProvider(LocalDemoTargets provides targets) { content(targets) }
+        // a demo is watched, not played: this layer takes every touch so none reach the game below it,
+        // while swipes still reach the card deck around it
+        Box(Modifier.matchParentSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } })
         Canvas(Modifier.fillMaxSize()) {
             for (r in highlights) {
                 val pad = 3.dp.toPx()
