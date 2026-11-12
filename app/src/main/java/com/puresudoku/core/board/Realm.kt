@@ -153,6 +153,21 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
         val TERRAIN = listOf("Enchanted forest", "Dwarven mountain", "Elven fields", "Griffin meadow", "Crystal spires", "Dragon's Waste")
 
         const val FOG = 0; const val WAKE = 1; const val NIGHT = 2
+        /** Ashfall: a volcano in the middle erupts on every 7, burying tiles everyone depends on. */
+        const val ASH = 3
+        /** Ashfall's spells: Fireball's slot is Rift, and the Knight steals a card instead of chasing a dragon. */
+        val ASH_SPELLS = listOf("Knight", "Relic", "Earthshaper", "Harvest Moon", "Rift")
+        val ASH_SPELL_TEXT = listOf(
+            "Steal a card from your rival. Three or more Knights, and the most, earns Mightiest Host (2 points).",
+            "A secret treasure: worth 1 point. Counts by itself.",
+            "Build two roads for free.",
+            "Take any two resources from the supply.",
+            "Shift one forecast lava flow onto a new path from the volcano.",
+        )
+        /** Ashfall: turns a buried tile stays ruined, then ashen, and flows per eruption at most, by level. */
+        const val RUINED = 4
+        const val ASHEN = 1
+        val MAX_FLOWS = intArrayOf(2, 2, 3, 3, 3, 4)
 
         const val KNIGHT = 0; const val RELIC = 1; const val EARTH = 2; const val HARVEST = 3; const val FIREBALL = 4
         val SPELLS = listOf("Knight", "Relic", "Earthshaper", "Harvest Moon", "Fireball")
@@ -242,6 +257,18 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
     var roadHolder = -1
     var hostHolder = -1
 
+    // Ashfall: the volcano
+    var volcano = -1
+    /** Each tile's state after the lava: 0 untouched, 1 ruined, 2 ashen, 3 renewed (richer). */
+    val stage = IntArray(map.HEXES)
+    /** Turns left in a ruined or ashen tile's current state. */
+    val heat = IntArray(map.HEXES)
+    /** The next eruption's lava flows, each a path out from the volcano, shown to both players. */
+    val forecast = ArrayList<IntArray>()
+    var eruptions = 0
+    val spellNames get() = if (twist == ASH) ASH_SPELLS else SPELLS
+    val spellText get() = if (twist == ASH) ASH_SPELL_TEXT else SPELL_TEXT
+
     var turn = 0
     var phase = SETUP
     var setupStep = 0
@@ -264,7 +291,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
     // ---------------------------------------------------------------- setup
 
     /** True when this game hides tiles under fog: always in the Unmapped Realm, from Hard up in the others. */
-    val foggy get() = twist == FOG || level >= 2
+    val foggy get() = twist == FOG || (level >= 2 && twist != ASH)
 
     private fun deal(rng: Random) {
         val n = map.HEXES
@@ -289,6 +316,16 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             if (ok || ++tries > 400) break
         }
         dragon = (0 until n).filter { terrain[it] == WASTE }.minBy { map.ring[it] * 10 + rng.nextInt(10) }
+        if (twist == ASH) {
+            // the volcano takes the middle tile; whatever was there swaps with a wasteland
+            volcano = (0 until n).minBy { map.hexX[it] * map.hexX[it] + map.hexY[it] * map.hexY[it] }
+            if (terrain[volcano] != WASTE) {
+                val w = (0 until n).first { terrain[it] == WASTE }
+                terrain[w] = terrain[volcano]; number[w] = number[volcano]
+                terrain[volcano] = WASTE; number[volcano] = 0
+            }
+            dragon = volcano; dragonGone = true
+        }
         portEdge = map.docks.copyOf()
         portType = (listOf(5, 5) + (0..4)).shuffled(rng).toIntArray()
         deck.clear()
@@ -313,6 +350,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             }.toIntArray()
         }
         if (twist == WAKE) { dragonHp = 3; dragonWounds = 0 }
+        if (twist == ASH) planEruption(rng)
     }
 
     // ---------------------------------------------------------------- queries
@@ -346,7 +384,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
     /** The first to ring a wasteland with 2+ roads and raise a tower on it claims it: 1 point and a free spell. */
     private fun checkClaims(p: Int) {
         for (h in 0 until map.HEXES) {
-            if (terrain[h] != WASTE || wasteClaim[h] >= 0) continue
+            if (terrain[h] != WASTE || wasteClaim[h] >= 0 || h == volcano) continue
             val (r, t) = claimProgress(h, p)
             if (r >= 2 && t) {
                 wasteClaim[h] = p
@@ -416,7 +454,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             KNIGHT -> phase == ROLL || phase == MAIN
             EARTH -> phase == MAIN && roadSpots(p).isNotEmpty()
             HARVEST -> phase == MAIN
-            FIREBALL -> phase == MAIN && fireballTargets(p).isNotEmpty()
+            FIREBALL -> phase == MAIN && (if (twist == ASH) forecast.isNotEmpty() else fireballTargets(p).isNotEmpty())
             else -> false
         }
     }
@@ -442,7 +480,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             is RAct.Trade -> phase == MAIN && freeRoads == 0 && a.give != a.get && res[p][a.give] >= portRate(p, a.give)
             is RAct.Spell -> canPlay(p, a.kind) && when (a.kind) {
                 HARVEST -> a.a in 0..4 && a.b in 0..4
-                FIREBALL -> a.a in fireballTargets(p)
+                FIREBALL -> if (twist == ASH) a.a in forecast.indices else a.a in fireballTargets(p)
                 else -> true
             }
             is RAct.Offer -> phase == MAIN && p == 1 && (0..4).all { res[1][it] >= a.give[it] && res[0][it] >= a.want[it] }
@@ -458,7 +496,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             RAct.BuySpell -> {
                 pay(p, COST_SPELL)
                 val s = deck.removeAt(deck.lastIndex); spells[p][s]++; fresh[s]++
-                log += if (p == 0) "You learned ${SPELLS[s]}" else "Rival bought a spell"
+                log += if (p == 0) "You learned ${spellNames[s]}" else "Rival bought a spell"
             }
             is RAct.Road -> {
                 if (phase == SETUP) {
@@ -521,7 +559,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
                 if (deck.isNotEmpty()) {
                     val s = deck.removeAt(deck.lastIndex); spells[p][s]++
                     if (turn == p && phase != SETUP) fresh[s]++
-                    log += if (p == 0) "Ruins! You found a ${SPELLS[s]} spell" else "Rival found ruins and a spell"
+                    log += if (p == 0) "Ruins! You found a ${spellNames[s]} spell" else "Rival found ruins and a spell"
                 }
             }
         }
@@ -536,6 +574,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
         n = lastDie[0] + lastDie[1]
         lastRoll = n
         if (n == 7) {
+            if (twist == ASH) erupt(rng)
             if (twist == WAKE && !dragonGone && dragonHp < 6) { dragonHp++; log += "The dragon's wrath grows (strength $dragonHp)" }
             for (q in 0..1) discardNeed[q] = if (total(q) > 7) total(q) / 2 else 0
             afterDragon = MAIN
@@ -551,10 +590,12 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
     fun production(p: Int, n: Int): IntArray {
         val got = IntArray(5)
         for (h in 0 until map.HEXES) {
-            if (number[h] != n || blocked(h) || terrain[h] == WASTE) continue
+            if (number[h] != n || blocked(h) || terrain[h] == WASTE || stage[h] == 1 || stage[h] == 2) continue
             var mult = 1
             if (night && terrain[h] == MANA) mult = 2
-            for (v in map.hexVerts[h]) if (vOwner[v] == p) got[terrain[h]] += vLevel[v] * mult
+            // renewed land is richer: each building on it collects one more
+            val bonus = if (stage[h] == 3) 1 else 0
+            for (v in map.hexVerts[h]) if (vOwner[v] == p) got[terrain[h]] += vLevel[v] * mult + bonus
         }
         return got
     }
@@ -593,6 +634,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
                 knights[p]++
                 log += "$who sent a Knight"
                 updateHost()
+                if (twist == ASH) { stealFrom(1 - p, p, 1, rng); return }
                 if (twist == WAKE && !dragonGone) {
                     dragonWounds++
                     if (dragonWounds >= dragonHp) {
@@ -606,12 +648,17 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             }
             EARTH -> { freeRoads = 2; log += "$who cast Earthshaper" }
             HARVEST -> { res[p][a.a]++; res[p][a.b]++; log += "$who cast Harvest Moon" }
-            FIREBALL -> { eOwner[a.a] = -1; updateRoad(); log += "$who burned a road with Fireball" }
+            FIREBALL -> if (twist == ASH) { rift(a.a, rng); log += "$who cast Rift: a lava flow shifted" }
+                else { eOwner[a.a] = -1; updateRoad(); log += "$who burned a road with Fireball" }
         }
     }
 
     private fun endTurn(rng: Random) {
         fresh.fill(0); spellPlayed = false; freeRoads = 0
+        if (twist == ASH) for (h in 0 until map.HEXES) when (stage[h]) {
+            1 -> if (--heat[h] <= 0) { stage[h] = 2; heat[h] = ASHEN }
+            2 -> if (--heat[h] <= 0) { stage[h] = 3; heat[h] = 0; log += "The ${TERRAIN[terrain[h]].lowercase()} is renewed, richer than before" }
+        }
         turn = 1 - turn
         if (turn == 0) {
             round++
@@ -647,6 +694,80 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
         dragon = best
         log += "Night falls. The dragon raids the ${TERRAIN[terrain[best]].lowercase()}"
         if (lead in ownersAt(best)) stealFrom(lead, -1, 1, rng)
+    }
+
+    // ---------------------------------------------------------------- Ashfall: the volcano
+
+    /** Ruined or ashen: the lava passes over it and never buries it again until it's renewed. */
+    fun scorched(h: Int) = stage[h] == 1 || stage[h] == 2
+    /** Lava can bury [h]: a producing tile, not the volcano, a wasteland or land still recovering. */
+    fun fresh(h: Int) = h != volcano && terrain[h] != WASTE && !scorched(h)
+    fun flowAt(h: Int) = forecast.indexOfFirst { h in it }
+    /** [h] is on a forecast flow and the lava will bury it. */
+    fun inDanger(h: Int) = fresh(h) && flowAt(h) >= 0
+    fun flowCount() = minOf(1 + eruptions / 2, MAX_FLOWS[level.coerceIn(0, 5)])
+    fun flowLength() = minOf(1 + eruptions, 10)
+
+    private fun dist(a: Int, b: Int): Int {
+        val dq = map.hexQ[a] - map.hexQ[b]; val dr = map.hexR[a] - map.hexR[b]
+        return (abs(dq) + abs(dr) + abs(dq + dr)) / 2
+    }
+    private fun outward(h: Int) = map.hexNbrs[h].filter { dist(it, volcano) > dist(h, volcano) }
+
+    /** A lava path from [start] covering [len] fresh tiles at most; it runs across scorched land to reach fresh ground. */
+    private fun walk(start: Int, len: Int, rng: Random): IntArray {
+        val out = arrayListOf(start); var cur = start
+        while (out.count { fresh(it) } < len && out.size < 20) {
+            val next = outward(cur); if (next.isEmpty()) break
+            val good = next.filter { fresh(it) }
+            val pick = if (good.isNotEmpty()) good else next
+            cur = pick[rng.nextInt(pick.size)]; out += cur
+        }
+        return out.toIntArray()
+    }
+
+    private fun planEruption(rng: Random) {
+        forecast.clear()
+        val starts = map.hexNbrs[volcano].toList().shuffled(rng).sortedBy { if (fresh(it)) 0 else 1 }
+        for (k in 0 until flowCount()) forecast += walk(starts[k % starts.size], flowLength(), rng)
+    }
+
+    private fun rift(i: Int, rng: Random) {
+        val old = forecast[i]
+        val sides = map.hexNbrs[volcano]
+        val used = forecast.map { it[0] }.toSet()
+        val k = sides.indexOf(old[0])
+        val start = (1..sides.size).map { sides[(k + it) % sides.size] }.firstOrNull { it !in used } ?: sides[(k + 1) % sides.size]
+        forecast[i] = walk(start, flowLength(), rng)
+    }
+
+    /** The volcano erupts: each forecast flow buries the fresh tiles on its path and burns the roads it crosses. */
+    private fun erupt(rng: Random) {
+        log += "The volcano erupts!"
+        for (path in forecast) {
+            var prev = volcano
+            for (h in path) {
+                val shared = map.hexVerts[prev].filter { it in map.hexVerts[h] }
+                if (shared.size == 2) {
+                    val e = map.edgeOf(shared[0], shared[1])
+                    if (e >= 0 && eOwner[e] >= 0) { log += (if (eOwner[e] == 0) "Lava burned your road" else "Lava burned the rival's road"); eOwner[e] = -1 }
+                }
+                if (fresh(h)) {
+                    stage[h] = 1; heat[h] = RUINED
+                    val who = ownersAt(h)
+                    log += "Lava buried the ${TERRAIN[terrain[h]].lowercase()} (${number[h]})" + when {
+                        who.size == 2 -> ": it pays neither of you for now"
+                        0 in who -> ": your buildings there collect nothing for now"
+                        1 in who -> ": the rival's buildings there collect nothing for now"
+                        else -> ""
+                    }
+                }
+                prev = h
+            }
+        }
+        updateRoad()
+        eruptions++
+        planEruption(rng)
     }
 
     // ---------------------------------------------------------------- titles
@@ -704,6 +825,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             roadHolder, hostHolder, turn, phase, setupStep, setupVillage, round, afterDragon, if (diceDeck) 1 else 0, lastRoll, lastDie[0], lastDie[1], winner))
         put(discardNeed); put(dice.toIntArray())
         put(wild.toIntArray()); put(wasteClaim)
+        put(stage); put(heat); put(forecast.flatMap { listOf(it.size) + it.toList() }.toIntArray()); put(intArrayOf(volcano, eruptions))
         return o.toIntArray()
     }
 
@@ -722,6 +844,11 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
         afterDragon = m[14]; diceDeck = m[15] == 1; lastRoll = m[16]; lastDie = intArrayOf(m[17], m[18]); winner = m[19]
         get().copyInto(discardNeed); dice.clear(); dice += get().toList()
         if (i < s.size) { wild.clear(); wild += get().toList(); wasteClaim = get() }
+        if (i < s.size) {
+            get().copyInto(stage); get().copyInto(heat)
+            forecast.clear(); get().let { a -> var k = 0; while (k < a.size) { val n = a[k]; forecast += a.copyOfRange(k + 1, k + 1 + n); k += 1 + n } }
+            val v = get(); volcano = v[0]; eruptions = v[1]
+        }
     }
 
     fun copy(): Realm = fromState(state())

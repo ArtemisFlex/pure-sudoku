@@ -392,6 +392,7 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop: F
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
+    val flow by rememberInfiniteTransition(label = "flow").animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "flow")
     val art = rememberRealmArt(); val vart = rememberVeilArt()
     val lit = s.targets()
     var zoom by remember(s) { mutableFloatStateOf(1f) }
@@ -509,14 +510,7 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop: F
             // your secret orders
             for (o in g.orders[0]) when (o) {
                 is VOrder.March -> {
-                    val a = geo.hex(o.from); val b = geo.hex(o.to); val d = b - a; val l = d.getDistance(); val dir = d / l
-                    val end = b - dir * u * 0.3f
-                    drawLine(Color.Black.copy(alpha = 0.45f), a, end, u * 0.13f, StrokeCap.Round)
-                    drawLine(Color(0xFFFFD54F), a, end, u * 0.07f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.14f, u * 0.08f)))
-                    val nrm = Offset(-dir.y, dir.x)
-                    val head = Path().apply { moveTo(b.x - dir.x * u * 0.15f, b.y - dir.y * u * 0.15f); val bb = end - dir * u * 0.1f
-                        lineTo(bb.x + nrm.x * u * 0.16f, bb.y + nrm.y * u * 0.16f); lineTo(bb.x - nrm.x * u * 0.16f, bb.y - nrm.y * u * 0.16f); close() }
-                    drawPath(head, Color(0xFFFFD54F))
+                    flowArrow(geo.hex(o.from), geo.hex(o.to), u, Color(0xFFFFD54F), flow, 0.65f)
                 }
                 is VOrder.Wall -> { val e = g.side(o.a, o.b); if (e >= 0) drawLine(Color(0xFFFFD54F).copy(alpha = 0.6f + 0.4f * pulse), geo.vert(m.edgeA[e]), geo.vert(m.edgeB[e]), u * 0.16f, StrokeCap.Round) }
                 else -> {

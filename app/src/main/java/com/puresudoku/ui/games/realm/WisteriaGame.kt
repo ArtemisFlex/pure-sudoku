@@ -391,7 +391,7 @@ object AshfallDef : GameDef {
 
     override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newAshfall(d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = WisteriaSession.restore(o).also { it.resume() }
-    override fun hint(d: Difficulty) = "Wisteria on a living island. The volcano erupts every 4 turns and buries what lies in its glowing lava paths. Ash ripens into rich land, and lava that reaches the sea builds new land."
+    override fun hint(d: Difficulty) = "Wisteria on a living island. The volcano erupts every 4 turns and buries what lies in its glowing lava paths. The ashen waste is renewed into rich land, and lava that reaches the sea builds new land."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
     override fun levelInfo(d: Difficulty): String {
         val g = Wisteria.newAshfall(d, Random(1))
@@ -413,8 +413,8 @@ object AshfallDef : GameDef {
         return s to listOf(
             LessonStep("Ashfall plays like Wisteria: every tile you hold pays out every turn. Claim land, raise towers and castles, and send knights against your rival."),
             LessonStep("Pick your first land: tap a glowing tile, away from the volcano and its glowing lava paths.") { (it as WisteriaSession).g.tiles(0) >= 1 },
-            LessonStep("The volcano erupts every 4 turns; its number counts down. The glowing paths are the next eruption's lava flows: everything on them is buried, buildings and all."),
-            LessonStep("Buried land is molten, then cooling ash anyone can claim. Once ripe it's rich ash, the best land there is. Flows that reach the sea build new land."),
+            LessonStep("The volcano erupts every 4 turns; its number counts down. The glowing arrows are the next eruption's lava flows: everything on them is buried, buildings and all."),
+            LessonStep("Buried land is ruined for a while, then an ashen waste anyone can claim. Then it's renewed: ordinary land with a golden edge, the best there is. Flows that reach the sea build new land."),
             LessonStep("The flows grow longer and more numerous as the volcano wakes. A wall turns lava aside; Quench saves a tile; Rift moves a flow."),
             LessonStep("The points goal is high, so the game is long. If the sea fills up and the island can't grow, the leader wins. Good luck!"),
         )
@@ -425,7 +425,7 @@ object AshfallDef : GameDef {
             val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(5))) }
             DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
         },
-        TutorialStep("Ash and new land", "Ash ripens into the richest land, and lava that reaches the sea builds new land to claim.") { active ->
+        TutorialStep("Ash and new land", "The ashen waste is renewed into the richest land, and lava that reaches the sea builds new land to claim.") { active ->
             val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(5))) }
             DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
         },
@@ -435,7 +435,8 @@ object AshfallDef : GameDef {
 // =====================================================================  board
 
 internal class WisteriaArt(val water: ImageBitmap, val knight: ImageBitmap, val black: ImageBitmap)
-internal class AshArt(val volcano: ImageBitmap, val crater: ImageBitmap, val lava: ImageBitmap, val cooling: ImageBitmap, val ash: ImageBitmap, val rich: ImageBitmap)
+/** Ashfall's ruined land, in order: fresh lava, lava pool, cracked lava, smouldering rock, then the ashen waste. */
+internal class AshArt(val volcano: ImageBitmap, val pool: ImageBitmap, val lava: ImageBitmap, val cracked: ImageBitmap, val embers: ImageBitmap, val ash: ImageBitmap)
 
 @Composable
 private fun rememberWisteriaArt() = WisteriaArt(
@@ -445,14 +446,18 @@ private fun rememberWisteriaArt() = WisteriaArt(
 )
 
 @Composable
-private fun rememberAshArt() = AshArt(
+internal fun rememberAshArt() = AshArt(
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_volcano),
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_crater),
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_lava),
-    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_cooling),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_cracked),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_embers),
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_ash),
-    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_ashrich),
 )
+
+/** Terrain paintings for land of resource [t]. Ashfall leaves out the volcanic mountain, so only real lava looks like lava. */
+private fun landArt(g: Wisteria, art: RealmArt, t: Int): List<ImageBitmap> =
+    if (g.ashfall && t == 1) art.byTerrain[1].filterIndexed { i, _ -> i != 2 } else art.byTerrain[t]
 
 /** The board's geometry: Ashfall fits the island art to the island, leaving its ring of sea beyond it. */
 private fun wGeo(g: Wisteria, w: Float, h: Float, zoom: Float, pan: Offset, top: Float, bottom: Float) =
@@ -477,13 +482,18 @@ private fun DrawScope.wTile(g: Wisteria, h: Int, geo: RGeo, art: RealmArt, wart:
     if (g.kind[h] == Wisteria.SEA) return
     val img = when {
         !g.revealed[h] -> art.fog[h % art.fog.size]
-        g.ashfall && g.kind[h] == Wisteria.LAIR -> if (g.eruptIn <= 2) ash.volcano else ash.crater
-        g.kind[h] == Wisteria.LAVA -> if (g.heat[h] > 2) ash.lava else ash.cooling
-        g.kind[h] == Wisteria.ASH -> if (g.heat[h] > 0) ash.ash else ash.rich
+        g.ashfall && g.kind[h] == Wisteria.LAIR -> ash.volcano
+        // ruined land cools step by step: fresh lava, lava pool, cracked lava, smouldering rock
+        g.kind[h] == Wisteria.LAVA -> when { g.heat[h] >= 4 -> ash.lava; g.heat[h] == 3 -> ash.pool; g.heat[h] == 2 -> ash.cracked; else -> ash.embers }
+        // then the ashen waste, until it's renewed as ordinary, richer land
+        g.kind[h] == Wisteria.ASH && g.heat[h] > 0 -> ash.ash
+        g.kind[h] == Wisteria.ASH -> { val list = landArt(g, art, g.art[h]); list[h % list.size] }
         g.kind[h] == Wisteria.WATER -> wart.water
         g.kind[h] != Wisteria.LAND -> art.byTerrain[5][0]
-        else -> { val list = art.byTerrain[g.art[h]]; list[(0 until h).count { g.kind[it] == Wisteria.LAND && g.art[it] == g.art[h] } % list.size] }
+        else -> { val list = landArt(g, art, g.art[h]); list[(0 until h).count { g.kind[it] == Wisteria.LAND && g.art[it] == g.art[h] } % list.size] }
     }
+    // renewed land: a golden glow for its extra abundance
+    if (g.kind[h] == Wisteria.ASH && g.heat[h] == 0) drawPath(hexPath(geo, h, 0.86f), Color(0xFFFFD54F).copy(alpha = 0.55f), style = Stroke(u * 0.05f))
     drawImage(img, dstOffset = IntOffset((c.x - tw / 2f).toInt(), (c.y - th / 2f).toInt()), dstSize = IntSize(tw, th), filterQuality = FilterQuality.Medium)
     if (g.revealed[h] && g.kind[h] == Wisteria.BARREN) drawPath(hexPath(geo, h, 1f), Color(0xFF3B2A1A).copy(alpha = 0.35f))
 }
@@ -493,6 +503,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
+    val flow by rememberInfiniteTransition(label = "flow").animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "flow")
     val art = rememberRealmArt(); val wart = rememberWisteriaArt(); val ash = rememberAshArt()
     val lit = s.targets()
     var zoom by remember(s) { mutableFloatStateOf(1f) }
@@ -589,8 +600,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                 var prev = geo.hex(start)
                 tiles.forEachIndexed { i, t ->
                     val p = geo.hex(t)
-                    drawLine(Color.Black.copy(alpha = 0.4f), prev, p, u * 0.11f, StrokeCap.Round)
-                    drawLine(col, prev, p, u * 0.06f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.14f, u * 0.1f)))
+                    flowArrow(prev, p, u, col, flow, 0.6f)
                     if (numbers) { drawCircle(col, u * 0.15f, p); glyph("${i + 1}", p, u * 0.17f, Color.White) }
                     prev = p
                 }
@@ -630,9 +640,8 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                     var prev = geo.hex(g.lair)
                     for (t in f) {
                         val p = geo.hex(t)
-                        drawPath(hexPath(geo, t, 0.9f), Color(0xFFFF5722).copy(alpha = 0.12f + 0.18f * pulse))
-                        drawLine(Color(0xFF3A0A00).copy(alpha = 0.6f), prev, p, u * 0.16f, StrokeCap.Round)
-                        drawLine(Color(0xFFFFA726).copy(alpha = 0.55f + 0.4f * pulse), prev, p, u * 0.09f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.18f, u * 0.1f)))
+                        if (g.inDanger(t)) drawPath(hexPath(geo, t, 0.9f), Color(0xFFFF5722).copy(alpha = 0.12f + 0.18f * pulse))
+                        flowArrow(prev, p, u, Color(0xFFFF6D00), flow, 0.5f + 0.15f * pulse)
                         if (g.kind[t] == Wisteria.SEA) drawPath(hexPath(geo, t, 0.92f), Color(0xFFFFCC80).copy(alpha = 0.5f + 0.4f * pulse), style = Stroke(u * 0.05f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.14f, u * 0.1f))))
                         prev = p
                     }

@@ -147,7 +147,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         fun detail(vararg first: String) = (first.toList() + rest).filter { it.isNotEmpty() }.joinToString("\n")
         when (a) {
             RAct.Roll -> announce(RI.DICE, "Rival rolls ${g.lastDie[0]} + ${g.lastDie[1]} = ${g.lastRoll}",
-                detail(if (g.lastRoll == 7) "The dragon wakes!" else if (rest.isEmpty()) "Nobody collects anything" else ""), 2000)
+                detail(if (g.lastRoll == 7) (if (g.twist == Realm.ASH) "" else "The dragon wakes!") else if (rest.isEmpty()) "Nobody collects anything" else ""), 2000)
             is RAct.Village -> announce(RI.VILLAGE, "Rival builds a village", detail(spotWords(a.v)))
             is RAct.Tower -> announce(RI.TOWER, "Rival raises a tower", detail("It now collects double: " + spotWords(a.v).lowercase()))
             is RAct.Road -> announce(RI.ROAD, if (g.phase == Realm.SETUP || g.setupStep in 1..3) "Rival lays a road" else "Rival builds a road", detail())
@@ -155,7 +155,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
             is RAct.Discard -> announce(RI.DRAGON, "Rival discards ${a.counts.sum()} cards", detail("Too many cards when the 7 came"))
             is RAct.Trade -> announce(RI.TRADE, "Rival trades with the merchant", detail("$tradeRate ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}"))
             RAct.BuySpell -> announce(RI.SCROLL, "Rival learns a spell", detail("It's hidden until cast"))
-            is RAct.Spell -> announce(spellIcon(a.kind), "Rival casts ${Realm.SPELLS[a.kind]}", detail(Realm.SPELL_TEXT[a.kind]), 2000)
+            is RAct.Spell -> announce(spellIcon(a.kind), "Rival casts ${g.spellNames[a.kind]}", detail(g.spellText[a.kind]), 2000)
             RAct.End -> announce(RI.END, "Rival ends its turn", detail())
             is RAct.Offer -> {}
         }
@@ -183,11 +183,15 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         !myMove -> emptyList()
         g.phase == Realm.SETUP && g.setupVillage >= 0 -> g.roadSpots(0)
         g.phase == Realm.MAIN && (mode == Mode.ROAD || g.freeRoads > 0) -> g.roadSpots(0)
-        g.phase == Realm.MAIN && mode == Mode.FIREBALL -> g.fireballTargets(0)
+        g.phase == Realm.MAIN && mode == Mode.FIREBALL && g.twist != Realm.ASH -> g.fireballTargets(0)
         else -> emptyList()
     }
 
-    fun tileTargets(): List<Int> = if (myMove && g.phase == Realm.DRAGON) g.dragonTiles() else emptyList()
+    fun tileTargets(): List<Int> = when {
+        myMove && g.phase == Realm.DRAGON -> g.dragonTiles()
+        myMove && g.twist == Realm.ASH && g.phase == Realm.MAIN && mode == Mode.FIREBALL -> g.forecast.flatMap { it.toList() }.distinct()
+        else -> emptyList()
+    }
 
     private fun flush() {
         if (g.log.isNotEmpty()) { events = (events + g.log).takeLast(4); g.log.clear() }
@@ -217,7 +221,11 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         if (act(RAct.Road(e)) && g.freeRoads == 0 && !(g.can(0, Realm.COST_ROAD) && g.roadSpots(0).isNotEmpty())) mode = Mode.NONE
     }
 
-    fun tapTile(t: Int) { if (t in tileTargets()) act(RAct.Dragon(t)) }
+    fun tapTile(t: Int) {
+        if (t !in tileTargets()) return
+        if (g.twist == Realm.ASH && mode == Mode.FIREBALL) { val f = g.flowAt(t); mode = Mode.NONE; if (f >= 0) act(RAct.Spell(Realm.FIREBALL, f)); return }
+        act(RAct.Dragon(t))
+    }
 
     fun roll() { if (myMove && g.phase == Realm.ROLL) { rollId++; mode = Mode.NONE; act(RAct.Roll) } }
     fun endTurn() { if (myMove && g.phase == Realm.MAIN) { mode = Mode.NONE; moves++; act(RAct.End) } }
@@ -304,7 +312,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         mode == Mode.ROAD -> "Tap a glowing edge for your road"
         mode == Mode.VILLAGE -> "Tap a glowing corner for your village"
         mode == Mode.TOWER -> "Tap one of your villages to raise a tower"
-        mode == Mode.FIREBALL -> "Tap a rival road to burn"
+        mode == Mode.FIREBALL -> if (g.twist == Realm.ASH) "Tap a tile on a lava flow to shift that flow" else "Tap a rival road to burn"
         else -> "Build, trade or cast, then end your turn"
     }
 
@@ -326,7 +334,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
         is RAct.Road -> if (s.phase == Realm.SETUP) "Point your road toward open land." else "Build a road on the ringed edge, toward a good village spot."
         is RAct.Dragon -> "Put the dragon on the ringed tile: it hurts your rival most."
         is RAct.Trade -> "Trade ${s.portRate(0, a.give)} ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}."
-        is RAct.Spell -> "Cast ${Realm.SPELLS[a.kind]}" + if (a.kind == Realm.HARVEST) " for ${Realm.RES[a.a]} and ${Realm.RES[a.b]}." else "."
+        is RAct.Spell -> "Cast ${g.spellNames[a.kind]}" + if (a.kind == Realm.HARVEST) " for ${Realm.RES[a.a]} and ${Realm.RES[a.b]}." else "."
         is RAct.Discard -> "Discard: " + (0..4).filter { a.counts[it] > 0 }.joinToString(", ") { "${a.counts[it]} ${Realm.RES[it]}" } + "."
         is RAct.Offer -> ""
     }
@@ -360,14 +368,14 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
 
     @Composable
     override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) {
-        RealmHeader(session, actions, when (twist) { Realm.WAKE -> "Wyrmrise · "; Realm.NIGHT -> "Nightfall · "; else -> "" })
+        RealmHeader(session, actions, when (twist) { Realm.WAKE -> "Wyrmrise · "; Realm.NIGHT -> "Nightfall · "; Realm.ASH -> "Ashfall · "; else -> "" })
     }
     override fun levelInfo(d: Difficulty): String {
         val tiles = com.puresudoku.core.board.RealmMap.forLevel(d.ordinal).HEXES
         val wastes = intArrayOf(1, 1, 2, 2, 3, 3)[d.ordinal]
-        val fog = twist == Realm.FOG || d.ordinal >= 2
+        val fog = twist == Realm.FOG || (d.ordinal >= 2 && twist != Realm.ASH)
         return "First to ${Realm.target(d)} · $tiles tiles · $wastes waste${if (wastes > 1) "s" else ""}" + (if (fog) " · fog" else "") +
-            (if (twist == Realm.WAKE && Realm.WILD_CAP[d.ordinal] > 0) " · wild dragons" else "") + " · " + (if (d.ordinal <= 1) "fair dice" else "real dice")
+            (if (twist == Realm.WAKE && Realm.WILD_CAP[d.ordinal] > 0) " · wild dragons" else "") + (if (twist == Realm.ASH) " · volcano" else "") + " · " + (if (d.ordinal <= 1) "fair dice" else "real dice")
     }
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A careless rival who offers generous deals."
@@ -385,6 +393,7 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
         val g = s.g
         val twistText = when (twist) {
             Realm.FOG -> "This is the Unmapped Realm: the outer tiles are hidden in fog. Building next to one reveals it and gives you one of its resource. Some hide ruins with a free spell, and violet ley stones sit on the coast: touch two with your roads for +1 mana every turn."
+            Realm.ASH -> "In Ashfall a volcano replaces the dragon. Every 7 it erupts down the glowing arrows, burying the tiles in its path: they pay no one, you or your rival, until they recover, and roads the lava crosses burn. Recovered land is renewed, and pays every building on it one extra."
             Realm.WAKE -> "In Wyrmrise the dragon is a boss. Every 7 makes it stronger, and each round it walks one tile toward whoever leads. Each Knight wounds it; land the final blow and you earn 2 points."
             else -> "In Nightfall the rounds alternate. At night the crystal spires pay double mana, but the dragon raids whoever leads, landing on their best tile and burning a card."
         }
@@ -395,7 +404,8 @@ abstract class RealmDefBase(final override val kind: GameKind, private val twist
             LessonStep("Your rival now places two villages. Then you place your second one, which pays out one of each resource around it straight away.") { val x = (it as RealmSession).g; x.count(0, 1) >= 2 && x.roads(0) >= 2 },
             LessonStep("Setup is done. Each turn starts with a roll. Tap Roll.") { (it as RealmSession).g.lastRoll > 0 },
             LessonStep("Costs: a road is timber + mana. A village is timber, mana, grain and beasts. A tower is 3 ore + 2 grain. A spell is ore, grain and beasts. Short of something? Trade 4 of one resource for 1 of another, or less at a portal you've settled."),
-            LessonStep("A 7 wakes the dragon: anyone holding more than 7 cards loses half, and the roller moves the dragon to block a tile and steal a card. Knight spells chase it away."),
+            LessonStep(if (twist == Realm.ASH) "A 7 makes the volcano erupt, and anyone holding more than 7 cards loses half. There's no dragon: Knight spells steal a card from your rival instead."
+                else "A 7 wakes the dragon: anyone holding more than 7 cards loses half, and the roller moves the dragon to block a tile and steal a card. Knight spells chase it away."),
             LessonStep(twistText),
             LessonStep("The Dragon's Waste grows nothing, but it can be claimed: be first to build 2 roads around it and a tower on one of its corners for 1 point and a free spell."),
             LessonStep("Spread out early, then turn villages into towers. The longest road (5+) and the most Knights (3+) are worth 2 points each. Good luck!"),
@@ -430,6 +440,11 @@ object RealmDragonDef : RealmDefBase(GameKind.REALM_DRAGON, Realm.WAKE) {
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
 }
 
+object RealmAshDef : RealmDefBase(GameKind.REALM_ASH, Realm.ASH) {
+    override fun hint(d: Difficulty) = "Every 7 the volcano erupts down its glowing arrows, burying the tiles in its path for both players. Build where the lava won't run, and claim the richer renewed land."
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
+}
+
 object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
     override fun hint(d: Difficulty) = "Rounds alternate day and night. At night mana tiles pay double, but the dragon raids whoever leads. Reach the points goal first."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
@@ -456,6 +471,35 @@ internal class RGeo(
     fun hex(h: Int) = pt(m.hexX[h], m.hexY[h])
     fun edgeMid(e: Int) = (vert(m.edgeA[e]) + vert(m.edgeB[e])) / 2f
     fun portPos(e: Int): Offset { val m = edgeMid(e); val d = m - Offset(cx, cy); val l = d.getDistance(); return m + d / l * unit * 0.62f }
+}
+
+/**
+ * A semi-transparent arrow from tile centre [a] to the next tile [b], with chevrons flowing along it.
+ * [flow] runs 0..1 over and over to move them.
+ */
+internal fun DrawScope.flowArrow(a: Offset, b: Offset, u: Float, color: Color, flow: Float, alpha: Float = 0.6f) {
+    val d = b - a; val l = d.getDistance(); if (l < 1f) return
+    val dir = d / l; val nrm = Offset(-dir.y, dir.x)
+    val s = a + dir * (u * 0.3f); val e = b - dir * (u * 0.3f)
+    val w = u * 0.13f; val headL = u * 0.34f; val headW = u * 0.3f
+    val hb = e - dir * headL
+    fun Path.to(p: Offset) = lineTo(p.x, p.y)
+    val body = Path().apply {
+        val p0 = s + nrm * (w * 0.7f); moveTo(p0.x, p0.y)
+        to(hb + nrm * w); to(hb + nrm * headW); to(e); to(hb - nrm * headW); to(hb - nrm * w); to(s - nrm * (w * 0.7f)); close()
+    }
+    drawPath(body, color.copy(alpha = alpha))
+    drawPath(body, Color.Black.copy(alpha = alpha * 0.5f), style = Stroke(u * 0.025f))
+    for (k in 0..1) {
+        val t = (flow + k * 0.5f) % 1f
+        val c = s + (e - s) * t
+        val fade = kotlin.math.sin(t * Math.PI.toFloat())
+        val chev = Path().apply {
+            val p0 = c - dir * (u * 0.08f) + nrm * (w * 0.85f); moveTo(p0.x, p0.y)
+            to(c + dir * (u * 0.06f)); to(c - dir * (u * 0.08f) - nrm * (w * 0.85f))
+        }
+        drawPath(chev, Color.White.copy(alpha = 0.85f * fade * alpha), style = Stroke(u * 0.045f, cap = StrokeCap.Round))
+    }
 }
 
 internal fun nearest(o: Offset, cands: List<Int>, pos: (Int) -> Offset, maxD: Float): Int? =
@@ -556,7 +600,8 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
     val vT = s.vertexTargets(); val eT = s.edgeTargets(); val tT = s.tileTargets()
-    val art = rememberRealmArt()
+    val art = rememberRealmArt(); val ash = rememberAshArt()
+    val flow by rememberInfiniteTransition(label = "flow").animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "flow")
     var zoom by remember(s) { mutableFloatStateOf(1f) }
     var pan by remember(s) { mutableStateOf(Offset.Zero) }
     BoxWithConstraints(modifier.clipToBounds()) {
@@ -601,7 +646,16 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 val tw = (sqrt3 * u).toInt() + 2; val th = (2 * u).toInt() + 2
                 for (h in 0 until m.HEXES) {
                     val c = geo.hex(h)
-                    val img = if (!g.revealed[h]) art.fog[h % art.fog.size] else art.tile(g, h)
+                    val img = when {
+                        !g.revealed[h] -> art.fog[h % art.fog.size]
+                        g.twist != Realm.ASH -> art.tile(g, h)
+                        h == g.volcano -> ash.volcano
+                        // ruined land cools a step each turn, then lies ashen, then is renewed as ordinary land
+                        g.stage[h] == 1 -> when { g.heat[h] >= 4 -> ash.lava; g.heat[h] == 3 -> ash.pool; g.heat[h] == 2 -> ash.cracked; else -> ash.embers }
+                        g.stage[h] == 2 -> ash.ash
+                        g.terrain[h] == Realm.ORE -> { val l = art.byTerrain[1].filterIndexed { i, _ -> i != 2 }; l[(0 until h).count { g.terrain[it] == Realm.ORE } % l.size] }
+                        else -> art.tile(g, h)
+                    }
                     drawImage(img, dstOffset = IntOffset((c.x - tw / 2f).toInt(), (c.y - th / 2f).toInt()), dstSize = IntSize(tw, th), filterQuality = FilterQuality.Medium)
                 }
                 if (g.night) {
@@ -638,9 +692,17 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                 }
                 // resource bubble and number token on every known tile
                 for (h in 0 until m.HEXES) {
-                    if (!g.revealed[h]) continue
+                    if (!g.revealed[h] || h == g.volcano) continue
                     val c = geo.hex(h); val path = hexPath(geo, h)
                     val t = g.terrain[h]
+                    if (g.twist == Realm.ASH && g.stage[h] == 3) drawPath(hexPath(geo, h, 0.86f), Color(0xFFFFD54F).copy(alpha = 0.55f), style = Stroke(u * 0.05f))
+                    if (g.twist == Realm.ASH && g.scorched(h)) {
+                        // ruined or ashen: turns until it changes, in place of the resource bubble
+                        val b = c + Offset(0f, -u * 0.3f)
+                        drawCircle(Color(0xFF2A0F0A).copy(alpha = 0.85f), u * 0.2f, b)
+                        drawCircle(if (g.stage[h] == 1) Color(0xFFFF7043) else Color(0xFFB0A89A), u * 0.2f, b, style = Stroke(u * 0.03f))
+                        glyph("${g.heat[h]}", b, u * 0.2f, Color.White)
+                    } else {
                     val bc = c + Offset(0f, if (t == Realm.WASTE) 0f else -u * 0.3f)
                     val br = u * (if (t == Realm.WASTE) 0.26f else 0.2f)
                     drawCircle(Color.Black.copy(alpha = 0.25f), br, bc + Offset(0f, u * 0.025f))
@@ -654,6 +716,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                         actionIcon(RI.CROWN, bc, br * 1.3f)
                         if (owner >= 0) drawCircle(if (owner == 0) YOU else RIVAL, br, bc, style = Stroke(u * 0.06f))
                     }
+                    }
                     if (g.number[h] > 0) {
                         val tc = c + Offset(0f, u * 0.2f)
                         drawCircle(Color.Black.copy(alpha = 0.25f), u * 0.27f, tc + Offset(0f, u * 0.03f))
@@ -664,6 +727,16 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                         for (k in 0 until pips) drawCircle(if (hot) Color(0xFFC62828) else Color(0xFF2B2B2B), u * 0.02f, tc + Offset((k - (pips - 1) / 2f) * u * 0.055f, u * 0.15f))
                     }
                     if (g.number[h] == g.lastRoll && g.lastRoll != 7 && g.phase != Realm.SETUP) drawPath(path, Color(0xFFFFF59D).copy(alpha = 0.9f), style = Stroke(u * 0.07f))
+                }
+                // Ashfall: the next eruption's lava flows, as arrows from tile to tile
+                if (g.twist == Realm.ASH) for (f in g.forecast) {
+                    var prev = geo.hex(g.volcano)
+                    for (t in f) {
+                        val p = geo.hex(t)
+                        if (g.inDanger(t)) drawPath(hexPath(geo, t, 0.9f), Color(0xFFFF5722).copy(alpha = 0.12f + 0.18f * pulse))
+                        flowArrow(prev, p, u, Color(0xFFFF6D00), flow, 0.5f + 0.15f * pulse)
+                        prev = p
+                    }
                 }
                 // tile targets (dragon)
                 for (h in tT) drawPath(hexPath(geo, h, 0.86f), Color(0xFFFF7043).copy(alpha = pulse), style = Stroke(u * 0.08f))
@@ -781,6 +854,7 @@ private fun TwistChip(g: Realm) {
     val (icon, text) = when (g.twist) {
         Realm.FOG -> RI.LEY to "Ley power: you ${g.leyPower(0)} · rival ${g.leyPower(1)}"
         Realm.WAKE -> RI.DRAGON to (if (g.dragonGone) (if (g.slayer == 0) "You slew the dragon!" else "The rival slew the dragon") else "Dragon health ${g.dragonHp - g.dragonWounds} of ${g.dragonHp}" + if (g.wild.isNotEmpty()) " · ${g.wild.size} wild" else "")
+        Realm.ASH -> RI.FIRE to "Volcano · erupts on a 7 · ${g.forecast.size} flow${if (g.forecast.size == 1) "" else "s"} · ${(0 until g.map.HEXES).count { g.scorched(it) }} tiles ruined"
         else -> if (g.night) RI.MOON to "Night · mana pays double · the dragon hunts" else RI.SUN to "Day · night falls next round"
     }
     Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -950,7 +1024,7 @@ private fun DiscardPanel(s: RealmSession) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             RIconOf(RI.DRAGON, 20.dp)
             Spacer(Modifier.width(6.dp))
-            InkText("The dragon wakes! Discard ${pick.sum()} of $need", 14, bold = true)
+            InkText((if (g.twist == Realm.ASH) "A 7! " else "The dragon wakes! ") + "Discard ${pick.sum()} of $need", 14, bold = true)
         }
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1037,10 +1111,10 @@ private fun SpellsDialog(s: RealmSession, onDismiss: () -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RIconOf(spellIcon(k), 30.dp)
                             Spacer(Modifier.width(8.dp))
-                            InkText("${Realm.SPELLS[k]} ×$n", 15, bold = true, modifier = Modifier.weight(1f))
+                            InkText("${g.spellNames[k]} ×$n", 15, bold = true, modifier = Modifier.weight(1f))
                             if (k != Realm.RELIC && k != Realm.HARVEST) WoodButton("Cast", null, enabled = g.canPlay(0, k)) { s.playSpell(k); onDismiss() }
                         }
-                        InkText(Realm.SPELL_TEXT[k], 12, color = INK_SOFT)
+                        InkText(g.spellText[k], 12, color = INK_SOFT)
                         if (k == Realm.HARVEST && g.canPlay(0, k)) {
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

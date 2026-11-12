@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -164,9 +165,10 @@ internal val GOLDEN = Color(0xFFC9972F)
 
 /** Which games have a rulebook. */
 internal object Rulebooks {
-    fun has(kind: GameKind) = kind in setOf(GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD)
+    fun has(kind: GameKind) = kind in setOf(GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH, GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD)
     fun of(kind: GameKind): Book? = when (kind) {
         GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT -> RulebookText.eiseria(kind)
+        GameKind.REALM_ASH -> RulebookText.eiseriaAshfall()
         GameKind.WISTERIA -> RulebookText.wisteria()
         GameKind.ASHFALL -> RulebookText.ashfall()
         GameKind.KREASHUN -> RulebookText.kreashun()
@@ -395,8 +397,10 @@ private fun Block(b: RB, accent: Color, chapter: Int?, art: RealmArt, knight: Im
                     .padding(6.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                val flow by androidx.compose.animation.core.rememberInfiniteTransition(label = "flow").animateFloat(0f, 1f,
+                    androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "flow")
                 for (p in b.panels) Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Canvas(Modifier.fillMaxWidth().height(b.height.dp)) { drawScene(p.scene, art, knight, water) }
+                    Canvas(Modifier.fillMaxWidth().height(b.height.dp)) { drawScene(p.scene, art, knight, water, flow) }
                     if (p.label != null) Text(p.label, fontFamily = SERIF, fontWeight = FontWeight.Bold, color = Color(0xFFF6E3A1), fontSize = 12.5.sp,
                         textAlign = TextAlign.Center, lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp, bottom = 2.dp))
                 }
@@ -593,7 +597,7 @@ private fun DrawScope.pieceIcon(p: Piece, art: RealmArt, knight: ImageBitmap) {
 }
 
 /** Draws a figure's mini board, fitted to the canvas. */
-internal fun DrawScope.drawScene(sc: Scene, art: RealmArt, knight: ImageBitmap, water: ImageBitmap) {
+internal fun DrawScope.drawScene(sc: Scene, art: RealmArt, knight: ImageBitmap, water: ImageBitmap, flow: Float = 0.3f) {
     if (sc.hexes.isEmpty()) return
     val xs = sc.hexes.map { sqrt3 * (it.q + it.r / 2f) }; val ys = sc.hexes.map { 1.5f * it.r }
     val minX = xs.min() - sqrt3 / 2; val maxX = xs.max() + sqrt3 / 2; val minY = ys.min() - 1f; val maxY = ys.max() + 1f
@@ -728,26 +732,10 @@ internal fun DrawScope.drawScene(sc: Scene, art: RealmArt, knight: ImageBitmap, 
         val img = art.dragon; val hh = u * 1.35f * scl; val w = hh * img.width / img.height
         drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh / 2).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
     }
-    // arrows
+    // arrows: the same flowing arrows as on the board, tile by tile
     for (ar in sc.arrows) {
         val pts = ar.path.map { hc(it) }
-        if (pts.size < 2) continue
-        val trimmed = pts.toMutableList()
-        trimmed[0] = pts[0] + (pts[1] - pts[0]) * (0.3f * u / (pts[1] - pts[0]).getDistance())
-        val n = pts.size
-        val end = pts[n - 1] - (pts[n - 1] - pts[n - 2]) * (0.3f * u / (pts[n - 1] - pts[n - 2]).getDistance())
-        trimmed[n - 1] = end
-        val path = Path().apply { trimmed.forEachIndexed { k, p -> if (k == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) } }
-        val eff = if (ar.dashed) PathEffect.dashPathEffect(floatArrayOf(u * 0.16f, u * 0.1f)) else null
-        drawPath(path, Color.Black.copy(alpha = 0.55f), style = Stroke(u * 0.16f, cap = StrokeCap.Round, pathEffect = eff))
-        drawPath(path, ar.color, style = Stroke(u * 0.09f, cap = StrokeCap.Round, pathEffect = eff))
-        val dir = (end - trimmed[n - 2]).let { it / it.getDistance() }; val nrm = Offset(-dir.y, dir.x)
-        val head = Path().apply {
-            moveTo(end.x + dir.x * u * 0.14f, end.y + dir.y * u * 0.14f)
-            val b = end - dir * (u * 0.16f)
-            lineTo(b.x + nrm.x * u * 0.16f, b.y + nrm.y * u * 0.16f); lineTo(b.x - nrm.x * u * 0.16f, b.y - nrm.y * u * 0.16f); close()
-        }
-        drawPath(head, Color.Black.copy(alpha = 0.55f), style = Stroke(u * 0.07f)); drawPath(head, ar.color)
+        for (k in 1 until pts.size) flowArrow(pts[k - 1], pts[k], u, ar.color, flow, if (ar.dashed) 0.6f else 0.75f)
     }
     // labels
     for (m in sc.marks) {

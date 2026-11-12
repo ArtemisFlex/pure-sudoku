@@ -416,6 +416,55 @@ internal object RulebookText {
 
     // =================================================================  Kreashun
 
+    fun eiseriaAshfall(): Book = book(com.puresudoku.R.drawable.rt_logo_eiseria_ash, Color(0xFFB23A12),
+        "The mountain does not care whose village stands below it. When it wakes, the whole realm goes hungry.") {
+        ch("The Realm Aflame")
+        drop("Eiseria: Ashfall is Eiseria with **a volcano in place of the dragon**. You and the computer settle villages on the corners of tiles, lay roads and raise towers. Each turn you roll the dice, and every tile showing that number pays the buildings on its corners. The first to the points goal wins.")
+        p("Tiles here belong to no one. When lava buries a tile, **it stops paying everyone** who has a building on it, you and your rival alike.")
+        table(listOf("Level", "Points goal"), listOf("Easy and Medium", "10"), listOf("Hard and Expert", "11"), listOf("Master and Extreme", "12"))
+
+        ch("Building")
+        costs(
+            CostRow("Road", Piece.ROAD, Realm.COST_ROAD, "Joins your corners. 5 or more in a row is the Great Road (2 points)."),
+            CostRow("Village", Piece.VILLAGE, Realm.COST_VILLAGE, "On a free corner of your road, two edges from any other building. 1 point."),
+            CostRow("Tower", Piece.TOWER, Realm.COST_TOWER, "Raise a village. 2 points, and it collects double."),
+            CostRow("Spell", Piece.SPELL, Realm.COST_SPELL, "Draw the top spell."),
+        )
+        p("Trade 4 of one resource for 1 of another, or better at a portal you've settled. On a 7 nothing pays, and anyone holding more than 7 cards discards half.")
+
+        ch("The Volcano")
+        drop("The volcano stands in the middle of the island. **Every time a 7 is rolled, it erupts.**")
+        p("**The forecast.** The next eruption's lava flows are always shown as **glowing arrows** running out from the volcano, tile by tile. Both players see them.")
+        p("**The volcano wakes.** The first eruption sends one short flow. Each eruption the flows run **one tile further**, and every other eruption adds **one more flow**, up to 2 to 4 by level.")
+        bl("Lava **buries every fresh tile** in its path. Buildings on its corners survive, but the tile **pays no one** until it recovers.",
+            "Lava **burns every road it crosses**, yours or your rival's.",
+            "Lava never buries a tile that's still ruined or ashen: it runs over it to reach fresh ground. Wastelands are never buried.")
+
+        ch("From Lava to Riches")
+        steps(
+            "Ruined" to "For 4 turns the tile pays nothing. It cools a step each turn: fresh lava, a lava pool, cracked lava, then smouldering rock.",
+            "Ashen" to "For 1 turn it's a white ashen waste, still paying nothing.",
+            "Renewed" to "Then it's reborn with a golden edge: when its number is rolled, every building on it collects one extra. A later eruption can bury it again.",
+        )
+
+        ch("Spells")
+        drop("Spells cost **ore, grain and beasts**. Cast one per turn, but not on the turn you bought it. The deck holds 14 Knights, 5 Relics, 2 Earthshapers, 2 Harvest Moons and 2 Rifts.")
+        spells(
+            Triple(RI.KNIGHT, "Knight", "Steal a card from your rival. Three or more Knights, and the most, earns the Mightiest Host (2 points)."),
+            Triple(RI.RELIC, "Relic", "A hidden treasure worth 1 point."),
+            Triple(RI.EARTH, "Earthshaper", "Build two roads for free."),
+            Triple(RI.MOON, "Harvest Moon", "Take any two resources from the supply."),
+            Triple(RI.FIRE, "Rift", "Shift one forecast lava flow onto a new path from the volcano. It may run toward your rival."),
+        )
+
+        ch("Advice from the Ash-Wardens")
+        bl("Look at the arrows before you settle: a village beside the first flows will go hungry early.",
+            "Share tiles with your rival: when lava takes them, you both lose.",
+            "Keep your roads off the arrows.",
+            "Renewed land is rich: build on its corners.",
+            "Rift the flow that hurts you most, toward the tiles your rival needs.")
+    }
+
     fun ashfall(): Book = book(com.puresudoku.R.drawable.rt_logo_ashfall, Color(0xFFB23A12),
         "The mountain gives and the mountain takes. What it buries today, it pays back richer tomorrow, to whoever is still standing.") {
         ch("The Eruption")
@@ -429,25 +478,26 @@ internal object RulebookText {
         ch("The Island and the Sea")
         drop("The island sits in **a ring of open sea**. No one can hold or cross the sea, but lava that reaches it cools into **brand-new land**.")
         bl("**The volcano** sits in the middle. No one can hold or cross it.",
-            "**Molten lava** can't be held or crossed. A number shows the turns until it cools.",
-            "**Cooling ash** can be claimed, but pays nothing yet. Its number counts down the turns until it ripens.",
-            "**Rich ash** is the best land on the island: it pays its yield **plus 1 more of its main resource** every turn.",
+            "**Ruined land** (lava, a lava pool, cracked lava or smouldering rock) can't be held or crossed. A number shows the turns until it cools.",
+            "**The ashen waste** can be claimed, but pays nothing yet. Its number counts down the turns until it's renewed.",
+            "**Renewed land** looks like ordinary land with a golden edge, and is the best on the island: it pays its yield **plus 1 more of its main resource** every turn.",
             "There is **no fog**: the whole island is always in view.")
 
         ch("The Volcano")
         drop("The volcano erupts **every 4 turns** (2 of yours and 2 of your rival's). The number on the volcano counts down to the next eruption.")
-        p("**The forecast.** The next eruption's **lava flows are shown on the board** as glowing paths running out from the volcano. Both players see them, so you always know what is coming.")
+        p("**The forecast.** The next eruption's **lava flows are shown on the board** as glowing arrows running out from the volcano, tile by tile. Both players see them, so you always know what is coming.")
         p("**The volcano wakes.** The first flows are short and only reach the tiles beside the volcano. Each eruption the flows run **one tile further**, and every other eruption adds **one more flow**, up to 3 to 5 by level.")
-        bl("Lava **buries every tile in its path**: villages, towers and castles are lost, and the land becomes molten lava.",
+        bl("Lava **buries every fresh tile in its path**: villages, towers and castles are lost, and the land becomes molten lava.",
+            "**Lava never buries land that is still ruined or ashen.** Flows run across it, unharmed, to reach fresh ground, and only fresh tiles count toward a flow's length.",
             "Knights on a buried tile **flee to a touching tile of yours** that has room. Any that can't are lost, and so is any army standing there.",
             "Where a flow reaches **the sea or a lake**, it stops and the water becomes **new land**.",
             "Lava **never buries a player's last tile**: it cools at the edge.")
 
         ch("From Lava to Riches")
         steps(
-            "Molten" to "For 4 turns the tile is lava. No one can hold or cross it.",
-            "Cooling ash" to "Then it becomes ash. Anyone may claim it, but for 6 turns it pays nothing.",
-            "Rich ash" to "Once ripe it pays its yield, plus 1 more of its main resource, every turn.",
+            "Ruined" to "For 4 turns no one can hold or cross the tile. It cools a step each turn: fresh lava, a lava pool, cracked lava, then smouldering rock.",
+            "Ashen" to "Then for 1 turn it's a white ashen waste. Anyone may claim it, but it pays nothing yet.",
+            "Renewed" to "Then it's reborn as ordinary land, with a golden edge: it pays its yield plus 1 more of its main resource, every turn. Renewed land is fresh ground again, so a later eruption can bury it.",
         )
         p("Being forced out today means rich land later. New land from the sea goes through the same steps.")
 
@@ -484,7 +534,7 @@ internal object RulebookText {
 
         ch("Advice from the Ash-Wardens")
         bl("Read the forecast before you build: never raise a castle in a lava path.",
-            "Claim cooling ash early. It's cheap now and rich later.",
+            "Claim the ashen waste early. It's cheap now and rich once renewed.",
             "Watch the sea: where the flows reach the coast, new land is coming.",
             "A wall on the side the lava enters by turns it, maybe toward your rival.",
             "Quench your best castle when a flow is heading for it.",
