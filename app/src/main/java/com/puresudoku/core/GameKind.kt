@@ -52,5 +52,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     REALM_DRAGON("Eiseria: Wyrmrise", "Risk", "Build your realm while a growing dragon hunts the leader.", GameCategory.STRATEGY),
     REALM_NIGHT("Eiseria: Nightfall", "Timing", "Day and night turn the realm. The night belongs to the dragon.", GameCategory.STRATEGY),
     WISTERIA("Wisteria", "Conquest", "No dice: claim land, raise castles and march knights to take the island.", GameCategory.STRATEGY),
+    ASHFALL("Wisteria: Ashfall", "Adaptation", "A volcano reshapes the island: outrun the lava and claim the new land it builds.", GameCategory.STRATEGY),
     KREASHUN("Kreashun", "Siege", "Wall in tiles to capture them, then storm your rival's castles with knights.", GameCategory.STRATEGY),
+    VEILGUARD("Veilguard", "Deception", "Give secret orders, hide your Crown and bluff with decoys. Find the rival's Crown to win.", GameCategory.STRATEGY),
 }

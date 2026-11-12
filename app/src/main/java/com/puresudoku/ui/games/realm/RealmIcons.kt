@@ -105,7 +105,7 @@ internal fun DrawScope.resIcon(r: Int, c: Offset, s: Float) {
 
 // =====================================================================  action and spell icons
 
-internal enum class RI { ROAD, VILLAGE, TOWER, SCROLL, TRADE, BOOK, END, DICE, KNIGHT, RELIC, EARTH, MOON, FIRE, CROWN, SHIELD, LEY, DRAGON, SUN }
+internal enum class RI { ROAD, VILLAGE, TOWER, SCROLL, TRADE, BOOK, END, DICE, KNIGHT, RELIC, EARTH, MOON, FIRE, CROWN, SHIELD, LEY, DRAGON, SUN, BLACK_KNIGHT, SCALE, THIEF, DAGGER }
 
 internal fun DrawScope.actionIcon(i: RI, c: Offset, s: Float, tint: Color = INK) {
     val u = s / 2
@@ -208,6 +208,7 @@ internal fun DrawScope.actionIcon(i: RI, c: Offset, s: Float, tint: Color = INK)
                 c + Offset(u * 0.85f, -u * 0.2f), c + Offset(u * 0.2f, u * 0.25f), c + Offset(-u * 0.9f, u * 0.6f)), Color(0xFFB71C1C))
             drawPath(poly(c + Offset(-u * 0.15f, 0f), c + Offset(-u * 0.6f, -u * 0.9f), c + Offset(-u * 0.15f, -u * 0.6f), c + Offset(u * 0.1f, -u * 0.95f), c + Offset(u * 0.3f, -u * 0.25f)), Color(0xFF7F1D1D))
         }
+        RI.BLACK_KNIGHT, RI.SCALE, RI.THIEF, RI.DAGGER -> {} // painted art only, see RIconOf
         RI.SUN -> {
             for (k in 0 until 8) rotate(k * 45f, c) { drawLine(Color(0xFFF2A93B), c + Offset(0f, -u * 0.6f), c + Offset(0f, -u * 0.92f), u * 0.12f, StrokeCap.Round) }
             drawCircle(Color(0xFFFFC34D), u * 0.48f, c)
@@ -250,5 +251,9 @@ internal fun ArtImg(id: Int, size: Dp, modifier: Modifier = Modifier) =
 internal fun RIconOf(icon: RI, size: Dp, tint: Color = INK, modifier: Modifier = Modifier) = when (icon) {
     RI.KNIGHT -> ArtImg(com.puresudoku.R.drawable.rt_knight, size, modifier)
     RI.DRAGON -> ArtImg(com.puresudoku.R.drawable.rt_dragon, size * 1.25f, modifier)
+    RI.BLACK_KNIGHT -> ArtImg(com.puresudoku.R.drawable.rt_black_knight, size * 1.15f, modifier)
+    RI.SCALE -> ArtImg(com.puresudoku.R.drawable.rt_dragon_scale, size, modifier)
+    RI.THIEF -> ArtImg(com.puresudoku.R.drawable.rt_thief, size * 1.15f, modifier)
+    RI.DAGGER -> ArtImg(com.puresudoku.R.drawable.rt_dagger, size, modifier)
     else -> RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
 }

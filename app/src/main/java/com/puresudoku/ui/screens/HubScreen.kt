@@ -3,6 +3,8 @@ package com.puresudoku.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.widthIn
@@ -42,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,7 +80,7 @@ fun HubScreen(vm: AppViewModel) {
             )
             Spacer(Modifier.height(28.dp))
             // Strategy games lead the list; the rest keep their usual order.
-            (listOf(GameCategory.STRATEGY) + GameCategory.entries.filter { it != GameCategory.STRATEGY }).forEachIndexed { idx, cat ->
+            (GameCategory.entries.filter { it != GameCategory.STRATEGY } + GameCategory.STRATEGY).forEachIndexed { idx, cat ->
                 val games = Games.all.filter { it.kind.category == cat }
                 if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx)
                 Spacer(Modifier.height(14.dp))
@@ -163,7 +166,7 @@ private fun CategoryCard(vm: AppViewModel, cat: GameCategory, games: List<GameDe
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (g in games.take(4)) g.Icon(46.dp)
+                for (g in games.take(5)) g.Icon(46.dp)
             }
             Spacer(Modifier.height(14.dp))
             Text(cat.title, style = MaterialTheme.typography.headlineSmall)
@@ -212,11 +215,15 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
     ) {
         val logo = com.puresudoku.ui.components.gameLogoRes(g.kind)
         if (g.kind.category == GameCategory.STRATEGY && logo != 0) {
-            // Strategy games are shown by their logo alone, centred and filling the card.
-            Box(Modifier.fillMaxWidth().height(180.dp).padding(12.dp), contentAlignment = Alignment.Center) {
+            // Strategy games are shown by their logo, centred and filling the card, over the skill it trains.
+            Column(Modifier.fillMaxWidth().height(180.dp).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 androidx.compose.foundation.Image(
                     androidx.compose.ui.res.painterResource(logo), contentDescription = g.kind.title,
-                    modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.weight(1f).fillMaxWidth(), contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+                Text(
+                    g.kind.skill.uppercase(), fontSize = 12.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp),
                 )
             }
             return@Surface

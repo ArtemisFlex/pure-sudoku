@@ -86,10 +86,12 @@ import org.json.JSONObject
 import kotlin.math.min
 import kotlin.random.Random
 
+internal val KSPELL_ICONS = listOf(RI.KNIGHT, RI.RELIC, RI.SHIELD, RI.MOON, RI.FIRE)
+
 // =====================================================================  session
 
 class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(GameKind.KREASHUN, difficulty) {
-    enum class Mode { NONE, WALL, VILLAGE, TOWER, STRIKE }
+    enum class Mode { NONE, WALL, VILLAGE, TOWER, STRIKE, RALLY, SIEGE }
 
     var selected by mutableIntStateOf(-1)
     var mode by mutableStateOf(Mode.NONE)
@@ -131,11 +133,17 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     fun edgeTargets(): List<Int> = when {
         !myMove -> emptyList()
         g.phase == Kreashun.SETUP -> if (g.setupVillage >= 0) g.wallSpots(0) else emptyList()
-        g.phase == Kreashun.MAIN && mode == Mode.WALL && g.can(0, Kreashun.COST_WALL) -> g.wallSpots(0)
+        g.phase == Kreashun.MAIN && mode == Mode.WALL && (g.freeWalls > 0 || g.can(0, Kreashun.COST_WALL)) -> g.wallSpots(0)
         else -> emptyList()
     }
 
-    fun tileTargets(): List<Int> = if (myMove && g.phase == Kreashun.MAIN && mode == Mode.STRIKE) g.strikeTargets(0, selected) else emptyList()
+    fun tileTargets(): List<Int> = when {
+        !myMove || g.phase != Kreashun.MAIN -> emptyList()
+        mode == Mode.STRIKE -> g.strikeTargets(0, selected)
+        mode == Mode.RALLY -> g.rallySpots(0)
+        mode == Mode.SIEGE -> g.siegeTargets(0)
+        else -> emptyList()
+    }
 
     fun tapVertex(v: Int) {
         if (!myMove) return
@@ -150,13 +158,16 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     fun tapEdge(e: Int) {
         if (!myMove) return
         act(KAct.Wall(e))
-        if (g.phase == Kreashun.MAIN && !g.can(0, Kreashun.COST_WALL)) mode = Mode.NONE
+        if (g.phase == Kreashun.MAIN && g.freeWalls == 0 && !g.can(0, Kreashun.COST_WALL)) mode = Mode.NONE
         bump()
     }
 
     fun tapTile(h: Int) {
         if (!myMove || g.phase != Kreashun.MAIN) return
-        if (mode == Mode.STRIKE) {
+        if (mode == Mode.RALLY || mode == Mode.SIEGE) {
+            if (h in tileTargets()) act(KAct.Spell(if (mode == Mode.RALLY) Kreashun.RALLY else Kreashun.SIEGE, h))
+            mode = Mode.NONE
+        } else if (mode == Mode.STRIKE) {
             if (h in tileTargets()) { act(KAct.Strike(selected, h)); if (g.knights.getOrElse(selected) { 0 } == 0) mode = Mode.NONE }
             else mode = Mode.NONE
         } else { mode = Mode.NONE; selected = if (selected == h) -1 else h }
@@ -167,12 +178,23 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     fun castle(h: Int) { if (myMove) act(KAct.Castle(h)) }
     fun hire(h: Int) { if (myMove) act(KAct.Hire(h)) }
     fun trade(give: Int, get: Int) { if (myMove) act(KAct.Trade(give, get)) }
+    fun buySpell() { if (myMove) act(KAct.BuySpell) }
+    fun cast(kind: Int, a: Int = -1, b: Int = -1) {
+        if (!myMove || !g.canPlay(0, kind)) { nudge("You can't cast that now"); return }
+        when (kind) {
+            Kreashun.RALLY -> { mode = Mode.RALLY; bump() }
+            Kreashun.SIEGE -> { mode = Mode.SIEGE; bump() }
+            Kreashun.STONE -> { if (act(KAct.Spell(kind))) { mode = Mode.WALL; bump() } }
+            else -> act(KAct.Spell(kind, a, b))
+        }
+    }
     fun endTurn() { if (myMove && g.phase == Kreashun.MAIN) { mode = Mode.NONE; selected = -1; moves++; act(KAct.End) } }
     fun toggleMode(m: Mode) { if (myMove) { mode = if (mode == m) Mode.NONE else m; bump() } }
 
     private fun code(a: KAct): Int = when (a) {
         is KAct.Village -> a.v; is KAct.Tower -> a.v; is KAct.Wall -> 1000 + a.e
         is KAct.Castle -> 2000 + a.h; is KAct.Hire -> 2000 + a.h; is KAct.Strike -> 2000 + a.to
+        is KAct.Spell -> if (a.kind == Kreashun.RALLY || a.kind == Kreashun.SIEGE) 2000 + a.a else -1
         else -> -1
     }
 
@@ -188,6 +210,8 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
             is KAct.Trade -> RI.TRADE to "Rival trades 4 ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}"
             KAct.Roll -> RI.DICE to "Rival rolls ${g.lastRoll}"
             KAct.End -> RI.END to "Rival ends its turn"
+            KAct.BuySpell -> RI.SCROLL to "Rival learns a spell"
+            is KAct.Spell -> KSPELL_ICONS[a.kind] to "Rival casts ${Kreashun.SPELLS[a.kind]}"
         }
         announce(title, detail, if (a is KAct.Strike || a == KAct.End) 2000 else 1500, false, icon)
     }
@@ -229,10 +253,12 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
         thinking || g.actor == 1 -> "The rival is taking its turn…"
         g.phase == Kreashun.SETUP -> if (g.setupVillage < 0) "Place a village: tap a glowing corner" else "Place a wall beside it: tap a glowing side"
         g.phase == Kreashun.ROLL -> "Roll the dice"
-        mode == Mode.WALL -> "Tap a glowing side to wall it · close every side of a tile to capture it"
+        mode == Mode.WALL -> (if (g.freeWalls > 0) "${g.freeWalls} free wall${if (g.freeWalls > 1) "s" else ""} · " else "") + "Tap a glowing side to wall it · close every side of a tile to capture it"
         mode == Mode.VILLAGE -> "Tap a glowing corner for your village"
         mode == Mode.TOWER -> "Tap one of your villages to make it a tower"
         mode == Mode.STRIKE -> "Tap a touching rival tile to strike"
+        mode == Mode.RALLY -> "Tap one of your tiles for the rallied knight"
+        mode == Mode.SIEGE -> "Tap a rival castle to hurl Siege Fire"
         selected >= 0 && g.owner[selected] == 0 -> "Build a castle, hire knights, or strike"
         selected >= 0 -> "${g.closedSides(selected)} of 6 sides walled"
         else -> "Build walls to capture tiles, or end your turn"
@@ -253,6 +279,8 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
                 is KAct.Trade -> "Trade 4 ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}."
                 KAct.Roll -> "Roll the dice."
                 KAct.End -> "Nothing worth doing: end your turn."
+                KAct.BuySpell -> "Buy a spell."
+                is KAct.Spell -> "Cast ${Kreashun.SPELLS[a.kind]}."
             }
             Triple(text, code(a), -1)
         }
@@ -310,6 +338,7 @@ object KreashunDef : GameDef {
             LessonStep("Each tile you hold is worth a point, and pays your villages and towers on its corners double."),
             LessonStep("On a tile you hold you can build a castle (3 hit points) and hire knights. A knight strikes a touching rival tile: it breaks the wall on that side first, then takes a tile with no castle, or knocks a point off a castle."),
             LessonStep("Broken walls are rubble and can't be rebuilt. A tile taken by force brings its walls, villages, towers and knights with it. Fell a castle for a bonus point, and rebuild it there for half price."),
+            LessonStep("Spells cost ore, grain and beasts. Cast one a turn, but not on the turn you bought it: Rally adds a knight, Stonewright gives two free walls, Harvest Moon two resources, Siege Fire knocks a point off a castle, and a Relic is a hidden point."),
             LessonStep("Reach the points goal to win. If you lose every point after you've scored, you lose. Good luck!"),
         )
     }
@@ -507,6 +536,7 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
     var topH by remember { mutableIntStateOf(0) }
     var botH by remember { mutableIntStateOf(0) }
     var showTrade by remember { mutableStateOf(false) }
+    var showSpells by remember { mutableStateOf(false) }
     val density = LocalDensity.current
 
     Box(Modifier.fillMaxSize()) {
@@ -517,13 +547,13 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Kreashun.SETUP, "${g.tiles(0)} tiles · ${g.felled[0]} castles felled", Modifier.weight(1f))
+                PlayerBanner("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Kreashun.SETUP, "${g.tiles(0)} tiles · ${g.spells[0].sum()} spells", Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RIconOf(RI.CROWN, 22.dp)
                     Text("${g.target}", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
                 }
-                PlayerBanner("Rival", "${g.vp(1)}", RIVAL, g.turn == 1 && g.phase != Kreashun.SETUP, "${g.tiles(1)} tiles · ${g.total(1)} cards", Modifier.weight(1f))
+                PlayerBanner("Rival", "${g.vp(1, false)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Kreashun.SETUP, "${g.tiles(1)} tiles · ${g.total(1)} cards", Modifier.weight(1f))
             }
         }
 
@@ -567,6 +597,8 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
                     BuildButton("Wall", RI.SHIELD, Kreashun.COST_WALL, s.mode == KreashunSession.Mode.WALL, g.can(0, Kreashun.COST_WALL) && g.wallSpots(0).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.WALL) }
                     BuildButton("Village", RI.VILLAGE, Kreashun.COST_VILLAGE, s.mode == KreashunSession.Mode.VILLAGE, g.can(0, Kreashun.COST_VILLAGE) && g.villageSpots(0).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.VILLAGE) }
                     BuildButton("Tower", RI.TOWER, Kreashun.COST_TOWER, s.mode == KreashunSession.Mode.TOWER, g.can(0, Kreashun.COST_TOWER) && g.towerSpots(0).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.TOWER) }
+                    BuildButton("Spell", RI.SCROLL, Kreashun.COST_SPELL, false, g.can(0, Kreashun.COST_SPELL) && g.deck.isNotEmpty() && g.freeWalls == 0) { s.buySpell() }
+                    BuildButton("Spells ${g.spells[0].sum()}", RI.BOOK, null, false, g.spells[0].sum() > 0) { showSpells = true }
                     BuildButton("Trade", RI.TRADE, null, false, true) { showTrade = true }
                     BuildButton("End turn", RI.END, null, false, true) { s.endTurn() }
                 }
@@ -576,6 +608,9 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
         }
     }
     if (showTrade) KTradeDialog(s) { showTrade = false }
+    if (showSpells) SpellbookDialog(Kreashun.SPELLS, Kreashun.SPELL_TEXT, KSPELL_ICONS, g.spells[0], g.fresh,
+        if (g.spellPlayed) "You've already cast a spell this turn." else null, Kreashun.RELIC, Kreashun.HARVEST,
+        { g.canPlay(0, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
 }
 
 @Composable

@@ -91,11 +91,15 @@ import kotlin.random.Random
 
 // =====================================================================  session
 
-class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(GameKind.WISTERIA, difficulty) {
-    enum class Mode { NONE, STRIKE, MARCH, WALL, RALLY, SIEGE }
+internal val ASPELL_ICONS = listOf(RI.KNIGHT, RI.RELIC, RI.LEY, RI.MOON, RI.FIRE, RI.EARTH)
+
+class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(if (g.ashfall) GameKind.ASHFALL else GameKind.WISTERIA, difficulty) {
+    enum class Mode { NONE, STRIKE, MARCH, WALL, RALLY, SIEGE, QUENCH, RIFT }
 
     var selected by mutableIntStateOf(-1)
     var mode by mutableStateOf(Mode.NONE)
+    /** The strike or march being set up is the Black Dragon Knight's. */
+    var withBlack by mutableStateOf(false); private set
     /** The march being planned, tile by tile (the last tile is the target). */
     var plan by mutableStateOf<List<Int>>(emptyList()); private set
     private val planEnd get() = plan.lastOrNull() ?: selected
@@ -107,9 +111,15 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
 
     override val middleStat get() = MiddleStat.Counter("Points", "${g.vp(0)}/${g.target}")
     override val progress: Float get() = (g.vp(0) / g.target.toFloat()).coerceAtMost(0.95f)
-    override val wonTitle get() = "Wisteria is yours!"
-    override val lostTitle get() = "Your rival rules Wisteria"
-    override val lostMessage get() = "The rival reached ${g.vp(1)} points. This game's save slot has been cleared."
+    private val realmName get() = if (g.ashfall) "Ashfall" else "Wisteria"
+    override val wonTitle get() = "$realmName is yours!"
+    override val lostTitle get() = "Your rival rules $realmName"
+    override val lostMessage get() = when (g.endReason) {
+        1 -> "You lost your last land."
+        2 -> "The island could grow no more, and the rival led with ${g.vp(1)} points."
+        3 -> "The game ran out of turns with the rival ahead."
+        else -> "The rival reached ${g.vp(1)} points."
+    } + " This game's save slot has been cleared."
 
     val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.actor == 0 && g.phase != Wisteria.OVER
 
@@ -118,10 +128,19 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
     private fun act(a: WAct): Boolean {
         if (!g.legal(a)) { nudge("You can't do that right now"); return false }
         coachTip = null; coachFrom = -1
-        g.apply(a, rng); flush(); bump(); changed()
+        g.apply(a, rng)
+        val logs = g.log.toList(); flush(); bump(); changed()
+        if (g.ashfall && logs.any { it.startsWith("The volcano erupts") }) eruptionCard(logs)
         if (g.phase == Wisteria.OVER) { whenQuiet { finishGame() }; return true }
         if (g.actor == 1) aiStep()
         return true
+    }
+
+    /** The eruption's news, as one card. */
+    private fun eruptionCard(logs: List<String>) {
+        val from = logs.indexOfFirst { it.startsWith("The volcano erupts") }
+        val lines = logs.drop(from + 1).filter { "lava" in it.lowercase() || "wall" in it || "island" in it }
+        announce("The volcano erupts!", lines.take(6).joinToString("\n").ifEmpty { "The lava runs into empty land" }, 2600, true, RI.FIRE)
     }
 
     /** Targets that light up for the current mode. */
@@ -129,11 +148,14 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
         !myMove -> emptyList()
         g.phase == Wisteria.SETUP -> g.settleSpots(0)
         g.phase != Wisteria.MAIN -> emptyList()
-        mode == Mode.STRIKE -> g.strikeTargets(0, selected)
-        mode == Mode.MARCH -> (g.map.hexNbrs[planEnd].filter { g.kind[it] != Wisteria.WATER } + g.marchTargets(0, selected)).distinct()
+        mode == Mode.STRIKE -> if (withBlack) g.blackStrikeTargets(0, selected) else g.strikeTargets(0, selected)
+        mode == Mode.MARCH -> (g.map.hexNbrs[planEnd].filter { withBlack || g.passable(it) } +
+            (if (withBlack) g.blackMarchTargets(0, selected) else g.marchTargets(0, selected))).distinct()
         mode == Mode.WALL -> g.wallSpots(0).filter { it.first == selected }.map { it.second }
         mode == Mode.RALLY -> (0 until g.H).filter { g.owner[it] == 0 && g.knights[it] < Wisteria.CAPACITY[g.level[it]] }
         mode == Mode.SIEGE -> emptyList()
+        mode == Mode.QUENCH -> (0 until g.H).filter { g.owner[it] == 0 && !g.quench[it] }
+        mode == Mode.RIFT -> g.forecast.flatMap { it.toList() }.filter { g.kind[it] != Wisteria.SEA }.distinct()
         else -> g.claimable(0)
     }
 
@@ -142,15 +164,17 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
         when {
             g.phase == Wisteria.SETUP -> act(WAct.Settle(h))
             g.phase != Wisteria.MAIN -> {}
-            mode == Mode.STRIKE -> if (h in targets()) { if (act(WAct.Strike(selected, h))) mode = Mode.NONE } else mode = Mode.NONE
+            mode == Mode.STRIKE -> if (h in targets()) { if (act(WAct.Strike(selected, h, withBlack))) mode = Mode.NONE } else mode = Mode.NONE
             mode == Mode.MARCH -> when {
                 h == planEnd && plan.isNotEmpty() -> sendMarch()
-                h in g.map.hexNbrs[planEnd] && g.kind[h] != Wisteria.WATER -> plan = plan + h
-                h in g.marchTargets(0, selected) -> g.path(planEnd, h)?.let { plan = plan + it }
+                h in g.map.hexNbrs[planEnd] && (withBlack || g.passable(h)) -> plan = plan + h
+                h in (if (withBlack) g.blackMarchTargets(0, selected) else g.marchTargets(0, selected)) -> g.path(planEnd, h, withBlack)?.let { plan = plan + it }
                 else -> nudge("Plot the march one touching tile at a time")
             }
             mode == Mode.WALL -> if (h in targets()) { act(WAct.Wall(selected, h)); if (g.freeWalls == 0 && !g.can(0, Wisteria.COST_WALL)) mode = Mode.NONE } else mode = Mode.NONE
             mode == Mode.RALLY -> if (h in targets()) { if (act(WAct.Spell(Wisteria.RALLY, h))) mode = Mode.NONE } else mode = Mode.NONE
+            mode == Mode.QUENCH -> { if (h in targets()) act(WAct.Spell(Wisteria.QUENCH, h)); mode = Mode.NONE }
+            mode == Mode.RIFT -> { val f = g.flowAt(h); if (f >= 0) act(WAct.Spell(Wisteria.RIFT, f)); mode = Mode.NONE }
             else -> selected = if (selected == h) -1 else h
         }
         bump()
@@ -165,16 +189,24 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
     fun trade(give: Int, get: Int) { if (myMove) act(WAct.Trade(give, get)) }
     fun buySpell() { if (myMove) act(WAct.BuySpell) }
     fun endTurn() { if (myMove && g.phase == Wisteria.MAIN) { mode = Mode.NONE; moves++; act(WAct.End) } }
-    fun toggleMode(m: Mode) { if (myMove) { mode = if (mode == m) Mode.NONE else m; plan = emptyList(); bump() } }
+    fun toggleMode(m: Mode, black: Boolean = false) {
+        if (!myMove) return
+        mode = if (mode == m && withBlack == black) Mode.NONE else m
+        withBlack = black; plan = emptyList(); bump()
+    }
 
-    val planValid get() = g.validRoute(0, selected, plan)
+    val planValid get() = g.validRoute(0, selected, plan, withBlack)
     fun undoStep() { plan = plan.dropLast(1); bump() }
     fun sendMarch() {
         if (!planValid) { nudge("End the march on a rival tile or free land"); return }
-        if (act(WAct.March(selected, plan))) { mode = Mode.NONE; plan = emptyList() }
+        if (act(WAct.March(selected, plan, withBlack))) { mode = Mode.NONE; plan = emptyList() }
     }
     fun cast(kind: Int, a: Int = -1, b: Int = -1) {
         if (!myMove || !g.canPlay(0, kind)) { nudge("You can't cast that now"); return }
+        when {
+            g.ashfall && kind == Wisteria.QUENCH -> { mode = Mode.QUENCH; bump(); return }
+            g.ashfall && kind == Wisteria.RIFT -> { mode = Mode.RIFT; bump(); return }
+        }
         when (kind) {
             Wisteria.RALLY -> { mode = Mode.RALLY; bump() }
             Wisteria.SIEGE -> { mode = Mode.SIEGE; bump() }
@@ -186,7 +218,8 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
     private fun code(a: WAct): Int = when (a) {
         is WAct.Settle -> a.h; is WAct.Claim -> a.h; is WAct.Upgrade -> a.h; is WAct.Hire -> a.h
         is WAct.Strike -> a.to; is WAct.March -> a.route.last(); is WAct.Wall -> 1000 + g.side(a.a, a.b)
-        is WAct.Spell -> if (a.kind == Wisteria.SIEGE) 1000 + a.a else if (a.kind == Wisteria.RALLY) a.a else -1
+        is WAct.Spell -> if (a.kind == Wisteria.SIEGE) 1000 + a.a else if (a.kind == Wisteria.RALLY || (g.ashfall && a.kind == Wisteria.QUENCH)) a.a
+            else if (g.ashfall && a.kind == Wisteria.RIFT) g.forecast.getOrNull(a.a)?.firstOrNull() ?: -1 else -1
         else -> -1
     }
 
@@ -197,12 +230,12 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
             is WAct.Claim -> RI.VILLAGE to "Rival claims new land"
             is WAct.Upgrade -> RI.TOWER to "Rival raises a ${Wisteria.LEVEL_NAME[g.level[a.h]]}"
             is WAct.Hire -> RI.KNIGHT to "Rival hires a knight"
-            is WAct.Strike -> RI.KNIGHT to "Rival's knight strikes!"
-            is WAct.March -> RI.KNIGHT to "Rival's army marches"
+            is WAct.Strike -> if (a.black) RI.BLACK_KNIGHT to "The Black Dragon Knight strikes!" else RI.KNIGHT to "Rival's knight strikes!"
+            is WAct.March -> if (a.black) RI.BLACK_KNIGHT to "The Black Dragon Knight rides out" else RI.KNIGHT to "Rival's army marches"
             is WAct.Wall -> RI.SHIELD to "Rival raises a wall"
             is WAct.Trade -> RI.TRADE to "Rival trades 4 ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}"
             WAct.BuySpell -> RI.SCROLL to "Rival learns a spell"
-            is WAct.Spell -> RI.BOOK to "Rival casts ${Wisteria.SPELLS[a.kind]}"
+            is WAct.Spell -> RI.BOOK to "Rival casts ${g.spellNames[a.kind]}"
             WAct.Skip -> RI.END to "Rival leaves the land empty"
             WAct.End -> RI.END to "Rival ends its turn"
         }
@@ -222,6 +255,7 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
             g.apply(a, rng)
             val logs = g.log.toList(); flush(); changed()
             card(a, logs)
+            if (g.ashfall && logs.any { it.startsWith("The volcano erupts") }) eruptionCard(logs)
             if (g.phase == Wisteria.OVER) { whenQuiet { finishGame() }; return@computer }
             if (g.actor == 0 && g.phase == Wisteria.MAIN && a == WAct.End) announce("Your turn", "Your lands have paid out", 1200, true, RI.CROWN)
             whenQuiet { aiStep() }
@@ -242,12 +276,14 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
         thinking || g.actor == 1 -> "The rival is taking its turn…"
         g.phase == Wisteria.SETUP -> "Settle your first land: tap a glowing tile"
         g.phase == Wisteria.CHOICE -> "Claim the ruined land?"
-        mode == Mode.STRIKE -> "Tap a touching rival tile to strike"
-        mode == Mode.MARCH -> if (plan.isEmpty()) "Plot the march: tap touching tiles in order, or tap the target for the shortest way"
+        mode == Mode.STRIKE -> if (withBlack) "Black Dragon Knight: tap a touching rival tile to strike" else "Tap a touching rival tile to strike"
+        mode == Mode.MARCH -> if (plan.isEmpty()) (if (withBlack) "Black Dragon Knight: plot his flight, lakes included, or tap the target" else "Plot the march: tap touching tiles in order, or tap the target for the shortest way")
             else "${plan.size} turn${if (plan.size > 1) "s" else ""} to march · tap the last tile again or Send"
         mode == Mode.WALL -> if (g.freeWalls > 0) "Stonewright: tap ${g.freeWalls} neighbouring tile${if (g.freeWalls > 1) "s" else ""} to wall that side" else "Tap a neighbouring tile to wall that side"
         mode == Mode.RALLY -> "Tap one of your tiles for the free knight"
         mode == Mode.SIEGE -> "Tap a rival wall to break it"
+        mode == Mode.QUENCH -> "Tap one of your tiles to quench it"
+        mode == Mode.RIFT -> "Tap a tile on a lava flow to shift that flow"
         selected >= 0 -> "Choose an action for this tile"
         else -> "Tap a tile, claim glowing land, or end your turn"
     }
@@ -260,14 +296,14 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(Gam
             val text = when (a) {
                 is WAct.Settle -> "Settle the ringed tile: rich, with room to grow."
                 is WAct.Claim -> "Claim the ringed tile."
-                is WAct.Upgrade -> "Upgrade the ringed tile: more points, and it shrugs off a dragon or knight."
+                is WAct.Upgrade -> "Upgrade the ringed tile: more points, and it takes more hits."
                 is WAct.Hire -> "Hire a knight on the ringed tile."
-                is WAct.Strike -> "Strike the ringed village with a knight from your touching village."
-                is WAct.March -> "Send your garrison marching on the ringed tile."
+                is WAct.Strike -> if (a.black) "Send the Black Dragon Knight against the ringed tile." else "Strike the ringed village with a knight from your touching village."
+                is WAct.March -> if (a.black) "Send the Black Dragon Knight flying to the ringed tile." else "Send your garrison marching on the ringed tile."
                 is WAct.Wall -> "Wall the side facing the ringed tile."
                 is WAct.Trade -> "Trade 4 ${Realm.RES[a.give]} for 1 ${Realm.RES[a.get]}."
                 WAct.BuySpell -> "Buy a spell."
-                is WAct.Spell -> "Cast ${Wisteria.SPELLS[a.kind]}."
+                is WAct.Spell -> "Cast ${snap.spellNames[a.kind]}."
                 WAct.Skip -> "Leave it: you can't afford to claim it."
                 WAct.End -> "Nothing worth doing: end your turn."
             }
@@ -303,12 +339,12 @@ object WisteriaDef : GameDef {
 
     override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newGame(d, Random(System.nanoTime())))
     override fun restore(o: JSONObject): Session = WisteriaSession.restore(o).also { it.resume() }
-    override fun hint(d: Difficulty) = "Claim land next to yours, raise towers and castles, and conquer your rival's tiles with knights. The dragon hunts the leader every five turns."
+    override fun hint(d: Difficulty) = "Claim land next to yours, raise towers and castles, and conquer your rival's tiles with knights. The dragon strikes the leader every few turns; slay it for the Black Dragon Knight."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
     override fun levelInfo(d: Difficulty): String {
         val m = RealmMap.forLevel(d.ordinal)
         val g = Wisteria.newGame(d, Random(1))
-        return "First to ${g.target} points · ${m.HEXES} tiles" + (if (d.ordinal >= 1) " · fog" else "")
+        return "First to ${g.target} points · ${m.HEXES} tiles" + (if (d.ordinal >= 1) " · fog" else "") + " · dragon every ${g.dragonEvery} turns"
     }
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A timid rival on a small, open island."
@@ -327,10 +363,11 @@ object WisteriaDef : GameDef {
             LessonStep("Wisteria is a war for land. Every tile you hold pays out every turn: most give 1 each of three resources, some pay 2 of two, and the richest pay 3 of one."),
             LessonStep("Pick your first land: tap a glowing tile. Rich tiles with lots of free land around them are best.") { (it as WisteriaSession).g.tiles(0) >= 1 },
             LessonStep("Claim more land touching yours: tap a glowing tile, then Claim. The price grows with your territory, and rich tiles cost extra.") { (it as WisteriaSession).g.tiles(0) >= 2 || it.outcome != Outcome.PLAYING },
-            LessonStep("Villages are worth 1 point, towers 2, castles 3. Towers and castles also survive a dragon or knight by dropping one level."),
+            LessonStep("Villages are worth 1 point, towers 2, castles 3. They also have that much health against the dragon, and towers and castles survive a knight by dropping a level."),
             LessonStep("Knights: a village's knight can strike a touching rival tile at once. A tower's 2 knights or a castle's 3 march one tile per turn to any target, even far-off land to claim."),
-            LessonStep("Walls guard one side of your tile: they stop a whole attack from that side, and hold the dragon back a turn. Then they break."),
-            LessonStep("The dragon sleeps in the middle. Every 5 turns it moves one tile toward the leader and burns the first village it lands on, then returns to its lair. Good luck!"),
+            LessonStep("Walls guard one side of your tile: they stop a whole attack from that side, then break. They only keep out knights: the dragon smashes them."),
+            LessonStep("The dragon sleeps in the middle. Every few turns (5 on Easy, down to 3 on Extreme) it flies straight to the leader's grandest tile, ringed in red, and takes 1 health. Damage never heals: at 0 the land is lost."),
+            LessonStep("The dragon has 5 health. Only knights can hurt it, and each one dies wounding it. Whoever lands the last blow wins the Dragon Scale (+1 point) and the Black Dragon Knight, who never falls and flies over lakes. Good luck!"),
         )
     }
 
@@ -346,15 +383,81 @@ object WisteriaDef : GameDef {
     )
 }
 
+object AshfallDef : GameDef {
+    override val kind = GameKind.ASHFALL
+    override val fullBleed: Boolean get() = true
+    override val hasHeader: Boolean get() = true
+    @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Ashfall · ")
+
+    override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newAshfall(d, Random(System.nanoTime())))
+    override fun restore(o: JSONObject): Session = WisteriaSession.restore(o).also { it.resume() }
+    override fun hint(d: Difficulty) = "Wisteria on a living island. The volcano erupts every 4 turns and buries what lies in its glowing lava paths. Ash ripens into rich land, and lava that reaches the sea builds new land."
+    override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
+    override fun levelInfo(d: Difficulty): String {
+        val g = Wisteria.newAshfall(d, Random(1))
+        return "First to ${g.target} points · ${RealmMap.forLevel(d.ordinal).HEXES} tiles · up to ${Wisteria.MAX_FLOWS[d.ordinal]} lava flows"
+    }
+    override fun levelBlurb(d: Difficulty) = when (d) {
+        Difficulty.EASY -> "A timid rival and a sleepy volcano."
+        Difficulty.MEDIUM -> "Claims the ash as it cools."
+        Difficulty.HARD -> "Walls the lava toward you."
+        Difficulty.EXPERT -> "Marches armies between eruptions."
+        Difficulty.MASTER -> "Relentless, with five lava flows."
+        Difficulty.EXTREME -> "Its best play, on the biggest island."
+    }
+    @Composable override fun Play(session: Session) = WisteriaUi(session as WisteriaSession, null)
+    @Composable override fun Icon(size: Dp) = GameIcon(kind, size)
+
+    override fun lesson(): Pair<Session, List<LessonStep>> {
+        val s = WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(777)))
+        return s to listOf(
+            LessonStep("Ashfall plays like Wisteria: every tile you hold pays out every turn. Claim land, raise towers and castles, and send knights against your rival."),
+            LessonStep("Pick your first land: tap a glowing tile, away from the volcano and its glowing lava paths.") { (it as WisteriaSession).g.tiles(0) >= 1 },
+            LessonStep("The volcano erupts every 4 turns; its number counts down. The glowing paths are the next eruption's lava flows: everything on them is buried, buildings and all."),
+            LessonStep("Buried land is molten, then cooling ash anyone can claim. Once ripe it's rich ash, the best land there is. Flows that reach the sea build new land."),
+            LessonStep("The flows grow longer and more numerous as the volcano wakes. A wall turns lava aside; Quench saves a tile; Rift moves a flow."),
+            LessonStep("The points goal is high, so the game is long. If the sea fills up and the island can't grow, the leader wins. Good luck!"),
+        )
+    }
+
+    override val tutorial: List<TutorialStep> get() = listOf(
+        TutorialStep("The living island", "The volcano erupts every few turns. Its glowing lava paths bury whatever lies on them.") { active ->
+            val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(5))) }
+            DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
+        },
+        TutorialStep("Ash and new land", "Ash ripens into the richest land, and lava that reaches the sea builds new land to claim.") { active ->
+            val s = remember { WisteriaSession(Difficulty.EASY, Wisteria.newAshfall(Difficulty.EASY, Random(5))) }
+            DemoStage(active, script = { wait(2400) }) { t -> WisteriaUi(s, t) }
+        },
+    )
+}
+
 // =====================================================================  board
 
-internal class WisteriaArt(val water: ImageBitmap, val knight: ImageBitmap)
+internal class WisteriaArt(val water: ImageBitmap, val knight: ImageBitmap, val black: ImageBitmap)
+internal class AshArt(val volcano: ImageBitmap, val crater: ImageBitmap, val lava: ImageBitmap, val cooling: ImageBitmap, val ash: ImageBitmap, val rich: ImageBitmap)
 
 @Composable
 private fun rememberWisteriaArt() = WisteriaArt(
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_water),
     ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_knight_piece),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_black_knight),
 )
+
+@Composable
+private fun rememberAshArt() = AshArt(
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_volcano),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_crater),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_lava),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_cooling),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_ash),
+    ImageBitmap.imageResource(com.puresudoku.R.drawable.rt_af_ashrich),
+)
+
+/** The board's geometry: Ashfall fits the island art to the island, leaving its ring of sea beyond it. */
+private fun wGeo(g: Wisteria, w: Float, h: Float, zoom: Float, pan: Offset, top: Float, bottom: Float) =
+    if (g.ashfall) RGeo(g.map, w, h, zoom, pan, top, bottom, RealmMap.forLevel(g.diff).extent, 0.92f)
+    else RGeo(g.map, w, h, zoom, pan, top, bottom)
 
 private fun DrawScope.castle(p: Offset, u: Float, color: Color) {
     val s = 0.24f * u
@@ -368,11 +471,15 @@ private fun DrawScope.castle(p: Offset, u: Float, color: Color) {
     tower(p, u * 1.05f, color)
 }
 
-private fun DrawScope.wTile(g: Wisteria, h: Int, geo: RGeo, art: RealmArt, wart: WisteriaArt) {
+private fun DrawScope.wTile(g: Wisteria, h: Int, geo: RGeo, art: RealmArt, wart: WisteriaArt, ash: AshArt) {
     val u = geo.unit; val c = geo.hex(h)
     val tw = (sqrt3 * u).toInt() + 2; val th = (2 * u).toInt() + 2
+    if (g.kind[h] == Wisteria.SEA) return
     val img = when {
         !g.revealed[h] -> art.fog[h % art.fog.size]
+        g.ashfall && g.kind[h] == Wisteria.LAIR -> if (g.eruptIn <= 2) ash.volcano else ash.crater
+        g.kind[h] == Wisteria.LAVA -> if (g.heat[h] > 2) ash.lava else ash.cooling
+        g.kind[h] == Wisteria.ASH -> if (g.heat[h] > 0) ash.ash else ash.rich
         g.kind[h] == Wisteria.WATER -> wart.water
         g.kind[h] != Wisteria.LAND -> art.byTerrain[5][0]
         else -> { val list = art.byTerrain[g.art[h]]; list[(0 until h).count { g.kind[it] == Wisteria.LAND && g.art[it] == g.art[h] } % list.size] }
@@ -386,7 +493,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
-    val art = rememberRealmArt(); val wart = rememberWisteriaArt()
+    val art = rememberRealmArt(); val wart = rememberWisteriaArt(); val ash = rememberAshArt()
     val lit = s.targets()
     var zoom by remember(s) { mutableFloatStateOf(1f) }
     var pan by remember(s) { mutableStateOf(Offset.Zero) }
@@ -408,22 +515,23 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             detectTransformGestures { centroid, panChange, zoomChange, _ -> zoomBy(zoomChange, centroid); pan = clampPan(pan + panChange, zoom) }
         }.pointerInput(s, lit, s.mode) {
             detectTapGestures { o ->
-                val geo = RGeo(g.map, size.width.toFloat(), size.height.toFloat(), zoom, pan, fitTop, fitBottom)
+                val geo = wGeo(g, size.width.toFloat(), size.height.toFloat(), zoom, pan, fitTop, fitBottom)
                 if (s.mode == WisteriaSession.Mode.SIEGE) {
                     nearest(o, g.siegeTargets(0), geo::edgeMid, geo.unit * 0.6f)?.let { s.tapEdge(it) }
                     return@detectTapGestures
                 }
-                nearest(o, (0 until g.H).toList(), geo::hex, geo.unit * 0.95f)?.let { s.tapTile(it) }
+                nearest(o, (0 until g.H).filter { g.kind[it] != Wisteria.SEA }, geo::hex, geo.unit * 0.95f)?.let { s.tapTile(it) }
             }
         }) {
-            val geo = RGeo(g.map, size.width, size.height, zoom, pan, fitTop, fitBottom); val u = geo.unit; val m = g.map
+            val geo = wGeo(g, size.width, size.height, zoom, pan, fitTop, fitBottom); val u = geo.unit; val m = g.map
             run {
                 val k = geo.art * 1254f / art.island.width; val o = geo.artPt(0f, 0f)
                 drawImage(art.island, dstOffset = IntOffset(o.x.toInt(), o.y.toInt()), dstSize = IntSize((art.island.width * k).toInt(), (art.island.height * k).toInt()), filterQuality = FilterQuality.Medium)
             }
-            for (h in 0 until g.H) wTile(g, h, geo, art, wart)
+            for (h in 0 until g.H) wTile(g, h, geo, art, wart, ash)
             // owner tint and gold borders
             for (h in 0 until g.H) {
+                if (g.kind[h] == Wisteria.SEA) continue
                 val o = g.owner[h]
                 if (o >= 0) drawPath(hexPath(geo, h, 0.99f), (if (o == 0) YOU else RIVAL).copy(alpha = 0.16f))
                 val p = hexPath(geo, h, 1f)
@@ -435,8 +543,15 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             for (h in 0 until g.H) {
                 if (!g.revealed[h]) continue
                 val c = geo.hex(h)
-                if (g.kind[h] == Wisteria.LAND) {
-                    val ys = (0..4).filter { g.yields[h * 5 + it] > 0 }
+                if (g.kind[h] == Wisteria.LAVA || (g.kind[h] == Wisteria.ASH && g.heat[h] > 0)) {
+                    // molten or cooling: turns until it can be claimed, or until it pays
+                    val b = c + Offset(0f, -u * 0.5f)
+                    drawCircle(Color(0xFF2A0F0A).copy(alpha = 0.85f), u * 0.2f, b)
+                    drawCircle(if (g.kind[h] == Wisteria.LAVA) Color(0xFFFF7043) else Color(0xFFB0A89A), u * 0.2f, b, style = Stroke(u * 0.03f))
+                    glyph("${g.heat[h]}", b, u * 0.2f, Color.White)
+                }
+                if (g.kind[h] == Wisteria.LAND || (g.kind[h] == Wisteria.ASH && g.heat[h] == 0)) {
+                    val ys = (0..4).filter { g.pays(h, it) > 0 }
                     val bw = u * 0.36f; val y0 = c.y - u * 0.55f
                     val totalW = ys.size * bw + (ys.size - 1) * u * 0.04f
                     val pill = androidx.compose.ui.geometry.Rect(c.x - totalW / 2 - u * 0.06f, y0 - bw / 2 - u * 0.03f, c.x + totalW / 2 + u * 0.06f, y0 + bw / 2 + u * 0.03f)
@@ -446,7 +561,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                         val cx = c.x - totalW / 2 + bw / 2 + i * (bw + u * 0.04f)
                         val ic = art.icons[r]; val iw = bw * 0.82f; val ih = iw * ic.height / ic.width
                         drawImage(ic, dstOffset = IntOffset((cx - iw / 2).toInt(), (y0 - ih / 2).toInt()), dstSize = IntSize(iw.toInt(), ih.toInt()), filterQuality = FilterQuality.Medium)
-                        val n = g.yields[h * 5 + r]
+                        val n = g.pays(h, r)
                         if (n > 1) glyph("×$n", Offset(cx + bw * 0.42f, y0 + bw * 0.32f), u * 0.17f, Color(0xFF3A2A18))
                     }
                 }
@@ -487,18 +602,55 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                 route(a.pos, a.route, col.copy(alpha = 0.85f), false)
                 val b = from + Offset(u * 0.38f, -u * 0.05f)
                 drawCircle(Color.Black.copy(alpha = 0.35f), u * 0.27f, b + Offset(0f, u * 0.03f)); drawCircle(col, u * 0.27f, b)
-                val kh = u * 0.46f; val kw = kh * wart.knight.width / wart.knight.height
-                drawImage(wart.knight, dstOffset = IntOffset((b.x - kw / 2).toInt(), (b.y - kh * 0.62f).toInt()), dstSize = IntSize(kw.toInt(), kh.toInt()), filterQuality = FilterQuality.Medium)
+                val img = if (a.black) wart.black else wart.knight
+                val kh = u * (if (a.black) 0.62f else 0.46f); val kw = kh * img.width / img.height
+                drawImage(img, dstOffset = IntOffset((b.x - kw / 2).toInt(), (b.y - kh * 0.62f).toInt()), dstSize = IntSize(kw.toInt(), kh.toInt()), filterQuality = FilterQuality.Medium)
                 glyph("${a.size}", b + Offset(u * 0.2f, u * 0.17f), u * 0.18f, Color.White)
             }
-            // dragon
-            run {
+            // dragon, with its health bar
+            if (g.dragonAlive) {
                 val c = geo.hex(g.dragon); val img = art.dragon; val hh = u * 1.4f; val w = hh * img.width / img.height
                 drawCircle(Brush.radialGradient(listOf(Color(0xFFFF2A1A).copy(alpha = 0.75f), Color(0xFFD50000).copy(alpha = 0.35f), Color.Transparent), center = c, radius = u * 0.9f), u * 0.9f, c)
                 drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh / 2).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
+                val bw = u * 1.1f; val bh = u * 0.13f; val bt = Offset(c.x - bw / 2, c.y - u * 0.78f)
+                drawRoundRect(Color(0xFF2A0606), bt - Offset(u * 0.03f, u * 0.03f), androidx.compose.ui.geometry.Size(bw + u * 0.06f, bh + u * 0.06f), androidx.compose.ui.geometry.CornerRadius(bh))
+                drawRoundRect(Color(0xFFE53935), bt, androidx.compose.ui.geometry.Size(bw * g.dragonHp / Wisteria.DRAGON_HP, bh), androidx.compose.ui.geometry.CornerRadius(bh / 2))
+                for (k in 1 until Wisteria.DRAGON_HP) drawLine(Color(0xFF2A0606), bt + Offset(bw * k / Wisteria.DRAGON_HP, 0f), bt + Offset(bw * k / Wisteria.DRAGON_HP, bh), u * 0.015f)
                 val tb = c + Offset(u * 0.45f, u * 0.48f)
                 drawCircle(Color(0xFF3A0A0A), u * 0.2f, tb); drawCircle(Color(0xFFFF7043), u * 0.2f, tb, style = Stroke(u * 0.03f))
                 glyph("${g.dragonTimer}", tb, u * 0.2f, Color.White)
+            }
+            // the dragon's next target
+            g.dragonPlan()?.let { (_, t) ->
+                drawCircle(Color(0xFFFF3D00).copy(alpha = 0.35f + 0.5f * pulse), u * 0.62f, geo.hex(t), style = Stroke(u * 0.07f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.16f, u * 0.1f))))
+            }
+            // Ashfall: the coming eruption's lava flows, and quenched ground
+            if (g.ashfall) {
+                for (f in g.forecast) {
+                    var prev = geo.hex(g.lair)
+                    for (t in f) {
+                        val p = geo.hex(t)
+                        drawPath(hexPath(geo, t, 0.9f), Color(0xFFFF5722).copy(alpha = 0.12f + 0.18f * pulse))
+                        drawLine(Color(0xFF3A0A00).copy(alpha = 0.6f), prev, p, u * 0.16f, StrokeCap.Round)
+                        drawLine(Color(0xFFFFA726).copy(alpha = 0.55f + 0.4f * pulse), prev, p, u * 0.09f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.18f, u * 0.1f)))
+                        if (g.kind[t] == Wisteria.SEA) drawPath(hexPath(geo, t, 0.92f), Color(0xFFFFCC80).copy(alpha = 0.5f + 0.4f * pulse), style = Stroke(u * 0.05f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.14f, u * 0.1f))))
+                        prev = p
+                    }
+                }
+                for (h in 0 until g.H) if (g.quench[h]) drawPath(hexPath(geo, h, 0.82f), Color(0xFF4FC3F7), style = Stroke(u * 0.07f))
+                // the volcano's countdown
+                val vc = geo.hex(g.lair) + Offset(u * 0.45f, u * 0.48f)
+                drawCircle(Color(0xFF3A0A0A), u * 0.22f, vc); drawCircle(Color(0xFFFF7043), u * 0.22f, vc, style = Stroke(u * 0.03f))
+                glyph("${g.eruptIn}", vc, u * 0.22f, Color.White)
+            }
+            // damaged buildings: their health, which never heals
+            for (h in 0 until g.H) if (g.owner[h] >= 0 && g.scar[h] > 0) {
+                val c = geo.hex(h); val n = g.level[h]; val r = u * 0.085f; val gap = r * 2.6f
+                for (k in 0 until n) {
+                    val p = c + Offset((k - (n - 1) / 2f) * gap, -u * 0.3f)
+                    drawCircle(Color(0xFF2A0606), r * 1.3f, p)
+                    drawCircle(if (k < g.hp(h)) Color(0xFFE53935) else Color(0xFF5A4A4A), r, p)
+                }
             }
             // highlights
             val warm = s.mode == WisteriaSession.Mode.STRIKE || s.mode == WisteriaSession.Mode.MARCH
@@ -547,21 +699,37 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Wisteria.SETUP, "${g.tiles(0)} lands · ${g.spells[0].sum()} spells", Modifier.weight(1f))
+                PlayerBanner("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Wisteria.SETUP,
+                    (if (g.slayer == 0) "Dragon Scale · " else "") + "${g.tiles(0)} lands · ${g.spells[0].sum()} spells", Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RIconOf(RI.CROWN, 22.dp)
                     Text("${g.target}", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
                 }
                 PlayerBanner("Rival", "${g.vp(1, false)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Wisteria.SETUP,
-                    "${g.tiles(1)} lands · ${g.total(1)} cards", Modifier.weight(1f))
+                    (if (g.slayer == 1) "Dragon Scale · " else "") + "${g.tiles(1)} lands · ${g.total(1)} cards", Modifier.weight(1f))
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                RIconOf(RI.DRAGON, 18.dp)
-                Spacer(Modifier.width(6.dp))
-                val lead = g.leader()
-                InkText("Dragon moves in ${g.dragonTimer} turn${if (g.dragonTimer == 1) "" else "s"}" + when (lead) { 0 -> " · hunting you"; 1 -> " · hunting the rival"; else -> "" }, 12, bold = true)
+                if (g.ashfall) {
+                    RIconOf(RI.FIRE, 18.dp)
+                    Spacer(Modifier.width(6.dp))
+                    val n = g.forecast.size
+                    InkText((if (g.eruptIn <= 1) "Eruption next turn" else "Eruption in ${g.eruptIn} turns") + " · $n flow${if (n == 1) "" else "s"} · ${g.growthLeft()} sea left", 12, bold = true)
+                } else if (g.dragonAlive) {
+                    RIconOf(RI.DRAGON, 18.dp)
+                    Spacer(Modifier.width(6.dp))
+                    val lead = g.leader()
+                    InkText("Dragon ${g.dragonHp}/${Wisteria.DRAGON_HP} · moves in ${g.dragonTimer}" + when (lead) { 0 -> " · hunting you"; 1 -> " · hunting the rival"; else -> "" }, 12, bold = true)
+                } else {
+                    RIconOf(RI.SCALE, 20.dp)
+                    Spacer(Modifier.width(4.dp))
+                    RIconOf(RI.BLACK_KNIGHT, 20.dp)
+                    Spacer(Modifier.width(6.dp))
+                    val away = g.armies.any { it.black }
+                    InkText((if (g.slayer == 0) "You slew the dragon" else "The rival slew the dragon") +
+                        when { away -> " · Black Knight riding"; g.turn == g.slayer && g.blackUsed -> " · Black Knight rests"; else -> " · Black Knight ready" }, 12, bold = true)
+                }
             }
         }
 
@@ -573,7 +741,7 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 10.dp, vertical = 3.dp)) {
-                InkText(s.events.lastOrNull() ?: "The chronicle of Wisteria begins…", 12, color = INK_SOFT, lines = 2)
+                InkText(s.events.lastOrNull() ?: if (g.ashfall) "The mountain rumbles…" else "The chronicle of Wisteria begins…", 12, color = INK_SOFT, lines = 2)
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -606,8 +774,13 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                     if (h >= 0 && g.owner[h] == 0) {
                         if (g.level[h] < 3) BuildButton(if (g.level[h] == 1) "Tower" else "Castle", RI.TOWER, g.upgradeCost(h), false, g.canUpgrade(0, h)) { s.upgrade(h) }
                         BuildButton("Knight ${g.knights[h]}/${Wisteria.CAPACITY[g.level[h]]}", RI.KNIGHT, Wisteria.COST_KNIGHT, false, g.canHire(0, h)) { s.hire(h) }
-                        if (g.level[h] == 1) BuildButton("Strike", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE, g.strikeTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE) }
-                        else BuildButton("March", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH, g.marchTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH) }
+                        if (g.level[h] == 1) BuildButton("Strike", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE && !s.withBlack, g.strikeTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE) }
+                        else BuildButton("March", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && !s.withBlack, g.marchTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH) }
+                        if (g.slayer == 0) {
+                            BuildButton("Dark Strike", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE && s.withBlack, g.blackStrikeTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE, black = true) }
+                            val esc = g.escort(h)
+                            BuildButton(if (esc > 0) "Dark March +$esc" else "Dark March", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && s.withBlack, g.blackMarchTargets(0, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH, black = true) }
+                        }
                         BuildButton("Wall", RI.SHIELD, if (g.freeWalls > 0) null else Wisteria.COST_WALL, s.mode == WisteriaSession.Mode.WALL,
                             g.wallSpots(0).any { it.first == h } && (g.freeWalls > 0 || g.can(0, Wisteria.COST_WALL))) { s.toggleMode(WisteriaSession.Mode.WALL) }
                     }
@@ -622,7 +795,12 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
         }
     }
     if (showTrade) WTradeDialog(s) { showTrade = false }
-    if (showSpells) WSpellsDialog(s) { showSpells = false }
+    if (showSpells) {
+        if (g.ashfall) SpellbookDialog(g.spellNames, g.spellText, ASPELL_ICONS, g.spells[0], g.fresh,
+            if (g.spellPlayed) "You've already cast a spell this turn." else null, Wisteria.RELIC, Wisteria.HARVEST,
+            { g.canPlay(0, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
+        else WSpellsDialog(s) { showSpells = false }
+    }
 }
 
 @Composable

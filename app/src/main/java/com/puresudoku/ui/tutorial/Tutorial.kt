@@ -25,7 +25,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +69,8 @@ fun TutorialOverlay(kind: GameKind, steps: List<TutorialStep>, onClose: () -> Un
     val pager = rememberPagerState(pageCount = { steps.size })
     val scope = rememberCoroutineScope()
     val last = pager.currentPage == steps.lastIndex
+    val hasBook = com.puresudoku.ui.games.realm.Rulebooks.has(kind)
+    var showBook by remember(kind) { mutableStateOf(false) }
 
     Box(
         Modifier.fillMaxSize()
@@ -77,6 +82,20 @@ fun TutorialOverlay(kind: GameKind, steps: List<TutorialStep>, onClose: () -> Un
                 Column(Modifier.weight(1f)) {
                     Text("HOW TO PLAY", color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold)
                     Text(kind.title, color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                }
+                if (hasBook) {
+                    Surface(
+                        onClick = { showBook = true },
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF3A2410),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFC9972F)),
+                    ) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.AutoStories, contentDescription = null, tint = Color(0xFFF6E3A1), modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Rulebook", color = Color(0xFFF6E3A1), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        }
+                    }
                 }
                 IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = "Close", tint = Color.White) }
             }
@@ -128,6 +147,7 @@ fun TutorialOverlay(kind: GameKind, steps: List<TutorialStep>, onClose: () -> Un
                 ) { Text(if (last) "Play" else "Next") }
             }
         }
+        if (showBook) com.puresudoku.ui.games.realm.RulebookScreen(kind, onClose = { showBook = false })
     }
 }
 

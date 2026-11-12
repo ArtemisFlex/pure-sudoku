@@ -18,6 +18,9 @@ sealed class KAct {
     /** A knight on your tile [from] attacks the touching rival tile [to]. */
     data class Strike(val from: Int, val to: Int) : KAct()
     data class Trade(val give: Int, val get: Int) : KAct()
+    object BuySpell : KAct()
+    /** Cast spell [kind]: Rally and Siege Fire take a tile [a]; Harvest Moon takes two resources [a] and [b]. */
+    data class Spell(val kind: Int, val a: Int = -1, val b: Int = -1) : KAct()
 }
 
 /**
@@ -42,6 +45,17 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
         /** Raising a castle again on a tile taken from a felled castle: half price. */
         val COST_CASTLE_HALF = intArrayOf(1, 2, 2, 0, 1)
         val COST_KNIGHT = intArrayOf(0, 1, 1, 1, 0)
+
+        const val RALLY = 0; const val RELIC = 1; const val STONE = 2; const val HARVEST = 3; const val SIEGE = 4
+        val SPELLS = listOf("Rally", "Relic", "Stonewright", "Harvest Moon", "Siege Fire")
+        val SPELL_TEXT = listOf(
+            "A free knight joins one of your tiles that has room.",
+            "A secret treasure: worth 1 point. Counts by itself.",
+            "Raise two walls for free.",
+            "Take any two resources from the supply.",
+            "Knock 1 health off a rival castle that has 2 or more left.",
+        )
+        val COST_SPELL = intArrayOf(0, 1, 1, 1, 0)
 
         const val CASTLE_HP = 3
         const val MAX_VILLAGES = 5; const val MAX_TOWERS = 4
@@ -86,6 +100,13 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
 
     val res = Array(2) { IntArray(5) }
     val felled = IntArray(2)
+    val spells = Array(2) { IntArray(5) }
+    /** Spells bought this turn: they can't be cast until next turn. */
+    val fresh = IntArray(5)
+    var spellPlayed = false
+    /** Walls left from Stonewright this turn. */
+    var freeWalls = 0
+    val deck = ArrayList<Int>()
     /** Has each player scored at least once? Dropping back to 0 after that loses. */
     val scored = BooleanArray(2)
 
@@ -124,6 +145,13 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
             val ok = (0 until n).none { h -> number[h] in setOf(6, 8) && map.hexNbrs[h].any { number[it] in setOf(6, 8) } }
             if (ok || ++tries > 400) break
         }
+        newDeck(rng)
+    }
+
+    private fun newDeck(rng: Random) {
+        deck.clear()
+        repeat(10) { deck += RALLY }; repeat(3) { deck += RELIC }; repeat(3) { deck += STONE }; repeat(3) { deck += HARVEST }; repeat(4) { deck += SIEGE }
+        deck.shuffle(rng)
     }
 
     // ---------------------------------------------------------------- queries
@@ -132,7 +160,7 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
     fun can(p: Int, cost: IntArray) = (0..4).all { res[p][it] >= cost[it] }
     fun count(p: Int, level: Int) = (0 until map.VERTS).count { vOwner[it] == p && vLevel[it] == level }
     fun tiles(p: Int) = (0 until H).count { owner[it] == p }
-    fun vp(p: Int) = tiles(p) + felled[p]
+    fun vp(p: Int, withRelics: Boolean = true) = tiles(p) + felled[p] + (if (withRelics) spells[p][RELIC] else 0)
 
     /** The six sides of tile [h], as board edges. */
     fun sides(h: Int): IntArray { val vs = map.hexVerts[h]; return IntArray(6) { k -> map.edgeOf(vs[k], vs[(k + 1) % 6]) } }
@@ -178,6 +206,20 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
     fun capacity(h: Int) = if (castle[h] > 0) CAP_CASTLE else CAP_TILE
     fun canHire(p: Int, h: Int) = owner[h] == p && knights[h] < capacity(h) && can(p, COST_KNIGHT)
 
+    fun siegeTargets(p: Int) = (0 until H).filter { owner[it] == 1 - p && castle[it] >= 2 }
+    fun rallySpots(p: Int) = (0 until H).filter { owner[it] == p && knights[it] < capacity(it) }
+
+    fun canPlay(p: Int, k: Int): Boolean {
+        if (phase != MAIN || turn != p || spellPlayed || k == RELIC) return false
+        if (spells[p][k] - fresh[k] <= 0) return false
+        return when (k) {
+            RALLY -> rallySpots(p).isNotEmpty()
+            STONE -> wallSpots(p).isNotEmpty()
+            SIEGE -> siegeTargets(p).isNotEmpty()
+            else -> true
+        }
+    }
+
     fun strikeTargets(p: Int, from: Int): List<Int> =
         if (owner[from] != p || knights[from] < 1) emptyList() else map.hexNbrs[from].filter { owner[it] == 1 - p }
 
@@ -197,7 +239,14 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
             KAct.End -> true
             is KAct.Village -> can(p, COST_VILLAGE) && a.v in villageSpots(p)
             is KAct.Tower -> can(p, COST_TOWER) && a.v in towerSpots(p)
-            is KAct.Wall -> can(p, COST_WALL) && a.e in wallSpots(p)
+            is KAct.Wall -> (freeWalls > 0 || can(p, COST_WALL)) && a.e in wallSpots(p)
+            KAct.BuySpell -> can(p, COST_SPELL) && deck.isNotEmpty() && freeWalls == 0
+            is KAct.Spell -> canPlay(p, a.kind) && when (a.kind) {
+                RALLY -> a.a in rallySpots(p)
+                HARVEST -> a.a in 0..4 && a.b in 0..4
+                SIEGE -> a.a in siegeTargets(p)
+                else -> true
+            }
             is KAct.Castle -> canCastle(p, a.h)
             is KAct.Hire -> canHire(p, a.h)
             is KAct.Strike -> a.to in strikeTargets(p, a.from)
@@ -223,10 +272,11 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
                     setupVillage = -1; setupStep++
                     if (setupStep >= 4) { phase = ROLL; turn = 0 }
                 } else {
-                    pay(p, COST_WALL)
+                    if (freeWalls > 0) freeWalls-- else pay(p, COST_WALL)
                     val got = map.vertHexes[map.edgeA[a.e]].intersect(map.vertHexes[map.edgeB[a.e]].toSet()).filter { owner[it] < 0 && closedSides(it) == 6 }
                     for (h in got) { owner[h] = p; log += "$who walled in ${tileName(h)} and captured it!" }
                     if (got.isEmpty()) log += "$who raised a wall"
+                    if (freeWalls > 0 && wallSpots(p).isEmpty()) freeWalls = 0
                 }
             }
             is KAct.Tower -> { pay(p, COST_TOWER); vLevel[a.v] = 2; log += "$who raised a tower" }
@@ -234,6 +284,16 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
             is KAct.Hire -> { pay(p, COST_KNIGHT); knights[a.h]++; log += "$who hired a knight" }
             is KAct.Strike -> strike(p, a.from, a.to)
             is KAct.Trade -> { res[p][a.give] -= 4; res[p][a.get]++ }
+            KAct.BuySpell -> { pay(p, COST_SPELL); val s = deck.removeAt(deck.lastIndex); spells[p][s]++; fresh[s]++; log += if (p == 0) "You learned ${SPELLS[s]}" else "The rival learned a spell" }
+            is KAct.Spell -> {
+                spells[p][a.kind]--; spellPlayed = true
+                when (a.kind) {
+                    RALLY -> { knights[a.a]++; log += "$who rallied a knight to ${tileName(a.a)}" }
+                    STONE -> { freeWalls = 2; log += "$who cast Stonewright: two free walls" }
+                    HARVEST -> { res[p][a.a]++; res[p][a.b]++; log += "$who cast Harvest Moon" }
+                    SIEGE -> { castle[a.a]--; log += "$who hurled Siege Fire at the castle on ${tileName(a.a)} (${castle[a.a]} health left)" }
+                }
+            }
             KAct.Roll -> roll(rng)
             KAct.End -> endTurn()
         }
@@ -295,6 +355,7 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
 
     private fun endTurn() {
         turns++
+        fresh.fill(0); spellPlayed = false; freeWalls = 0
         if (turns >= 400) { winner = when { vp(0) > vp(1) -> 0; vp(1) > vp(0) -> 1; else -> 2 }; phase = OVER; return }
         turn = 1 - turn
         phase = ROLL
@@ -302,9 +363,9 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
 
     private fun checkWin() {
         if (phase == SETUP || winner >= 0) return
-        for (p in 0..1) if (vp(p) > 0) scored[p] = true
+        for (p in 0..1) if (vp(p, false) > 0) scored[p] = true
         for (p in listOf(turn, 1 - turn)) if (vp(p) >= target) { winner = p; phase = OVER; return }
-        for (p in 0..1) if (scored[p] && vp(p) == 0) { winner = 1 - p; phase = OVER; return }
+        for (p in 0..1) if (scored[p] && vp(p, false) == 0) { winner = 1 - p; phase = OVER; return }
     }
 
     fun tileName(h: Int): String = if (terrain[h] == WASTE) "a wasteland" else "the " + listOf("forest", "mountain", "fields", "meadow", "crystal spires")[terrain[h]]
@@ -319,6 +380,7 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
         put(owner); put(castle); put(halfCastle.map { if (it) 1 else 0 }.toIntArray()); put(knights)
         put(res[0]); put(res[1]); put(felled); put(scored.map { if (it) 1 else 0 }.toIntArray())
         put(intArrayOf(turn, turns, phase, setupStep, setupVillage, lastRoll, lastDie[0], lastDie[1], winner))
+        put(spells[0]); put(spells[1]); put(fresh); put(deck.toIntArray()); put(intArrayOf(if (spellPlayed) 1 else 0, freeWalls))
         return o.toIntArray()
     }
 
@@ -332,6 +394,11 @@ class Kreashun(val map: RealmGrid, val diff: Int, val target: Int) {
         get().copyInto(res[0]); get().copyInto(res[1]); get().copyInto(felled); get().forEachIndexed { k, b -> scored[k] = b == 1 }
         val m = get()
         turn = m[0]; turns = m[1]; phase = m[2]; setupStep = m[3]; setupVillage = m[4]; lastRoll = m[5]; lastDie = intArrayOf(m[6], m[7]); winner = m[8]
+        if (i < s.size) {
+            get().copyInto(spells[0]); get().copyInto(spells[1]); get().copyInto(fresh)
+            deck.clear(); get().forEach { deck += it }
+            val x = get(); spellPlayed = x[0] == 1; freeWalls = x[1]
+        } else newDeck(Random(turns.toLong() * 31 + 7))   // a save from before spells
     }
 
     fun copy(): Kreashun = fromState(state())
@@ -392,9 +459,11 @@ object KreashunAi {
             Kreashun.ROLL -> return KAct.Roll
             Kreashun.OVER -> return KAct.End
         }
-        val walls = if (g.can(p, Kreashun.COST_WALL)) g.wallSpots(p) else emptyList()
+        val walls = if (g.freeWalls > 0 || g.can(p, Kreashun.COST_WALL)) g.wallSpots(p) else emptyList()
         // 1. close a tile
         walls.filter { g.wouldCapture(it).isNotEmpty() }.maxByOrNull { e -> g.wouldCapture(e).sumOf { tileWorth(g, p, it) } }?.let { return KAct.Wall(it) }
+        // Stonewright's free walls: use them up
+        if (g.freeWalls > 0 && walls.isNotEmpty()) return KAct.Wall(walls.maxBy { wallScore(g, p, it, lvl.careful) + noise() })
         // 2. knights strike: finish castles, take bare tiles, break walls in the way
         if (rng.nextDouble() < lvl.aggression) {
             var best: KAct.Strike? = null; var bestV = 0.5
@@ -410,6 +479,12 @@ object KreashunAi {
             }
             best?.let { return it }
         }
+        // spells: fire on a castle its knights can reach, a knight at the front, free walls toward a capture
+        if (g.canPlay(p, Kreashun.SIEGE)) g.siegeTargets(p).maxByOrNull { h -> (if (g.map.hexNbrs[h].any { g.owner[it] == p && g.knights[it] > 0 }) 5.0 else 0.0) - g.castle[h] + noise() }
+            ?.let { return KAct.Spell(Kreashun.SIEGE, it) }
+        if (g.canPlay(p, Kreashun.RALLY)) g.rallySpots(p).filter { h -> g.map.hexNbrs[h].any { g.owner[it] == o } }.maxByOrNull { h -> g.map.hexNbrs[h].count { g.owner[it] == o } + noise() }
+            ?.let { return KAct.Spell(Kreashun.RALLY, it) }
+        if (g.canPlay(p, Kreashun.STONE) && g.wallSpots(p).any { wallScore(g, p, it, lvl.careful) > 0.8 }) return KAct.Spell(Kreashun.STONE)
         // 3. castles on tiles that touch the rival
         (0 until g.H).filter { g.canCastle(p, it) }.maxByOrNull { h -> g.map.hexNbrs[h].count { g.owner[it] == o } * 2.0 + tileWorth(g, p, h) + noise() }
             ?.takeIf { h -> g.map.hexNbrs[h].any { g.owner[it] == o } || g.halfCastle[h] }?.let { return KAct.Castle(it) }
@@ -428,6 +503,12 @@ object KreashunAi {
             g.towerSpots(p).isNotEmpty() -> Kreashun.COST_TOWER
             else -> null
         }
+        if (goal != null && g.canPlay(p, Kreashun.HARVEST)) {
+            val miss = missing(g, p, goal)
+            if (miss.sum() in 1..2) { val l = (0..4).flatMap { r -> List(miss[r]) { r } }.let { if (it.size == 1) it + it[0] else it }; return KAct.Spell(Kreashun.HARVEST, l[0], l[1]) }
+        }
+        // buy a spell with spare cards
+        if (g.can(p, Kreashun.COST_SPELL) && g.deck.isNotEmpty() && g.freeWalls == 0 && g.total(p) >= 8 && rng.nextDouble() < lvl.aggression) return KAct.BuySpell
         if (goal != null && rng.nextDouble() < lvl.trade) {
             val miss = missing(g, p, goal)
             val spare = IntArray(5) { r -> maxOf(0, g.res[p][r] - goal[r]) / 4 }

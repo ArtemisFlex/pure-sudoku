@@ -438,12 +438,16 @@ object RealmNightDef : RealmDefBase(GameKind.REALM_NIGHT, Realm.NIGHT) {
 // =====================================================================  board geometry
 
 /** Board layout: at zoom 1 the board fits the gap between [top] and [bottom] (px); zoomed, it spreads under everything. */
-internal class RGeo(val m: RealmGrid, val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f) {
+internal class RGeo(
+    val m: RealmGrid, val w: Float, val h: Float, zoom: Float = 1f, pan: Offset = Offset.Zero, top: Float = 0f, bottom: Float = 0f,
+    /** The extent the island art is fitted to (Ashfall: the island inside its ring of sea), and a shrink to leave room for that ring. */
+    ext: Float = m.extent, artK: Float = 1f,
+) {
     val fh = (h - top - bottom).coerceAtLeast(h * 0.35f)
     /** Island art scale (screen px per source px): the whole island fits the gap at zoom 1. */
-    val art = min(w, fh) / 1150f * zoom
+    val art = min(w, fh) / 1150f * zoom * artK
     /** Hex size: the board's outer corners reach the island's buildable edge. */
-    val unit = art * RealmMap.ISLAND_FIT / m.extent
+    val unit = art * RealmMap.ISLAND_FIT / ext
     val cx = w / 2 + pan.x; val cy = top + fh / 2 + pan.y
     fun pt(x: Float, y: Float) = Offset(cx + x * unit, cy + y * unit)
     /** A point on the island picture (source px). */
