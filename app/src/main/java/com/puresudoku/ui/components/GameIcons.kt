@@ -37,6 +37,7 @@ fun gameLogoRes(kind: GameKind): Int = when (kind) {
     GameKind.ASHFALL -> com.puresudoku.R.drawable.rt_logo_ashfall
     GameKind.KREASHUN -> com.puresudoku.R.drawable.rt_logo_kreashun
     GameKind.VEILGUARD -> com.puresudoku.R.drawable.rt_logo_veilguard
+    GameKind.AEGWASPELL -> com.puresudoku.R.drawable.rt_logo_aegwaspell
     else -> 0
 }
 
@@ -107,6 +108,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.ASHFALL -> realmIcon(colors, o, inner, 1)
             GameKind.KREASHUN -> realmIcon(colors, o, inner, 0)
             GameKind.VEILGUARD -> realmIcon(colors, o, inner, 2)
+            GameKind.AEGWASPELL -> realmIcon(colors, o, inner, 0)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),

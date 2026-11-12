@@ -416,6 +416,55 @@ internal object RulebookText {
 
     // =================================================================  Kreashun
 
+    fun aegwaspell(): Book = book(com.puresudoku.R.drawable.rt_logo_aegwaspell, Color(0xFF2F6B3A),
+        "A ship, a handful of souls and an unknown shore. Everything after that is yours to build, or to lose.") {
+        ch("A People of Your Own")
+        drop("Aegwaspell is played **alone, against the world**. You land at a port at the foot of a vast land hidden in fog, with six people and a few supplies. Grow them into a great civilization.")
+        warn("Winning and losing", "**You win** when every rival civilization's capital has fallen **and** your people number the goal. **You lose** the moment your last person dies, to famine, plague, raids or revolt.")
+        table(listOf("Level", "World", "Rivals", "People to win"),
+            listOf("Easy", "91 tiles", "2", "35"), listOf("Medium", "91 tiles", "2", "45"), listOf("Hard", "127 tiles", "3", "55"),
+            listOf("Expert", "127 tiles", "3", "65"), listOf("Master", "169 tiles", "4", "75"), listOf("Extreme", "169 tiles", "4", "90"))
+
+        ch("Roads and Land")
+        drop("You can only build on tiles **your roads reach**. Tap a tile beside your lands and lay a **road** into it: 1 timber, or more into hills, mountains and swamp. Each new road lifts the fog around it, and roads into **ruins** turn up treasure.")
+        p("**Each tile holds one building**, and the land decides which: farms on fields, ranches on meadows, fisheries on the coast, lumber mills in forests, quarries in hills and mines in mountains.")
+
+        ch("Buildings")
+        bl("**Village** (3 timber, 1 stone): homes for 6. Grow it into a **Town** (4 timber, 4 stone, 2 gold) for 15.",
+            "**Farm** (2 timber): 7 food on fields, 5 on plains, times the harvest. Nothing in winter. 2 workers.",
+            "**Ranch** (3 timber) and **Fishery** (2 timber): 4 food, 3 in winter. 2 and 1 workers.",
+            "**Lumber mill** (1 timber, 1 stone): 3 timber. **Quarry** (2 timber): 3 stone. **Mine** (3 timber, 2 stone): 2 ore and 1 gold.",
+            "**Granary** (3 timber, 2 stone): stores 40 more food. **Market** (3 timber, 3 stone): 3 gold.",
+            "**Barracks** (4 timber, 3 stone, 1 gold): room for 8 soldiers. **Watchtower** (2 timber, 2 stone): helps fight off raids.",
+            "**Temple** (3 stone, 2 gold): lifts the mood every season and eases plague. **Colosseum** (2 timber, 5 stone, 3 gold): roll a die each season; on 4 or more, the games lift the mood a lot.")
+        p("**Workers.** Buildings need people at work. If you have too few people, the last buildings stand **idle** and make nothing: food buildings are staffed first.")
+
+        ch("The Seasons")
+        steps(
+            "Your turn" to "Lay roads, build, train soldiers, scout and march, as long as you can pay.",
+            "The harvest dice" to "2 to 4 is a poor year (farms make half), 10 to 12 a bountiful one (half again).",
+            "The event card" to "Migrants, plague, bandits, raids, festivals, floods, gold veins, merchants and more.",
+            "Eating" to "Every person and soldier eats 1 food. Short of food, people starve. Food beyond your storage spoils.",
+            "Growth" to "With food to spare, room in your homes and a good mood, children are born.",
+        )
+
+        ch("The Mood")
+        drop("Happiness runs from 0 to 100 and settles toward the middle. Temples, festivals and the colosseum lift it; famine, homelessness and unrest lower it.")
+        bl("**60 or more:** your people grow quickly.", "**Under 30:** people leave.", "**Under 10:** they revolt and burn a building.")
+
+        ch("Rivals and War")
+        drop("Two to four **rival civilizations** wait beyond the fog. Each has a **strength** that grows over the years, and they raid you from the third year on.")
+        p("**Soldiers** cost 2 food, 1 ore and 1 gold each, and come from your people. Barracks hold 8 each. Lay roads until they touch a rival's land, select it, and **attack with every soldier**: your soldiers plus two dice against their strength plus two dice. Win and their capital falls: its people join you and its gold is yours.")
+
+        ch("Advice from the Old Stewards")
+        bl("Build a farm on the fields beside your port first.",
+            "Store food before winter: farms make nothing then.",
+            "Don't build more than you can staff: idle buildings make nothing.",
+            "A temple early keeps your people from leaving.",
+            "Watchtowers and a few soldiers stop raids and bandits.",
+            "Strike a rival while it's still weak: they grow every year.")
+    }
+
     fun eiseriaAshfall(): Book = book(com.puresudoku.R.drawable.rt_logo_eiseria_ash, Color(0xFFB23A12),
         "The mountain does not care whose village stands below it. When it wakes, the whole realm goes hungry.") {
         ch("The Realm Aflame")

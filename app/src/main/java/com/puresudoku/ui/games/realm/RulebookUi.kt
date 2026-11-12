@@ -165,7 +165,7 @@ internal val GOLDEN = Color(0xFFC9972F)
 
 /** Which games have a rulebook. */
 internal object Rulebooks {
-    fun has(kind: GameKind) = kind in setOf(GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH, GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD)
+    fun has(kind: GameKind) = kind in setOf(GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH, GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD, GameKind.AEGWASPELL)
     fun of(kind: GameKind): Book? = when (kind) {
         GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT -> RulebookText.eiseria(kind)
         GameKind.REALM_ASH -> RulebookText.eiseriaAshfall()
@@ -173,6 +173,7 @@ internal object Rulebooks {
         GameKind.ASHFALL -> RulebookText.ashfall()
         GameKind.KREASHUN -> RulebookText.kreashun()
         GameKind.VEILGUARD -> RulebookText.veilguard()
+        GameKind.AEGWASPELL -> RulebookText.aegwaspell()
         else -> null
     }
 }

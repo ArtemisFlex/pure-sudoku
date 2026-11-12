@@ -71,6 +71,21 @@ object StrategyLessons {
             listOf("Race for the new land at the coast as it cools.", "Plan for a long game: points come and go with the lava."),
             listOf("Count the sea left: when it's gone, the leader wins.", "Time your castles between eruptions."),
         )),
+        GameKind.AEGWASPELL to Course(listOf(
+            "You play alone against the world: grow a civilization from a single port. You can only build on tiles your roads reach, and each tile holds one building, chosen by its land.",
+            "Every person and soldier eats 1 food a season. Farms make nothing in winter; granaries store food. Buildings need workers, or they stand idle.",
+            "Each season ends with the harvest dice and an event card. With food to spare, room and a good mood, your people grow.",
+            "Temples and the colosseum keep people happy; unhappy people leave, and very unhappy ones revolt.",
+            "Rivals grow stronger each year. Train soldiers at barracks, lay roads to a rival's land, and attack their capital.",
+            "Win with enough people once every rival has fallen. Lose when your last person dies.",
+        ), listOf(
+            listOf("Farm the fields beside the port first.", "Lay roads toward fields, coast and forest."),
+            listOf("Build a granary before your first winter.", "Only build what you can staff."),
+            listOf("A temple early keeps your people from leaving.", "Build villages before you run out of room."),
+            listOf("Mines and markets pay for soldiers.", "Watchtowers help stop raids."),
+            listOf("Strike the weakest rival first.", "Keep a food reserve before you march."),
+            listOf("Rivals grow every year: don't wait too long.", "Grow towns for the final push in people."),
+        )),
         GameKind.KREASHUN to Course(listOf(
             "Roll each turn: tiles with that number pay every village on their corners, towers twice. Tiles you hold pay your corner buildings double.",
             "Walls go on sides joined to your villages, walls or tiles. Wall every side of a tile, coast included, to capture it: whoever builds the closing wall takes it.",
