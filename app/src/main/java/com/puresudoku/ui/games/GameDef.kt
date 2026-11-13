@@ -100,6 +100,7 @@ object Games {
             com.puresudoku.ui.games.realm.KreashunDef,
             com.puresudoku.ui.games.realm.VeilguardDef,
             com.puresudoku.ui.games.realm.AegwaspellDef,
+            com.puresudoku.ui.games.realm.AegConquestDef,
         )
     }
 

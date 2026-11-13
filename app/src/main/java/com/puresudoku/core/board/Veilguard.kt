@@ -46,7 +46,6 @@ class Veilguard(val map: RealmGrid, val diff: Int, val target: Int) {
 
         const val MAX_ORDERS = 3
         const val THIEF_HP = 4
-        const val ROUND_CAP = 60
         /** Cards the thief steals each round he stands on someone's land, by level. */
         val STEAL = intArrayOf(1, 1, 2, 2, 2, 3)
         /** Rounds between the thief's acts of sabotage, by level (like the dragon's timer). */
@@ -152,7 +151,7 @@ class Veilguard(val map: RealmGrid, val diff: Int, val target: Int) {
     var phase = SETUP
     var setupStep = 0
     var winner = -1
-    /** How the game ended: 0 points, 1 Crown taken, 2 last land lost, 3 round limit. */
+    /** How the game ended: 1 Crown taken, 2 last land lost (0 points and 3 round limit are from older versions). */
     var endReason = -1
     val log = ArrayList<String>()
 
@@ -564,8 +563,7 @@ class Veilguard(val map: RealmGrid, val diff: Int, val target: Int) {
     private fun checkEnd() {
         if (winner >= 0) return
         for (p in 0..1) if (tiles(p) == 0) { winner = 1 - p; endReason = 2; return }
-        // no points goal: the Crown decides. Only a stalemate that runs to the round limit goes to the points leader.
-        if (round >= ROUND_CAP) { winner = leader().let { if (it < 0) 2 else it }; endReason = 3 }
+        // no points goal and no round limit: only the Crown (or the last land) decides
     }
 
     // ---------------------------------------------------------------- save / copy

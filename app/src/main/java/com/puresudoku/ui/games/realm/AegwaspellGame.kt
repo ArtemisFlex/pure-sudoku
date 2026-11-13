@@ -6,6 +6,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -44,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -80,6 +84,7 @@ private typealias A = Aegwaspell
 // =====================================================================  session
 
 class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession(GameKind.AEGWASPELL, difficulty) {
+    var showFinalHistory by mutableStateOf(false); private set
     var selected by mutableIntStateOf(-1)
     var events by mutableStateOf<List<String>>(emptyList()); private set
 
@@ -104,7 +109,7 @@ class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession
         if (a is AAct.Attack) announce(if (logs.any { "took the capital" in it }) "Victory!" else "Your army was thrown back", logs.joinToString("\n"), 2600, true, RI.KNIGHT)
         if (a == AAct.End && g.season != before) seasonCards(logs)
         if (logs.any { it.startsWith("Ruins!") }) announce("Ruins!", logs.first { it.startsWith("Ruins!") }.removePrefix("Ruins! "), 2000, true, RI.RELIC)
-        if (g.over) whenQuiet { finishGame() }
+        if (g.over) whenQuiet { showFinalHistory = true }
         return true
     }
 
@@ -120,7 +125,8 @@ class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession
         announce("${g.seasonName}, year ${g.year}", "${g.pop} people · ${g.res[A.FOOD]} food · happiness ${g.happiness}", 1300, true, RI.SUN)
     }
 
-    private fun finishGame() {
+    fun finishGame() {
+        showFinalHistory = false
         if (g.won) win(listOf(BonusLine("People", g.pop * rules.basePoints / 2), BonusLine("Rivals felled", g.rivals.size * rules.basePoints * 3),
             BonusLine("Years", maxOf(0, 40 - g.year) * rules.basePoints / 4)))
         else lose()
@@ -139,7 +145,7 @@ class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession
         outcome != Outcome.PLAYING -> ""
         heraldBusy -> "The season's news · tap a card to skip"
         selected < 0 -> "Tap a tile: build on your roads, or lay a road out into new land"
-        else -> tileText(selected)
+        else -> tileText(selected) + g.sw.notes(selected).joinToString("") { " · $it" }
     }
 
     fun tileText(h: Int): String {
@@ -167,12 +173,16 @@ class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession
                 is AAct.Train -> Triple("Train ${a.n} soldier${if (a.n > 1) "s" else ""} at your barracks.", -1, -1)
                 is AAct.Scout -> Triple("Send scouts from the ringed tile.", a.h, -1)
                 is AAct.Attack -> Triple("March on ${snap.rivals[a.r].name}: your army is strong enough.", snap.rivals[a.r].capital, -1)
+                is AAct.Choose -> Triple("Answer the event card.", -1, -1)
+                is AAct.Decree -> Triple("Change your stewardship decree.", -1, -1)
+                is AAct.Fallow -> Triple("Change whether the ringed farm rests.", a.h, -1)
+                is AAct.Demolish -> Triple("Demolish the building on the ringed tile.", a.h, -1)
                 AAct.End -> Triple("Nothing more worth doing: end the season.", -1, -1)
             }
         }
     }
 
-    override fun resume() { if (outcome == Outcome.PLAYING && g.over) finishGame() }
+    override fun resume() { if (outcome == Outcome.PLAYING && g.over) showFinalHistory = true }
 
     override fun saveState(): JSONObject = JSONObject().put("s", JSONArray().also { a -> g.state().forEach { a.put(it) } }).put("moves", moves)
 
@@ -293,14 +303,25 @@ private fun hexAt(c: Offset, u: Float, k: Float = 1f) = androidx.compose.ui.grap
     close()
 }
 
-/** A building: its painted piece, or an icon until the painting arrives. */
-private fun DrawScope.buildingIcon(b: Int, c: Offset, s: Float, art: RealmArt, idle: Boolean, own: AegArt) {
+/** Each building's painted piece, for the build buttons. */
+private val BUILD_ART = mapOf(
+    A.PORT to com.puresudoku.R.drawable.rt_ag_port, A.VILLAGE to com.puresudoku.R.drawable.rt_ag_village, A.TOWN to com.puresudoku.R.drawable.rt_ag_town,
+    A.FARM to com.puresudoku.R.drawable.rt_ag_farm, A.RANCH to com.puresudoku.R.drawable.rt_ag_ranch2, A.FISHERY to com.puresudoku.R.drawable.rt_ag_fishery,
+    A.MILL to com.puresudoku.R.drawable.rt_ag_mill, A.QUARRY to com.puresudoku.R.drawable.rt_ag_quarry, A.MINE to com.puresudoku.R.drawable.rt_ag_mine,
+    A.GRANARY to com.puresudoku.R.drawable.rt_ag_granary, A.MARKET to com.puresudoku.R.drawable.rt_ag_market, A.BARRACKS to com.puresudoku.R.drawable.rt_ag_barracks,
+    A.TOWER to com.puresudoku.R.drawable.rt_ag_tower, A.TEMPLE to com.puresudoku.R.drawable.rt_ag_temple, A.COLOSSEUM to com.puresudoku.R.drawable.rt_ag_colosseum,
+)
+
+/** A building: its painted piece, or an icon until the painting arrives. [flip] mirrors it (a fishery turns to face the sea). */
+private fun DrawScope.buildingIcon(b: Int, c: Offset, s: Float, art: RealmArt, idle: Boolean, own: AegArt, flip: Boolean = false) {
     own.pieces[b]?.let { img ->
         // fit the piece in the tile, wide ones by width and tall ones by height
         val big = if (b == A.PORT || b == A.TOWN || b == A.FARM || b == A.RANCH) 1.6f else 1.35f
         val k = s * big / maxOf(img.width, img.height); val w = img.width * k; val hh = img.height * k
-        drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh * 0.58f).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium,
-            alpha = if (idle) 0.55f else 1f)
+        scale(if (flip) -1f else 1f, 1f, c) {
+            drawImage(img, dstOffset = IntOffset((c.x - w / 2).toInt(), (c.y - hh * 0.58f).toInt()), dstSize = IntSize(w.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium,
+                alpha = if (idle) 0.55f else 1f)
+        }
         if (idle) actionIcon(RI.END, c + Offset(s * 0.42f, s * 0.38f), s * 0.3f)
         return
     }
@@ -381,7 +402,9 @@ fun AegwaspellBoard(s: AegwaspellSession, modifier: Modifier = Modifier, fitTop:
                 val c = at(h)
                 if (g.ruins[h]) actionIcon(RI.RELIC, c + Offset(u * 0.45f, -u * 0.35f), u * 0.4f)
                 val b = g.building[h]
-                if (b != A.NONE) buildingIcon(b, c, u * 0.9f, art, A.WORKERS[b] > 0 && !st[h], own)
+                // the fishery's painting has the sea on its left: mirror it when the sea lies to the right
+                val seaRight = b == A.FISHERY && g.map.hexNbrs[h].filter { !g.isLand(it) }.let { s2 -> s2.isNotEmpty() && s2.sumOf { g.map.hexX[it].toDouble() } / s2.size > g.map.hexX[h] }
+                if (b != A.NONE) buildingIcon(b, c, u * 0.9f, art, A.WORKERS[b] > 0 && !st[h], own, seaRight)
                 for (r in g.rivals) if (r.capital == h) {
                     if (r.alive) {
                         val img = own.capital; val k = u * 1.75f / maxOf(img.width, img.height)
@@ -436,14 +459,18 @@ private fun AegCost(cost: IntArray) {
 }
 
 @Composable
-private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean, onClick: () -> Unit) {
+private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean, art: Int? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         Modifier.demoTargetOf("b-" + label.substringBefore(' ').lowercase()).alpha(if (enabled) 1f else 0.45f).clip(shape).parchment(shape)
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) { RIconOf(icon, 18.dp); Spacer(Modifier.width(4.dp)); InkText(label, 13, bold = true) }
+        if (art != null) {
+            // a building: its picture, its name, then its cost
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(art), contentDescription = label, modifier = Modifier.height(40.dp).width(54.dp))
+            InkText(label, 12, bold = true)
+        } else Row(verticalAlignment = Alignment.CenterVertically) { RIconOf(icon, 18.dp); Spacer(Modifier.width(4.dp)); InkText(label, 13, bold = true) }
         if (cost != null && cost.any { it > 0 }) { Spacer(Modifier.height(1.dp)); AegCost(cost) }
     }
 }
@@ -464,7 +491,14 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
     val full = targets == null
     var topH by remember { mutableIntStateOf(0) }
     var botH by remember { mutableIntStateOf(0) }
+    var showStewardship by remember { mutableStateOf(false) }
     val density = LocalDensity.current
+
+    if (s.showFinalHistory) StewardshipHistoryDialog(g.sw, g.CARDS, g.won) { s.finishGame() }
+
+    if (s.myMove && (showStewardship || g.sw.choice >= 0)) {
+        StewardshipDialog(g.sw, g.CARDS, { showStewardship = false }, { s.act(AAct.Choose(it)) }, { kind, level -> s.act(AAct.Decree(kind, level)) })
+    }
 
     Box(Modifier.fillMaxSize()) {
         AegwaspellBoard(s, Modifier.fillMaxSize(), topH.toFloat(), botH.toFloat())
@@ -504,14 +538,15 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
             PromptRibbon(s.prompt, s.heraldBusy)
             Spacer(Modifier.height(5.dp))
             if (s.myMove) FlowRow(
-                Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+                Modifier.fillMaxWidth().heightIn(max = 220.dp).verticalScroll(rememberScrollState()).padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
+                AegButton("Stewardship", RI.SCROLL, null, true) { showStewardship = true }
                 val h = s.selected
                 val conn = g.connected()
                 if (h >= 0 && g.revealed[h] && g.isLand(h)) {
-                    for (t in g.buildable(h, conn)) AegButton(A.NAME[t], BUILD_ICON[t] ?: RI.VILLAGE, A.COST[t], g.can(A.COST[t])) { s.act(AAct.Build(h, t)) }
-                    if (g.building[h] == A.VILLAGE) AegButton("Town", RI.VILLAGE, A.COST[A.TOWN], g.can(A.COST[A.TOWN])) { s.act(AAct.Upgrade(h)) }
+                    for (t in g.buildable(h, conn)) AegButton(A.NAME[t], BUILD_ICON[t] ?: RI.VILLAGE, A.COST[t], g.can(A.COST[t]), BUILD_ART[t]) { s.act(AAct.Build(h, t)) }
+                    if (g.building[h] == A.VILLAGE) AegButton("Town", RI.VILLAGE, A.COST[A.TOWN], g.can(A.COST[A.TOWN]), BUILD_ART[A.TOWN]) { s.act(AAct.Upgrade(h)) }
                     if (g.building[h] == A.BARRACKS || (g.count(A.BARRACKS) > 0 && h == g.capital)) {
                         val room = g.soldierCap() - g.soldiers
                         AegButton("Train soldier", RI.KNIGHT, A.SOLDIER_COST, room > 0 && g.legal(AAct.Train(1))) { s.act(AAct.Train(1)) }
@@ -524,6 +559,8 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
                     val r = g.rivalLand[h]
                     if (r >= 0 && r in g.attackable(conn)) AegButton("Attack with ${g.soldiers}", RI.KNIGHT, null, g.soldiers > 0) { s.act(AAct.Attack(r)) }
                 }
+                if (h >= 0 && g.sw.canDemolish(h, conn)) AegButton("Demolish", RI.END, null, true) { s.act(AAct.Demolish(h)) }
+                if (h >= 0 && conn[h] && g.building[h] == A.FARM) AegButton(if (g.sw.fallow[h]) "Work farm" else "Rest farm", RI.SUN, null, true) { s.act(AAct.Fallow(h)) }
                 AegButton("End season", RI.END, null, true) { s.selected = -1; s.act(AAct.End) }
             } else Spacer(Modifier.height(44.dp))
             Spacer(Modifier.height(if (full) 10.dp else 4.dp))

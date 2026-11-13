@@ -56,5 +56,6 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     ASHFALL("Wisteria: Ashfall", "Adaptation", "A volcano reshapes the island: outrun the lava and claim the new land it builds.", GameCategory.STRATEGY),
     KREASHUN("Kreashun", "Siege", "Wall in tiles to capture them, then storm your rival's castles with knights.", GameCategory.STRATEGY),
     AEGWASPELL("Aegwaspell", "Stewardship", "Grow a civilization from a single port: build, feed your people, survive the seasons and take the rival capitals.", GameCategory.STRATEGY),
+    AEG_CONQUEST("Aegwaspell: Conquest", "Conquest & Stewardship", "Post soldiers and workers tile by tile, trade at your port, and hold your land while rival civilizations fight for every tile.", GameCategory.STRATEGY),
     VEILGUARD("Veilguard", "Deception", "Give secret orders, hide your Crown and bluff with decoys. Find the rival's Crown to win.", GameCategory.STRATEGY),
 }

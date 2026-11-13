@@ -16,6 +16,14 @@ sealed class AAct {
     data class Scout(val h: Int) : AAct()
     /** March every soldier against rival [r]. */
     data class Attack(val r: Int) : AAct()
+    /** Tear down the building on [h]: half its cost comes back, and the tile is rubble until next season. */
+    data class Demolish(val h: Int) : AAct()
+    /** Rest the farm on [h] (or work it again): resting soil recovers. */
+    data class Fallow(val h: Int) : AAct()
+    /** Set decree [kind] (rations, taxes, work hours) to [level]. */
+    data class Decree(val kind: Int, val level: Int) : AAct()
+    /** Answer the waiting event card: [opt] 0 or 1. */
+    data class Choose(val opt: Int) : AAct()
     object End : AAct()
 }
 
@@ -28,7 +36,7 @@ class Rival(val name: String, var capital: Int, var strength: Int, var alive: Bo
  * only build on tiles your roads reach. Feed, house and please your people; train soldiers and take the rival
  * capitals. Win with a great population once every rival has fallen; lose if your last person dies.
  */
-class Aegwaspell(val map: RealmGrid, val diff: Int) {
+class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand {
     companion object {
         // terrain
         const val SEA = 0; const val PLAINS = 1; const val FIELDS = 2; const val MEADOW = 3; const val FOREST = 4
@@ -44,22 +52,27 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
         const val FISHERY = 6; const val MILL = 7; const val QUARRY = 8; const val MINE = 9; const val GRANARY = 10; const val MARKET = 11
         const val BARRACKS = 12; const val TOWER = 13; const val TEMPLE = 14; const val COLOSSEUM = 15
         val NAME = listOf("", "Port", "Village", "Town", "Farm", "Ranch", "Fishery", "Lumber mill", "Quarry", "Mine", "Granary",
-            "Market", "Barracks", "Watchtower", "Temple", "Colosseum")
+            "Market", "Barracks", "Watchtower", "Temple", "Colosseum",
+            "Lighthouse", "Great Library", "Sky Temple", "Hanging Gardens", "Grand Citadel", "Royal Palace")
         val COST = arrayOf(
             IntArray(5), IntArray(5), intArrayOf(0, 3, 1, 0, 0), intArrayOf(0, 4, 4, 0, 2), intArrayOf(0, 2, 0, 0, 0), intArrayOf(0, 3, 0, 0, 0),
             intArrayOf(0, 2, 0, 0, 0), intArrayOf(0, 1, 1, 0, 0), intArrayOf(0, 2, 0, 0, 0), intArrayOf(0, 3, 2, 0, 0), intArrayOf(0, 3, 2, 0, 0),
             intArrayOf(0, 3, 3, 0, 0), intArrayOf(0, 4, 3, 0, 1), intArrayOf(0, 2, 2, 0, 0), intArrayOf(0, 0, 3, 0, 2), intArrayOf(0, 2, 5, 0, 3),
+            // the wonders
+            intArrayOf(0, 8, 12, 0, 8), intArrayOf(0, 10, 10, 0, 12), intArrayOf(0, 4, 16, 0, 10),
+            intArrayOf(0, 12, 8, 0, 8), intArrayOf(0, 8, 16, 4, 6), intArrayOf(0, 12, 12, 0, 15),
         )
         /** People each building needs at work before it produces. */
-        val WORKERS = intArrayOf(0, 0, 0, 0, 2, 2, 1, 2, 2, 3, 0, 2, 2, 1, 1, 2)
+        val WORKERS = intArrayOf(0, 0, 0, 0, 2, 2, 1, 2, 2, 3, 0, 2, 2, 1, 1, 2, 2, 3, 2, 3, 2, 2)
         /** People each building houses. */
-        val HOUSING = intArrayOf(0, 8, 6, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        val HOUSING = intArrayOf(0, 8, 6, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         val ALLOWED: Array<Set<Int>> = arrayOf(
             emptySet(), emptySet(),
             setOf(PLAINS, FIELDS, MEADOW, COAST, HILLS, DESERT), emptySet(),
             setOf(FIELDS, PLAINS), setOf(MEADOW, PLAINS), setOf(COAST), setOf(FOREST, SWAMP), setOf(HILLS, DESERT), setOf(MOUNTAIN, HILLS),
             setOf(PLAINS, FIELDS, MEADOW, COAST, HILLS, DESERT, FOREST), setOf(PLAINS, DESERT, COAST), setOf(PLAINS, MEADOW, HILLS, DESERT, FIELDS),
             setOf(PLAINS, FIELDS, MEADOW, COAST, HILLS, DESERT, FOREST, MOUNTAIN, SWAMP), setOf(PLAINS, HILLS, MOUNTAIN, MEADOW, DESERT), setOf(PLAINS, DESERT, MEADOW),
+            emptySet(), emptySet(), emptySet(), emptySet(), emptySet(), emptySet(),   // wonders: see AegStewardship.WONDER_LAND
         )
         val SOLDIER_COST = intArrayOf(2, 0, 0, 1, 1)
         val SCOUT_COST = intArrayOf(1, 0, 0, 0, 1)
@@ -92,21 +105,21 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
         }
     }
 
-    val H = map.HEXES
-    val terrain = IntArray(H)
-    val building = IntArray(H)
+    override val H = map.HEXES
+    override val terrain = IntArray(H)
+    override val building = IntArray(H)
     val revealed = BooleanArray(H)
     val ruins = BooleanArray(H)
     /** Which rival owns each tile (-1: none). */
     val rivalLand = IntArray(H) { -1 }
     /** Roads, on the edge between two touching tiles. */
     val road = BooleanArray(map.EDGES)
-    val res = IntArray(5)
-    var pop = 6
+    override val res = IntArray(5)
+    override var pop = 6
     var soldiers = 0
-    var happiness = 60
-    var season = 0
-    var capital = -1
+    override var happiness = 60
+    override var season = 0
+    override var capital = -1
     var lastHarvest = 0
     val lastDice = intArrayOf(0, 0)
     val rivals = ArrayList<Rival>()
@@ -115,7 +128,9 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
     var lastCard = -1
     var over = false
     var won = false
-    val log = ArrayList<String>()
+    override val log = ArrayList<String>()
+    /** Decrees, choices, soil, children, wonders and the chronicle. */
+    val sw = AegStewardship(this)
 
     val year get() = season / 4 + 1
     val seasonName get() = SEASON[season % 4]
@@ -173,8 +188,13 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
 
     fun isLand(h: Int) = terrain[h] != SEA
 
+    override fun armed() = soldiers
+    override fun loseSoldiers(n: Int) { soldiers = maxOf(0, soldiers - n) }
+    override fun prideRival() { rivals.filter { it.alive }.maxByOrNull { it.strength }?.let { it.strength += 2 } }
+    override fun sendHome(h: Int) {}
+
     /** Tiles the roads reach from the port. */
-    fun connected(): BooleanArray {
+    override fun connected(): BooleanArray {
         val c = BooleanArray(H); val q = ArrayDeque<Int>(); q += capital; c[capital] = true
         while (q.isNotEmpty()) { val h = q.removeFirst(); for (n in map.hexNbrs[h]) if (!c[n] && road[side(h, n)]) { c[n] = true; q += n } }
         return c
@@ -182,20 +202,20 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
 
     // ---------------------------------------------------------------- people and goods
 
-    fun housing() = (0 until H).sumOf { HOUSING[building[it]] }
+    fun housing() = sw.housing()
     fun jobs() = (0 until H).sumOf { WORKERS[building[it]] }
     fun count(type: Int) = (0 until H).count { building[it] == type }
-    fun soldierCap() = count(BARRACKS) * SOLDIERS_PER_BARRACKS
+    fun soldierCap() = count(BARRACKS) * SOLDIERS_PER_BARRACKS + if (sw.active(AegStewardship.CITADEL)) 8 else 0
     fun foodCap() = 30 + 40 * count(GRANARY) + 10 * count(TOWN)
     fun can(cost: IntArray) = (0..4).all { res[it] >= cost[it] }
     private fun pay(cost: IntArray) { for (r in 0..4) res[r] -= cost[r] }
     fun roadCost(b: Int) = when (terrain[b]) { MOUNTAIN, SWAMP -> intArrayOf(0, 2, 1, 0, 0); HILLS -> intArrayOf(0, 1, 1, 0, 0); else -> intArrayOf(0, 1, 0, 0, 0) }
 
     /** Buildings that get workers, food first: the rest stand idle. */
-    fun staffed(): BooleanArray {
+    override fun staffed(): BooleanArray {
         val out = BooleanArray(H)
         var free = pop
-        val order = (0 until H).filter { WORKERS[building[it]] > 0 }.sortedBy { when (building[it]) { FARM, RANCH, FISHERY -> 0; MILL, QUARRY -> 1; else -> 2 } }
+        val order = (0 until H).filter { WORKERS[building[it]] > 0 && !sw.fallow[it] }.sortedBy { when (building[it]) { FARM, RANCH, FISHERY -> 0; MILL, QUARRY -> 1; else -> 2 } }
         for (h in order) { val w = WORKERS[building[h]]; if (free >= w) { out[h] = true; free -= w } }
         return out
     }
@@ -204,8 +224,9 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
     fun production(harvest: Float = 1f, cold: Boolean = winter): IntArray {
         val out = IntArray(5)
         val st = staffed()
+        val wa = sw.activeWonders(st)
         for (h in 0 until H) {
-            if (WORKERS[building[h]] > 0 && !st[h]) continue
+            if (WORKERS[building[h]] > 0 && !st[h] || sw.resting(h)) continue
             when (building[h]) {
                 PORT -> { out[FOOD] += 3; out[GOLD] += 1 }
                 FARM -> if (!cold) out[FOOD] += ((if (terrain[h] == FIELDS) 7 else 5) * harvest).roundToInt()
@@ -216,19 +237,20 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
                 MINE -> { out[ORE] += 2; out[GOLD] += 1 }
                 MARKET -> out[GOLD] += 3
             }
+            sw.adjust(h, out, cold, wa)
         }
         return out
     }
 
-    fun eats() = pop + soldiers
+    fun eats() = sw.mouths() + soldiers
     /** Food the land makes in an average season of the year, winter included. */
     fun yearlyFood() = (3 * production(1f, false)[FOOD] + production(1f, true)[FOOD]) / 4
 
     // ---------------------------------------------------------------- actions
 
     fun buildable(h: Int, conn: BooleanArray = connected()): List<Int> {
-        if (!conn[h] || building[h] != NONE || rivalLand[h] >= 0) return emptyList()
-        return (VILLAGE..COLOSSEUM).filter { it != TOWN && terrain[h] in ALLOWED[it] }
+        if (!conn[h] || building[h] != NONE || rivalLand[h] >= 0 || sw.rubble[h] > 0) return emptyList()
+        return (VILLAGE..COLOSSEUM).filter { it != TOWN && terrain[h] in ALLOWED[it] } + sw.wondersFor(h)
     }
 
     fun roadTargets(a: Int, conn: BooleanArray = connected()): List<Int> =
@@ -242,8 +264,14 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
 
     fun legal(a: AAct): Boolean {
         if (over) return false
+        // a waiting card must be answered first (decrees may still change)
+        if (sw.choice >= 0 && a !is AAct.Choose && a !is AAct.Decree) return false
         val conn = connected()
         return when (a) {
+            is AAct.Demolish -> sw.canDemolish(a.h, conn)
+            is AAct.Fallow -> conn[a.h] && building[a.h] == FARM
+            is AAct.Decree -> a.kind in 0..2 && a.level in 0..(if (a.kind == AegStewardship.HOURS) 1 else 2) && sw.decree[a.kind] != a.level
+            is AAct.Choose -> sw.choice >= 0 && a.opt in 0..1
             is AAct.Build -> a.type in buildable(a.h, conn) && can(COST[a.type])
             is AAct.Road -> a.b in roadTargets(a.a, conn) && can(roadCost(a.b))
             is AAct.Upgrade -> building[a.h] == VILLAGE && can(COST[TOWN])
@@ -257,7 +285,7 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
     fun apply(a: AAct, rng: Random) {
         if (!legal(a)) return
         when (a) {
-            is AAct.Build -> { pay(COST[a.type]); building[a.h] = a.type; log += "You built a ${NAME[a.type].lowercase()} on the ${TERRAIN[terrain[a.h]]}" }
+            is AAct.Build -> { pay(COST[a.type]); building[a.h] = a.type; sw.started(a.h); log += "You built a ${NAME[a.type].lowercase()} on the ${TERRAIN[terrain[a.h]]}" }
             is AAct.Road -> {
                 pay(roadCost(a.b)); road[side(a.a, a.b)] = true
                 reveal(a.b, if (terrain[a.b] == HILLS || terrain[a.b] == MOUNTAIN) 2 else 1)
@@ -268,6 +296,10 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
             is AAct.Train -> { for (r in 0..4) res[r] -= SOLDIER_COST[r] * a.n; pop -= a.n; soldiers += a.n; log += "${a.n} of your people took up arms" }
             is AAct.Scout -> { pay(SCOUT_COST); reveal(a.h, 2); log += "Your scouts mapped the land beyond the ${TERRAIN[terrain[a.h]]}" }
             is AAct.Attack -> attack(a.r, rng)
+            is AAct.Demolish -> sw.demolish(a.h, COST[building[a.h]])
+            is AAct.Fallow -> sw.setFallow(a.h)
+            is AAct.Decree -> sw.setDecree(a.kind, a.level)
+            is AAct.Choose -> sw.choose(a.opt, rng)
             AAct.End -> endSeason(rng)
         }
         checkEnd()
@@ -307,14 +339,17 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
 
     private fun endSeason(rng: Random) {
         // the harvest die
-        val dice = roll(rng); lastHarvest = dice
-        val harvest = when { dice <= 4 -> 0.5f; dice >= 10 -> 1.5f; else -> 1f }
+        sw.growUp()
+        val wa = sw.activeWonders()
+        val dice = sw.harvestDice(rng, lastDice); lastHarvest = dice
+        val harvest = sw.harvestShare(dice, wa)
         val got = production(harvest)
         for (r in 0..4) res[r] += got[r]
         log += "$seasonName harvest: rolled $dice" + when { winter -> " (winter: the fields lie fallow)"; dice <= 4 -> ", a poor year"; dice >= 10 -> ", a bountiful year!"; else -> "" }
         // temples and the colosseum
         // happiness settles toward a middling mood; temples lift it
         happiness += (if (happiness > 55) -2 else if (happiness < 45) 2 else 0) + 4 * count(TEMPLE).coerceAtMost(3)
+        sw.seasonMoodAndGold(wa)
         val st = staffed()
         for (h in 0 until H) if (building[h] == COLOSSEUM && st[h]) { val d = rng.nextInt(1, 7); if (d >= 4) { happiness += 12; log += "Games at the colosseum (rolled $d): your people cheer" } }
         // the event card
@@ -330,7 +365,7 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
         }
         if (res[FOOD] > foodCap()) { log += "${res[FOOD] - foodCap()} food spoiled: build granaries to store more"; res[FOOD] = foodCap() }
         // homes
-        val room = housing() - pop
+        val room = housing() - sw.people()
         if (room < 0) { val left = maxOf(1, -room / 3); pop -= left; happiness -= 4; log += "$left homeless people left your lands" }
         // growth
         happiness = happiness.coerceIn(0, 100)
@@ -340,13 +375,16 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
             happiness < 30 && pop > 0 -> { val gone = maxOf(1, pop / 20); pop -= gone; log += "Unhappy, $gone people left" }
             // children are born only while the land can feed one more mouth through the year
             surplus && room > 0 && yearlyFood() > eats() -> {
-                val born = minOf(room, maxOf(1, (pop * (if (happiness >= 60) 0.15 else 0.08)).roundToInt()))
-                pop += born; if (born > 0) log += "$born children were born"
+                val bf = sw.birthFactor(wa)
+                val born = if (bf <= 0.0) 0 else minOf(room, maxOf(1, (pop * (if (happiness >= 60) 0.15 else 0.08) * bf).roundToInt()))
+                sw.kids[0] += born; if (born > 0) log += "$born children were born"
             }
         }
         // rivals grow
         for (rv in rivals) if (rv.alive && season % RIVAL_GROWS[diff] == 0) rv.strength++
+        sw.endOfSeason(staffed())
         season++
+        if (season % 4 == 0) sw.record(year - 1)
     }
 
     private fun revolt(rng: Random) {
@@ -370,6 +408,8 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
     private fun drawCard(rng: Random) {
         if (deck.isEmpty()) newDeck(rng)
         val c = deck.removeAt(deck.lastIndex); lastCard = c
+        // some cards ask you to choose: you answer at the start of your next turn
+        if (c in AegStewardship.CHOICES) { sw.choice = c; log += "${CARDS[c]}: a choice awaits you"; return }
         val text: String = when (c) {
             0 -> { res[FOOD] += 4 + count(FARM) * 2; "Bountiful season: +${4 + count(FARM) * 2} food" }
             1 -> { val lost = minOf(res[FOOD], 3 + count(FARM) * 2); res[FOOD] -= lost; "Drought: the fields withered, $lost food lost" }
@@ -406,7 +446,7 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
         val rv = rivals.filter { it.alive }.maxByOrNull { it.strength } ?: return "Raiders were seen, but no rival is left to send them"
         if (year < 3) return "Rival scouts were seen at the edge of your lands"
         val name = rv.name.replaceFirstChar { it.uppercase() }
-        val def = soldiers + 2 * count(TOWER) + roll(rng)
+        val def = soldiers + 2 * count(TOWER) + roll(rng) + if (sw.active(AegStewardship.CITADEL)) 6 else 0
         val atk = rv.strength / 3 + roll(rng)
         return if (def >= atk) { rv.strength = maxOf(1, rv.strength - 1); "Raid: $name attacked, and your defenders threw them back" }
         else {
@@ -425,8 +465,8 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
 
     private fun checkEnd() {
         if (over) return
-        if (pop <= 0) { pop = 0; over = true; won = false; log += "Your last people are gone. Your civilization has fallen"; return }
-        if (rivalsLeft == 0 && pop >= goal) { over = true; won = true; log += "Every rival has fallen, and $pop people call your land home. Your civilization endures!" }
+        if (pop <= 0) { pop = 0; over = true; won = false; log += "Your last people are gone. Your civilization has fallen"; sw.record(year); return }
+        if (rivalsLeft == 0 && sw.people() >= goal) { over = true; won = true; log += "Every rival has fallen, and ${sw.people()} people call your land home. Your civilization endures!"; sw.record(year) }
     }
 
     // ---------------------------------------------------------------- save / copy
@@ -440,6 +480,7 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
         put(intArrayOf(pop, soldiers, happiness, season, capital, lastHarvest, lastDice[0], lastDice[1], lastCard, if (over) 1 else 0, if (won) 1 else 0))
         put(rivals.flatMap { listOf(it.capital, it.strength, if (it.alive) 1 else 0) }.toIntArray())
         put(deck.toIntArray())
+        put(sw.state())
         return o.toIntArray()
     }
 
@@ -454,6 +495,7 @@ class Aegwaspell(val map: RealmGrid, val diff: Int) {
         lastCard = m[8]; over = m[9] == 1; won = m[10] == 1
         rivals.clear(); get().toList().chunked(3).forEachIndexed { k, (c, st, al) -> rivals += Rival(RIVAL_NAMES[k], c, st, al == 1) }
         deck.clear(); deck += get().toList()
+        if (i < s.size) sw.load(get())
     }
 
     fun copy(): Aegwaspell = fromState(state())
@@ -480,6 +522,7 @@ object AegwaspellAi {
         }
         val foodNet = g.yearlyFood() - g.eats()
         val workers = g.jobs()
+        g.sw.aiOrder(foodNet, g.foodCap())?.let { o -> return when (o[0]) { 0 -> AAct.Choose(o[1]); 1 -> AAct.Decree(o[1], o[2]); else -> AAct.Fallow(o[1]) } }
         // 1. food first
         if (foodNet < 2 || g.res[A.FOOD] < g.eats()) build(listOf(A.FARM, A.FISHERY, A.RANCH))?.let { return it }
         // 2. homes, when people are near the roof and there are jobs to fill
@@ -506,6 +549,8 @@ object AegwaspellAi {
         }
         // 6. march when strong enough
         for (r in g.attackable(conn)) if (g.soldiers >= g.rivals[r].strength + 2) return AAct.Attack(r)
+        // 6b. a wonder, once there's a town and stone to spare
+        if (g.count(A.TOWN) > 0 && g.res[A.STONE] >= 12 && g.res[A.GOLD] >= 8) build(AegStewardship.WONDERS.toList())?.let { return it }
         // 7. more food and homes ahead of need
         if (foodNet < 6 && workers < g.pop + 2) build(listOf(A.FARM, A.FISHERY, A.RANCH))?.let { return it }
         if (g.housing() - g.pop < 4) build(listOf(A.VILLAGE))?.let { return it }

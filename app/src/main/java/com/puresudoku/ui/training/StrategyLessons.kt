@@ -86,6 +86,21 @@ object StrategyLessons {
             listOf("Strike the weakest rival first.", "Keep a food reserve before you march."),
             listOf("Rivals grow every year: don't wait too long.", "Grow towns for the final push in people."),
         )),
+        GameKind.AEG_CONQUEST to Course(listOf(
+            "Aegwaspell, but you place every worker and soldier yourself. A building makes nothing until its whole crew is at work.",
+            "Train soldiers at a barracks into your reserve, then post them on tiles your roads reach. A tile's power is its soldiers, +3 for a watchtower, +2 for a port or capital.",
+            "Attack a rival tile from a guarded tile beside it: soldiers plus a die against power plus a die. Win and the tile is yours.",
+            "Your port trades 4 of one good for 1 of another, as often as you like.",
+            "From Hard up, rivals spread, guard their borders and attack each other and you. If your port falls, you lose.",
+            "Win with enough people once every rival capital has fallen.",
+        ), listOf(
+            listOf("Fill every farm's crew first.", "Build a lumber mill early."),
+            listOf("Trade spare timber for stone at the port.", "Keep a few idle hands for new buildings."),
+            listOf("Guard the tiles that touch a rival.", "A watchtower on the border holds well."),
+            listOf("Attack only with a clear lead in power.", "Mines and markets pay for soldiers."),
+            listOf("Let rivals wear each other down.", "Keep soldiers on your port."),
+            listOf("Take the weakest capital first.", "Grow towns for the final push in people."),
+        )),
         GameKind.KREASHUN to Course(listOf(
             "Roll each turn: tiles with that number pay every village on their corners, towers twice. Tiles you hold pay your corner buildings double.",
             "Walls go on sides joined to your villages, walls or tiles. Wall every side of a tile, coast included, to capture it: whoever builds the closing wall takes it.",
@@ -104,7 +119,7 @@ object StrategyLessons {
         )),
         GameKind.VEILGUARD to Course(listOf(
             "Each round both players give up to three secret orders. They're revealed and carried out together: Crowns move, walls rise, spies report, armies march, claims land, then knights and buildings appear.",
-            "Your Crown hides on one of your tiles. Take the rival's Crown to win; lose yours and you lose. There is no points goal: points only break a stalemate after 60 rounds. A Crown order slips your Crown to a touching tile you hold.",
+            "Your Crown hides on one of your tiles. Take the rival's Crown to win; lose yours and you lose. There is no points goal and no round limit. A Crown order slips your Crown to a touching tile you hold.",
             "Armies are banners. The rival sees how many, never which are knights and which are cheap decoys. Scout a tile to see the truth, and whether the Crown is there.",
             "An attack wins only if its knights outnumber the defenders, plus 1 for a tower, 2 for a castle, 2 if fortified and 2 through a wall.",
             "The Veilnight Thief steps toward the leader every round. On any land he stands on he steals, and every 5, 4 or 3 rounds (by level) he takes 1 health from the building there (village 1, tower 2, castle 3); the damage never heals, and at 0 the land is lost. Walls can't stop him. Every knight that fights him dies, but kill him and you win the Thief's Dagger (+1 point) and his service.",

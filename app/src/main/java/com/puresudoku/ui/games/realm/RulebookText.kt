@@ -2,6 +2,7 @@ package com.puresudoku.ui.games.realm
 
 import androidx.compose.ui.graphics.Color
 import com.puresudoku.core.GameKind
+import com.puresudoku.core.board.AegConquest
 import com.puresudoku.core.board.Kreashun
 import com.puresudoku.core.board.Realm
 import com.puresudoku.core.board.Veilguard
@@ -448,6 +449,12 @@ internal object RulebookText {
             "Growth" to "With food to spare, room in your homes and a good mood, children are born.",
         )
 
+        ch("Stewardship")
+        p("Open Stewardship to set rations, taxes and work hours, see the next harvest forecast and read your chronicle. Event cards may ask you to choose an answer before taking another action.")
+        p("Select a farm to rest it and restore tired soil. Neighbouring buildings can improve production, and towns need a nearby market or temple to house their full population. Children eat but become workers only after a year.")
+        p("Select a building to demolish it: half its construction cost is returned, the crew goes home, and rubble prevents rebuilding until the next season. Tearing down homes lowers mood. The port cannot be demolished.")
+        p("After building a town, you may construct each wonder once on suitable land. Wonders require workers and take four working seasons. Their benefits include better food production, mood, defence and housing. Buildings may also require seasonal gold upkeep.")
+
         ch("The Mood")
         drop("Happiness runs from 0 to 100 and settles toward the middle. Temples, festivals and the colosseum lift it; famine, homelessness and unrest lower it.")
         bl("**60 or more:** your people grow quickly.", "**Under 30:** people leave.", "**Under 10:** they revolt and burn a building.")
@@ -463,6 +470,48 @@ internal object RulebookText {
             "A temple early keeps your people from leaving.",
             "Watchtowers and a few soldiers stop raids and bandits.",
             "Strike a rival while it's still weak: they grow every year.")
+    }
+
+    fun aegConquest(): Book = book(com.puresudoku.R.drawable.rt_logo_aeg_conquest, Color(0xFF8E1B24),
+        "Land is not given. It is held, tile by tile, by the people you put there.") {
+        ch("Conquest and Stewardship")
+        drop("Aegwaspell: Conquest is Aegwaspell where **nothing is left to chance but the dice of battle**. You choose who works each building and which tiles your soldiers guard, and every tile is won or lost on the strength standing on it.")
+        warn("Winning and losing", "**You win** when every rival capital has fallen **and** your people number the goal. **You lose** when your last person dies, or when a rival **storms your port**.")
+        table(listOf("Level", "Rivals", "People to win", "Rivals attack"),
+            listOf("Easy", "2", "35", "No"), listOf("Medium", "2", "45", "No"), listOf("Hard", "3", "55", "Yes"),
+            listOf("Expert", "3", "65", "Yes"), listOf("Master", "4", "75", "Yes"), listOf("Extreme", "4", "90", "Yes"))
+
+        ch("Workers")
+        drop("A new building takes what idle people it can. After that, **you place every worker**: select a building and tap **Add worker** or **Remove worker**. A building makes nothing until its whole crew is there.")
+        p("The badge on each building shows its crew, such as **1/2**: green when full, amber when short. The top banner shows how many people stand idle.")
+
+        ch("Soldiers")
+        drop("Train soldiers at a barracks: 2 food, 1 ore and 1 gold each, taken from your idle people. They join your **reserve**.")
+        p("Select any tile on your roads and tap **Post soldier** to station one there, or **Recall soldier** to bring one back to the reserve.")
+        p("**Tile power** flies on a banner over each tile: blue for yours, red for a rival's. It is the soldiers on the tile, **+3** for a watchtower, **+2** for your port and **+2** for a rival capital.")
+
+        ch("Battle, Tile by Tile")
+        steps(
+            "Choose" to "Select a rival tile that touches one of your guarded tiles, and tap Attack.",
+            "Roll" to "Your soldiers on that tile plus a die, against the tile's power plus a die.",
+            "Win" to "The tile is yours: survivors march in and a road joins it. Take a capital and that civilization falls; its people join you and its gold is yours.",
+            "Lose" to "Half your attackers fall, and you wound theirs.",
+        )
+        p("**From Hard up, the rivals fight too.** They post soldiers on their borders, spread into free land, and attack any tile, yours or another rival's, where they outnumber the defence. Rivals can conquer each other. A burned building's crew is lost, and if your port falls, so do you.")
+
+        ch("The Port Market")
+        drop("While your port stands, ships call. Select your port, pick a good to give and then a good to get: **${AegConquest.TRADE_RATE} of one for 1 of another**, as often as you like.")
+
+        ch("Everything Else")
+        p("Roads, buildings, stewardship, the seasons, event choices and the mood work as in Aegwaspell. Use Stewardship for decrees, forecasts and your chronicle; select a farm to rest it or a building to demolish it. Towns unlock wonders. Your port also brings in 1 timber a season.")
+
+        ch("Advice from the Old Generals")
+        bl("Build a lumber mill early, and fill every farm's crew before anything else.",
+            "Guard the tiles that touch a rival, not the ones deep inside your land.",
+            "A watchtower on the border is worth three soldiers.",
+            "Trade your surplus at the port for the stone and ore that barracks and mines need.",
+            "Watch the red banners: rivals strike where they outnumber you by two or more.",
+            "Let rivals wear each other down, then take the weaker capital.")
     }
 
     fun eiseriaAshfall(): Book = book(com.puresudoku.R.drawable.rt_logo_eiseria_ash, Color(0xFFB23A12),
@@ -731,7 +780,7 @@ internal object RulebookText {
         ch("The Hidden War")
         drop("Veilguard is a game of secrets on the Eiseria islands. Each round you and the rival give **secret orders**, then turn them face up and carry them out **at the same time**. Nobody sees what the other plans until it happens.")
         warn("Take the Crown", "Each player hides a **Crown** on one of their tiles. **Take the tile holding the rival's Crown and you win at once.** There is no points goal. If you lose all your land, you lose too.")
-        p("Each tile you hold scores its level: **a village 1 point, a tower 2, a castle 3**. Points only matter in a stalemate: if neither Crown has fallen after **60 rounds**, the points leader wins.")
+        p("Each tile you hold scores its level: **a village 1 point, a tower 2, a castle 3**. There is **no round limit**: the war goes on until a Crown falls. Points decide who the Veilnight Thief hunts.")
         table(listOf("Level", "Thief steals", "Thief wrecks"),
             listOf("Easy", "1 a round", "every 5 rounds"), listOf("Medium", "1 a round", "every 5 rounds"), listOf("Hard", "2 a round", "every 4 rounds"),
             listOf("Expert", "2 a round", "every 4 rounds"), listOf("Master", "2 a round", "every 3 rounds"), listOf("Extreme", "3 a round", "every 3 rounds"))

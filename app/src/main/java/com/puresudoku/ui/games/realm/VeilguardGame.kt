@@ -101,13 +101,13 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
 
     private val lvl get() = VeilguardAi.level(aiDifficulty)
 
-    override val middleStat get() = MiddleStat.Counter("Round", "${g.round}/${Veilguard.ROUND_CAP}")
-    override val progress: Float get() = (g.round / Veilguard.ROUND_CAP.toFloat()).coerceAtMost(0.95f)
+    override val middleStat get() = MiddleStat.Counter("Round", "${g.round}")
+    override val progress: Float get() = (g.tiles(0).toFloat() / (g.tiles(0) + g.tiles(1)).coerceAtLeast(1)).coerceAtMost(0.95f)
     override val wonTitle get() = if (g.endReason == 1) "You found the Crown!" else "Veilguard is yours!"
     override val lostTitle get() = if (g.endReason == 1) "Your Crown was taken" else "The rival rules Veilguard"
     override val lostMessage get() = when (g.endReason) {
         2 -> "You lost your last land. "
-        3 -> "Neither Crown fell in ${Veilguard.ROUND_CAP} rounds, and the rival led on points. "
+        3 -> "The rival led on points when the old round limit ran out. "
         else -> ""
     } + "This game's save slot has been cleared."
 

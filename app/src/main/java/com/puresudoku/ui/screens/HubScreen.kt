@@ -224,6 +224,7 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
                 Text(
                     g.kind.skill.uppercase(), fontSize = 12.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 16.sp,
                 )
             }
             return@Surface
