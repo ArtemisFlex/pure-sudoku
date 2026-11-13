@@ -174,6 +174,7 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
         for (h in 0 until H) if (hexDist(h, capital) <= 2) revealed[h] = true
         res[FOOD] = 20; res[TIMBER] = 10; res[STONE] = 4; res[ORE] = 0; res[GOLD] = 5
         newDeck(rng)
+        sw.seedForecast(rng)
     }
 
     fun hexDist(a: Int, b: Int): Int {
@@ -271,7 +272,7 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
             is AAct.Demolish -> sw.canDemolish(a.h, conn)
             is AAct.Fallow -> conn[a.h] && building[a.h] == FARM
             is AAct.Decree -> a.kind in 0..2 && a.level in 0..(if (a.kind == AegStewardship.HOURS) 1 else 2) && sw.decree[a.kind] != a.level
-            is AAct.Choose -> sw.choice >= 0 && a.opt in 0..1
+            is AAct.Choose -> sw.canChoose(a.opt)
             is AAct.Build -> a.type in buildable(a.h, conn) && can(COST[a.type])
             is AAct.Road -> a.b in roadTargets(a.a, conn) && can(roadCost(a.b))
             is AAct.Upgrade -> building[a.h] == VILLAGE && can(COST[TOWN])

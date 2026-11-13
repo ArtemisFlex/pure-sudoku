@@ -563,10 +563,9 @@ private fun DrawScope.rbCastle(p: Offset, u: Float, color: Color) {
     tower(p, u * 0.9f, color)
 }
 
-private fun DrawScope.wallLine(a: Offset, b: Offset, u: Float, owner: Int) {
+private fun DrawScope.wallLine(art: RealmArt, a: Offset, b: Offset, u: Float, owner: Int) {
     val d = (b - a) * 0.1f
-    drawLine(Color(0xFF2B2B2B), a + d, b - d, u * 0.2f, StrokeCap.Round)
-    drawLine(Color(0xFFB8B2A6), a + d, b - d, u * 0.14f, StrokeCap.Round)
+    strategyWall(art, a + d, b - d, u, if (owner == 0) YOU else RIVAL)
     drawLine(if (owner == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
 }
 
@@ -585,7 +584,7 @@ private fun DrawScope.pieceIcon(p: Piece, art: RealmArt, knight: ImageBitmap) {
         Piece.VILLAGE -> pic(art.houseYou, c, s * 0.8f)
         Piece.TOWER -> tower(c + Offset(0f, s * 0.1f), s * 1.6f, YOU)
         Piece.ROAD -> roadPiece(art, c + Offset(-s * 0.55f, s * 0.3f), c + Offset(s * 0.55f, -s * 0.3f), 0)
-        Piece.WALL -> wallLine(c + Offset(-s * 0.5f, s * 0.3f), c + Offset(s * 0.5f, -s * 0.3f), s * 0.9f, 0)
+        Piece.WALL -> wallLine(art, c + Offset(-s * 0.5f, s * 0.3f), c + Offset(s * 0.5f, -s * 0.3f), s * 0.9f, 0)
         Piece.CASTLE -> rbCastle(c + Offset(0f, s * 0.12f), s * 1.5f, YOU)
         Piece.KNIGHT -> pic(knight, c, s * 0.62f)
         Piece.SPELL -> actionIcon(RI.SCROLL, c, s * 0.85f)
@@ -695,7 +694,7 @@ internal fun DrawScope.drawScene(sc: Scene, art: RealmArt, knight: ImageBitmap, 
         val (a, b) = sideEnds(s.h, s.k)
         when (s.kind) {
             0 -> roadPiece(art, a, b, s.owner)
-            1 -> wallLine(a, b, u, s.owner)
+            1 -> wallLine(art, a, b, u, s.owner)
             2 -> {
                 val d = (b - a) * 0.1f
                 drawLine(Color(0xFF3E2723), a + d, b - d, u * 0.14f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.07f, u * 0.09f)))

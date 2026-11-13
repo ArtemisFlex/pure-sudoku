@@ -68,6 +68,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -1169,7 +1171,7 @@ internal val sqrt3 = kotlin.math.sqrt(3f)
 internal class RealmArt(
     val island: ImageBitmap, val fog: List<ImageBitmap>, val byTerrain: List<List<ImageBitmap>>,
     val dragon: ImageBitmap, val houseYou: ImageBitmap, val houseRival: ImageBitmap, val roadYou: ImageBitmap, val roadRival: ImageBitmap,
-    val pinAny: ImageBitmap, val pins: List<ImageBitmap>, val icons: List<ImageBitmap>,
+    val pinAny: ImageBitmap, val pins: List<ImageBitmap>, val icons: List<ImageBitmap>, val stoneWall: ImageBitmap, val stoneRoad: ImageBitmap,
 ) {
     /** Each tile shows its own painting: the n-th tile of a terrain gets that terrain's n-th variant. */
     fun tile(g: Realm, h: Int): ImageBitmap {
@@ -1199,7 +1201,33 @@ internal fun rememberRealmArt(): RealmArt {
         img(com.puresudoku.R.drawable.rt_pin_any),
         listOf(img(com.puresudoku.R.drawable.rt_pin_timber), img(com.puresudoku.R.drawable.rt_pin_ore), img(com.puresudoku.R.drawable.rt_pin_grain), img(com.puresudoku.R.drawable.rt_pin_beasts), img(com.puresudoku.R.drawable.rt_pin_mana)),
         listOf(img(com.puresudoku.R.drawable.rt_ic_timber), img(com.puresudoku.R.drawable.rt_ic_ore), img(com.puresudoku.R.drawable.rt_ic_grain), img(com.puresudoku.R.drawable.rt_ic_beasts), img(com.puresudoku.R.drawable.rt_ic_mana)),
+        img(com.puresudoku.R.drawable.rt_wall_neutral), img(com.puresudoku.R.drawable.rt_road_neutral),
     )
+}
+
+/** Painted wall segment tinted to show ownership; callers also draw their owner marker. */
+internal fun DrawScope.strategyWall(art: RealmArt, a: Offset, b: Offset, u: Float, owner: Color) {
+    val d = b - a
+    val len = d.getDistance()
+    if (len < 1f) return
+    val mid = (a + b) / 2f
+    val height = u * 0.24f
+    rotate(Math.toDegrees(kotlin.math.atan2(d.y.toDouble(), d.x.toDouble())).toFloat(), mid) {
+        drawImage(art.stoneWall, dstOffset = IntOffset((mid.x - len / 2).toInt(), (mid.y - height / 2).toInt()),
+            dstSize = IntSize(maxOf(1, len.toInt()), maxOf(1, height.toInt())),
+            colorFilter = ColorFilter.tint(owner.copy(alpha = 0.65f), BlendMode.SrcAtop), filterQuality = FilterQuality.Medium)
+    }
+}
+
+/** Painted road connecting land tiles. */
+internal fun DrawScope.strategyRoad(art: RealmArt, a: Offset, b: Offset, u: Float) {
+    val d = b - a; val len = d.getDistance()
+    if (len < 1f) return
+    val mid = (a + b) / 2f; val height = u * 0.2f
+    rotate(Math.toDegrees(kotlin.math.atan2(d.y.toDouble(), d.x.toDouble())).toFloat(), mid) {
+        drawImage(art.stoneRoad, dstOffset = IntOffset((mid.x - len / 2).toInt(), (mid.y - height / 2).toInt()),
+            dstSize = IntSize(maxOf(1, len.toInt()), maxOf(1, height.toInt())), filterQuality = FilterQuality.Medium)
+    }
 }
 
 /** A navy round button with a gold ring, matching the painted info and pause buttons. */

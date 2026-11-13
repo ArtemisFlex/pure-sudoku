@@ -483,8 +483,7 @@ fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier 
                         continue
                     }
                     val o = g.wall[e]; if (o < 0) continue
-                    drawLine(Color(0xFF2B2B2B), a + d, b - d, u * 0.2f, StrokeCap.Round)
-                    drawLine(Color(0xFFB8B2A6), a + d, b - d, u * 0.14f, StrokeCap.Round)
+                    strategyWall(art, a + d, b - d, u, if (o == 0) YOU else RIVAL)
                     drawLine(if (o == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
                 }
                 for (e in eT) {

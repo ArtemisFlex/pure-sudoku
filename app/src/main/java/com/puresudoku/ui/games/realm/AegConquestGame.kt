@@ -62,6 +62,7 @@ import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameKind
 import com.puresudoku.core.board.CAct
 import com.puresudoku.core.board.AegConquest
+import com.puresudoku.core.board.AegStewardship
 import com.puresudoku.core.board.AegConquestAi
 import com.puresudoku.ui.components.GameIcon
 import com.puresudoku.ui.games.GameDef
@@ -89,9 +90,9 @@ class AegConquestSession(difficulty: Difficulty, val g: AegConquest) : DuelSessi
     var selected by mutableIntStateOf(-1)
     var events by mutableStateOf<List<String>>(emptyList()); private set
 
-    override val middleStat get() = MiddleStat.Counter("People", "${g.pop}/${g.goal}")
+    override val middleStat get() = MiddleStat.Counter("People", "${g.sw.people()}/${g.goal}")
     override val progress: Float get() =
-        ((g.pop.toFloat() / g.goal).coerceAtMost(1f) * 0.5f + (g.rivals.count { !it.alive }.toFloat() / g.rivals.size.coerceAtLeast(1)) * 0.5f).coerceAtMost(0.95f)
+        ((g.sw.people().toFloat() / g.goal).coerceAtMost(1f) * 0.5f + (g.rivals.count { !it.alive }.toFloat() / g.rivals.size.coerceAtLeast(1)) * 0.5f).coerceAtMost(0.95f)
     override val wonTitle get() = "Your civilization endures!"
     override val lostTitle get() = "Your people are gone"
     override val lostMessage get() = "Your civilization lasted until ${AC.SEASON[(g.season) % 4].lowercase()} of year ${g.year}. This game's save slot has been cleared."
@@ -123,7 +124,7 @@ class AegConquestSession(difficulty: Difficulty, val g: AegConquest) : DuelSessi
         announce(card, cardText.substringAfter(": ", cardText), 2600, true, RI.SCROLL)
         val rest = logs.filter { it != harvest && it != cardText && !it.startsWith("Games at") }
         if (rest.isNotEmpty()) announce("${AC.SEASON[(g.season + 3) % 4]} ends", rest.joinToString("\n"), 2200, true, RI.CROWN)
-        announce("${g.seasonName}, year ${g.year}", "${g.pop} people · ${g.res[AC.FOOD]} food · happiness ${g.happiness}", 1300, true, RI.SUN)
+        announce("${g.seasonName}, year ${g.year}", "${g.sw.people()} people · ${g.res[AC.FOOD]} food · happiness ${g.happiness}", 1300, true, RI.SUN)
     }
 
     fun finishGame() {
@@ -176,7 +177,7 @@ class AegConquestSession(difficulty: Difficulty, val g: AegConquest) : DuelSessi
                 is CAct.Attack -> Triple("Attack the ringed rival tile from your tile beside it: your soldiers outnumber theirs.", a.to, -1)
                 is CAct.Assign -> Triple("Put an idle person to work at the ringed building.", a.h, -1)
                 is CAct.Guard -> Triple("Post a soldier from your reserve on the ringed tile.", a.h, -1)
-                is CAct.Trade -> Triple("Trade at your port: ${AC.TRADE_RATE} ${AC.RES[a.give]} for 1 ${AC.RES[a.get]}.", snap.capital, -1)
+                is CAct.Trade -> Triple("Trade at your port: ${snap.tradeRate()} ${AC.RES[a.give]} for 1 ${AC.RES[a.get]}.", snap.capital, -1)
                 is CAct.Choose -> Triple("Answer the event card.", -1, -1)
                 is CAct.Decree -> Triple("Change your stewardship decree.", -1, -1)
                 is CAct.Fallow -> Triple("Change whether the ringed farm rests.", a.h, -1)
@@ -276,6 +277,12 @@ private fun rememberAegConquestArt(): AegConquestArt {
         AC.TOWER to img(com.puresudoku.R.drawable.rt_ag_tower),
         AC.TEMPLE to img(com.puresudoku.R.drawable.rt_ag_temple),
         AC.COLOSSEUM to img(com.puresudoku.R.drawable.rt_ag_colosseum),
+        AegStewardship.LIGHTHOUSE to img(com.puresudoku.R.drawable.rt_wonder_lighthouse),
+        AegStewardship.LIBRARY to img(com.puresudoku.R.drawable.rt_wonder_library),
+        AegStewardship.SKY_TEMPLE to img(com.puresudoku.R.drawable.rt_wonder_sky_temple),
+        AegStewardship.GARDENS to img(com.puresudoku.R.drawable.rt_wonder_gardens),
+        AegStewardship.CITADEL to img(com.puresudoku.R.drawable.rt_wonder_citadel),
+        AegStewardship.PALACE to img(com.puresudoku.R.drawable.rt_wonder_palace),
     ), img(com.puresudoku.R.drawable.rt_ag_capital))
 }
 
@@ -316,6 +323,12 @@ private val BUILD_ART = mapOf(
     AC.MILL to com.puresudoku.R.drawable.rt_ag_mill, AC.QUARRY to com.puresudoku.R.drawable.rt_ag_quarry, AC.MINE to com.puresudoku.R.drawable.rt_ag_mine,
     AC.GRANARY to com.puresudoku.R.drawable.rt_ag_granary, AC.MARKET to com.puresudoku.R.drawable.rt_ag_market, AC.BARRACKS to com.puresudoku.R.drawable.rt_ag_barracks,
     AC.TOWER to com.puresudoku.R.drawable.rt_ag_tower, AC.TEMPLE to com.puresudoku.R.drawable.rt_ag_temple, AC.COLOSSEUM to com.puresudoku.R.drawable.rt_ag_colosseum,
+    AegStewardship.LIGHTHOUSE to com.puresudoku.R.drawable.rt_wonder_lighthouse,
+    AegStewardship.LIBRARY to com.puresudoku.R.drawable.rt_wonder_library,
+    AegStewardship.SKY_TEMPLE to com.puresudoku.R.drawable.rt_wonder_sky_temple,
+    AegStewardship.GARDENS to com.puresudoku.R.drawable.rt_wonder_gardens,
+    AegStewardship.CITADEL to com.puresudoku.R.drawable.rt_wonder_citadel,
+    AegStewardship.PALACE to com.puresudoku.R.drawable.rt_wonder_palace,
 )
 
 /** A building: its painted piece, or an icon until the painting arrives. [flip] mirrors it (a fishery turns to face the sea). */
@@ -399,8 +412,7 @@ fun AegConquestBoard(s: AegConquestSession, modifier: Modifier = Modifier, fitTo
             // roads, from tile to tile
             for (h in vis) for (n in g.map.hexNbrs[h]) if (n > h && g.road[g.side(h, n)]) {
                 val a = at(h); val b = at(n)
-                drawLine(Color(0xFF3A2410), a, b, u * 0.2f, StrokeCap.Round)
-                drawLine(Color(0xFFC9A46A), a, b, u * 0.13f, StrokeCap.Round)
+                strategyRoad(art, a, b, u)
             }
             // ruins, buildings and rival capitals
             for (h in vis) {
@@ -454,7 +466,7 @@ private val RES_ICON = listOf(RI.SUN, RI.ROAD, RI.EARTH, RI.TOWER, RI.CROWN)
 private fun AegRes(r: Int, n: Int, modifier: Modifier = Modifier) {
     Column(modifier.parchment(PANEL).padding(vertical = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            when (r) { AC.FOOD -> ResImg(2, 20.dp); AC.TIMBER -> ResImg(0, 20.dp); AC.ORE -> ResImg(1, 20.dp); else -> RIconOf(RES_ICON[r], 18.dp) }
+            when (r) { AC.FOOD -> ResImg(2, 20.dp); AC.TIMBER -> ResImg(0, 20.dp); AC.ORE -> ResImg(1, 20.dp); AC.STONE -> RIcon(20.dp) { c, sz -> actionIcon(RI.EARTH, c, sz) }; else -> RIconOf(RES_ICON[r], 18.dp) }
             Spacer(Modifier.width(3.dp))
             InkText("$n", 16, bold = true)
         }
@@ -467,7 +479,7 @@ private fun AegCost(cost: IntArray) {
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
         for (r in 0..4) if (cost[r] > 0) {
             InkText("${cost[r]}", 11, bold = true)
-            when (r) { AC.FOOD -> ResImg(2, 12.dp); AC.TIMBER -> ResImg(0, 12.dp); AC.ORE -> ResImg(1, 12.dp); else -> RIconOf(RES_ICON[r], 11.dp) }
+            when (r) { AC.FOOD -> ResImg(2, 12.dp); AC.TIMBER -> ResImg(0, 12.dp); AC.ORE -> ResImg(1, 12.dp); AC.STONE -> RIcon(12.dp) { c, sz -> actionIcon(RI.EARTH, c, sz) }; else -> RIconOf(RES_ICON[r], 11.dp) }
         }
     }
 }
@@ -522,7 +534,7 @@ fun AegConquestUi(s: AegConquestSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner("${g.pop}/${g.housing()}", "${g.pop}", YOU, true, "${g.idle()} idle · ${g.soldiers} reserve · ${g.allSoldiers()} soldiers", Modifier.weight(1f))
+                PlayerBanner("${g.sw.people()}/${g.housing()}", "${g.sw.people()}", YOU, true, "${g.idle()} idle · ${g.soldiers} reserve · ${g.allSoldiers()} soldiers", Modifier.weight(1f))
                 PlayerBanner("Mood ${g.happiness}", "${g.happiness}", if (g.happiness >= 60) Color(0xFF43A047) else if (g.happiness >= 30) GOLD else RIVAL, false,
                     "${g.rivalsLeft} of ${g.rivals.size} rivals left", Modifier.weight(1f))
             }
@@ -552,8 +564,10 @@ fun AegConquestUi(s: AegConquestSession, targets: DemoTargets?) {
             PromptRibbon(s.prompt, s.heraldBusy)
             Spacer(Modifier.height(5.dp))
             if (s.myMove && s.selected >= 0 && s.selected == g.capital && g.canTrade()) { PortTrade(s); Spacer(Modifier.height(5.dp)) }
+            val actionsScroll = rememberScrollState()
+            if (s.myMove && (actionsScroll.canScrollForward || actionsScroll.canScrollBackward)) InkText("Swipe for more actions", 10, color = INK_SOFT)
             if (s.myMove) FlowRow(
-                Modifier.fillMaxWidth().heightIn(max = 220.dp).verticalScroll(rememberScrollState()).padding(horizontal = 6.dp),
+                Modifier.fillMaxWidth().heightIn(max = 220.dp).verticalScroll(actionsScroll).padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 AegButton("Stewardship", RI.SCROLL, null, true) { showStewardship = true }
@@ -600,16 +614,16 @@ private fun PortTrade(s: AegConquestSession) {
     val g = s.g
     var give by remember { mutableIntStateOf(-1) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 10.dp, vertical = 5.dp)) {
-        InkText(if (give < 0) "Port trade: give ${AC.TRADE_RATE} of…" else "…for 1 of:", 12, bold = true)
+        InkText(if (give < 0) "Port trade: give ${g.tradeRate()} of…" else "…for 1 of:", 12, bold = true)
         Spacer(Modifier.height(3.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (r in 0..4) {
-                val on = if (give < 0) g.res[r] >= AC.TRADE_RATE else true
+                val on = if (give < 0) g.res[r] >= g.tradeRate() else true
                 val shape = RoundedCornerShape(10.dp)
                 Box(Modifier.weight(1f).demoTargetOf("t-$r").alpha(if (on) 1f else 0.4f).clip(shape)
                     .then(Modifier.background(if (r == give) GOLD.copy(alpha = 0.35f) else Color.Transparent, shape))
                     .then(if (on) Modifier.clickable {
-                        if (give < 0) give = r else if (r == give) give = -1 else { s.act(CAct.Trade(give, r)); if (g.res[give] < AC.TRADE_RATE) give = -1 }
+                        if (give < 0) give = r else if (r == give) give = -1 else { s.act(CAct.Trade(give, r)); if (g.res[give] < g.tradeRate()) give = -1 }
                     } else Modifier).padding(vertical = 3.dp), contentAlignment = Alignment.Center) { AegRes(r, g.res[r]) }
             }
         }

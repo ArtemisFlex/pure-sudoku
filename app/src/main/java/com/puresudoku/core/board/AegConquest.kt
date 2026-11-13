@@ -191,6 +191,7 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
         res[FOOD] = 20; res[TIMBER] = 10; res[STONE] = 4; res[ORE] = 0; res[GOLD] = 5
         guard[capital] = 1
         newDeck(rng)
+        sw.seedForecast(rng)
     }
 
     fun hexDist(a: Int, b: Int): Int {
@@ -260,11 +261,10 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
     private fun staff(h: Int) { workers[h] += minOf(idle(), WORKERS[building[h]] - workers[h]).coerceAtLeast(0) }
 
     /** A tile's defence against an attack: its soldiers, plus a watchtower on it and your port's walls. */
-    fun defence(h: Int) = guard[h] + when (building[h]) { TOWER -> 3; PORT -> 2; TOWN -> 2; VILLAGE -> 1; else -> 0 } + (if (citadel) (if (h == capital) 4 else 1) else 0)
+    fun defence(h: Int) = guard[h] + when (building[h]) { TOWER -> 3; PORT -> 2; TOWN -> 2; VILLAGE -> 1; else -> 0 } + (if (sw.active(AegStewardship.CITADEL)) (if (h == capital) 4 else 1) else 0)
     /** Whether the Grand Citadel stands and is manned: refreshed after every order. */
-    var citadel = false
-    /** The port trades at the agreed four-to-one rate. */
-    fun tradeRate() = TRADE_RATE
+    /** The completed and staffed Lighthouse improves the port rate. */
+    fun tradeRate() = if (sw.active(AegStewardship.LIGHTHOUSE)) 3 else TRADE_RATE
     fun rivalDefence(h: Int) = rivalGuard[h] + (if (rivals.getOrNull(rivalLand[h])?.capital == h) 2 else 0)
 
     /** What each staffed building makes this season, before the harvest die. */
@@ -318,7 +318,7 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
             is CAct.Demolish -> sw.canDemolish(a.h, conn)
             is CAct.Fallow -> conn[a.h] && building[a.h] == FARM
             is CAct.Decree -> a.kind in 0..2 && a.level in 0..(if (a.kind == AegStewardship.HOURS) 1 else 2) && sw.decree[a.kind] != a.level
-            is CAct.Choose -> sw.choice >= 0 && a.opt in 0..1
+            is CAct.Choose -> sw.canChoose(a.opt)
             is CAct.Build -> a.type in buildable(a.h, conn) && can(COST[a.type])
             is CAct.Road -> a.b in roadTargets(a.a, conn) && can(roadCost(a.b))
             is CAct.Upgrade -> building[a.h] == VILLAGE && can(COST[TOWN])
@@ -357,7 +357,6 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
             CAct.End -> endSeason(rng)
         }
         checkEnd()
-        citadel = sw.active(AegStewardship.CITADEL)
     }
 
     private fun reveal(c: Int, r: Int) { for (h in 0 until H) if (hexDist(h, c) <= r) revealed[h] = true }
@@ -689,14 +688,14 @@ object AegConquestAi {
         val workers = g.jobs()
         g.sw.aiOrder(foodNet, g.foodCap())?.let { o -> return when (o[0]) { 0 -> CAct.Choose(o[1]); 1 -> CAct.Decree(o[1], o[2]); else -> CAct.Fallow(o[1]) } }
         // 0. idle people go to work, food first
-        if (g.idle() > 0) (0 until g.H).filter { conn[it] && g.workers[it] < A.WORKERS[g.building[it]] }
+        if (g.idle() > 0) (0 until g.H).filter { g.legal(CAct.Assign(it, 1)) }
             .minByOrNull { when (g.building[it]) { A.FARM, A.RANCH, A.FISHERY -> 0; A.MILL, A.QUARRY -> 1; else -> 2 } }?.let { return CAct.Assign(it, 1) }
         // 0b. the port: turn a large surplus into the good it has least of
         if (g.canTrade()) {
             val rich = (0..4).maxByOrNull { g.res[it] - if (it == A.FOOD) g.eats() * 2 else 0 }!!
             val poor = (1..4).minByOrNull { g.res[it] }!!
             val spare = g.res[rich] - (if (rich == A.FOOD) g.eats() * 2 else 8)
-            if (rich != poor && spare >= A.TRADE_RATE && g.res[poor] < 6) return CAct.Trade(rich, poor)
+            if (rich != poor && spare >= g.tradeRate() && g.res[poor] < 6) return CAct.Trade(rich, poor)
         }
         // 1. food first, and a lumber mill early so timber never runs dry
         if (foodNet < 2 || g.res[A.FOOD] < g.eats()) build(listOf(A.FARM, A.FISHERY, A.RANCH))?.let { return it }

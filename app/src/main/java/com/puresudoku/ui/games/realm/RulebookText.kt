@@ -500,7 +500,7 @@ internal object RulebookText {
         p("**From Hard up, the rivals fight too.** They post soldiers on their borders, spread into free land, and attack any tile, yours or another rival's, where they outnumber the defence. Rivals can conquer each other. A burned building's crew is lost, and if your port falls, so do you.")
 
         ch("The Port Market")
-        drop("While your port stands, ships call. Select your port, pick a good to give and then a good to get: **${AegConquest.TRADE_RATE} of one for 1 of another**, as often as you like.")
+        drop("While your port stands, ships call. Select your port, pick a good to give and then a good to get: **${AegConquest.TRADE_RATE} of one for 1 of another**, as often as you like. A completed, staffed Lighthouse improves this to **3 for 1**.")
 
         ch("Everything Else")
         p("Roads, buildings, stewardship, the seasons, event choices and the mood work as in Aegwaspell. Use Stewardship for decrees, forecasts and your chronicle; select a farm to rest it or a building to demolish it. Towns unlock wonders. Your port also brings in 1 timber a season.")

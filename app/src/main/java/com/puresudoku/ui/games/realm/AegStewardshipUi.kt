@@ -25,16 +25,13 @@ internal fun StewardshipDialog(sw: AegStewardship, cards: List<String>, onClose:
                 if (choice != null) {
                     Text(choice[1])
                     for (option in 0..1) {
-                        TextButton(onClick = { choose(option) }, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { choose(option) }, enabled = sw.canChoose(option), modifier = Modifier.fillMaxWidth()) {
                             Text("${choice[option + 2]} — ${sw.hint(option)}")
                         }
                     }
                 } else {
                     Text("Next harvest: ${sw.forecastText()}")
                     Text("People: ${sw.people()} (${sw.children()} children)")
-                    Text("Chronicle")
-                    val history = sw.history(cards)
-                    if (history.isEmpty()) Text("Your first year is still being written.") else history.forEach { Text(it) }
                     for (kind in 0..2) {
                         Text("${AegStewardship.DECREE[kind]}: ${AegStewardship.LEVELS[kind][sw.decree[kind]]}")
                         Text(AegStewardship.LEVEL_HINT[kind][sw.decree[kind]])
@@ -45,6 +42,13 @@ internal fun StewardshipDialog(sw: AegStewardship, cards: List<String>, onClose:
                                 }
                             }
                         }
+                    }
+                    Text("Chronicle")
+                    val history = sw.history(cards)
+                    if (history.isEmpty()) Text("Your first year is still being written.") else history.forEach { Text(it) }
+                    Text("Wonders")
+                    for (w in AegStewardship.WONDER_NAME.indices) {
+                        Text("${AegStewardship.WONDER_NAME[w]}: ${AegStewardship.WONDER_EFFECT[w]}")
                     }
                 }
             }

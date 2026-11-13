@@ -249,6 +249,19 @@ internal fun ArtImg(id: Int, size: Dp, modifier: Modifier = Modifier) =
 /** An action icon: painted where the art has one (knight, dragon), drawn otherwise. */
 @Composable
 internal fun RIconOf(icon: RI, size: Dp, tint: Color = INK, modifier: Modifier = Modifier) = when (icon) {
+    RI.BOOK -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_book, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.END -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_end, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.EARTH -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_earth, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.MOON -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_moon, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.FIRE -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_fire, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.CROWN -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_crown, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.SHIELD -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_shield, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.LEY -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_ley, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.SUN -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_sun, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.TRADE -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_trade, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.SCROLL -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_scroll, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.DICE -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_dice, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
+    RI.RELIC -> if (tint == INK) ArtImg(com.puresudoku.R.drawable.rt_ui_relic, size, modifier) else RIcon(size, modifier) { c, sz -> actionIcon(icon, c, sz, tint) }
     RI.KNIGHT -> ArtImg(com.puresudoku.R.drawable.rt_knight, size, modifier)
     RI.DRAGON -> ArtImg(com.puresudoku.R.drawable.rt_dragon, size * 1.25f, modifier)
     RI.BLACK_KNIGHT -> ArtImg(com.puresudoku.R.drawable.rt_black_knight, size * 1.15f, modifier)

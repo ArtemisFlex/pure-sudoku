@@ -51,7 +51,7 @@ class AegStewardship(private val g: AegLand) {
             setOf(K.FIELDS, K.MEADOW, K.PLAINS), setOf(K.HILLS, K.MOUNTAIN), setOf(K.PLAINS, K.FIELDS, K.MEADOW, K.COAST),
         )
         val WONDER_EFFECT = listOf(
-            "Every fishery makes 2 more food and your port 2 more" , "Poor harvests count as fair, and +2 mood each season",
+            "Every fishery makes 2 more food and your port 2 more; Conquest port trades improve to 3:1" , "Poor harvests count as fair, and +2 mood each season",
             "+5 mood each season, and plague kills no one", "Every farm makes 2 more food, and more children are born",
             "Stronger defences against raids, and room for 8 more soldiers", "Homes for 20, double taxes, and +3 mood each season",
         )
@@ -121,10 +121,14 @@ class AegStewardship(private val g: AegLand) {
     fun wondersDone() = (0 until g.H).count { isWonder(g.building[it]) && works[it] == 0 }
 
     /** A town needs a temple or a market within two tiles to house all 15. */
-    fun townServed(h: Int) = (0 until g.H).any { o -> g.building[o] in setOf(K.TEMPLE, K.MARKET, SKY_TEMPLE) && hexDist(o, h) <= 2 }
+    fun townServed(h: Int): Boolean {
+        val staffed = g.staffed()
+        return (0 until g.H).any { o -> (g.building[o] == K.TEMPLE || g.building[o] == K.MARKET ||
+            (g.building[o] == SKY_TEMPLE && works[o] == 0 && staffed[o])) && hexDist(o, h) <= 2 }
+    }
     fun housingOf(h: Int): Int = when (val b = g.building[h]) {
         K.TOWN -> if (townServed(h)) 15 else 8
-        PALACE -> if (works[h] == 0) 20 else 0
+        PALACE -> if (works[h] == 0 && g.staffed()[h]) 20 else 0
         else -> if (b < K.HOUSING.size) K.HOUSING[b] else 0
     }
     fun housing() = (0 until g.H).sumOf { housingOf(it) }
@@ -134,6 +138,11 @@ class AegStewardship(private val g: AegLand) {
         return (kotlin.math.abs(dq) + kotlin.math.abs(dr) + kotlin.math.abs(dq + dr)) / 2
     }
     private fun beside(h: Int, vararg types: Int) = g.map.hexNbrs[h].any { g.building[it] in types }
+    private fun besideTemple(h: Int): Boolean {
+        val staffed = g.staffed()
+        return g.map.hexNbrs[h].any { g.building[it] == K.TEMPLE ||
+            (g.building[it] == SKY_TEMPLE && works[it] == 0 && staffed[it]) }
+    }
 
     /** Wonders you may start here: each once, and only once you have a town. */
     fun wondersFor(h: Int): List<Int> =
@@ -178,7 +187,7 @@ class AegStewardship(private val g: AegLand) {
         if (b == K.QUARRY && beside(h, K.MINE) || b == K.MINE && beside(h, K.QUARRY)) n += "+1 by the ${if (b == K.MINE) "quarry" else "mine"}"
         if (b == K.MARKET && beside(h, K.TOWN)) n += "+2 by the town"
         if (b == K.TOWN && !townServed(h)) n += "needs a temple or market nearby to house 15"
-        if ((b == K.VILLAGE || b == K.TOWN) && beside(h, K.TEMPLE, SKY_TEMPLE)) n += "+1 mood by the temple"
+        if ((b == K.VILLAGE || b == K.TOWN) && besideTemple(h)) n += "+1 mood by the temple"
         return n
     }
 
@@ -191,14 +200,19 @@ class AegStewardship(private val g: AegLand) {
 
     /** Next season's harvest, as words. */
     fun forecastText(): String {
-        if ((g.season + 1) % 4 == 3) return "winter next"
+        if (g.season % 4 == 3) return "winter harvest"
         val d = forecast.sum()
         return if (d == 0) "unknown" else when { d <= 4 -> "poor ($d)"; d >= 10 -> "bountiful ($d)"; else -> "fair ($d)" }
     }
 
+    /** Roll the first forecast at the start of a new game. */
+    fun seedForecast(rng: Random) {
+        if (forecast[0] == 0) { forecast[0] = rng.nextInt(1, 7); forecast[1] = rng.nextInt(1, 7) }
+    }
+
     /** Takes this season's harvest from the forecast and rolls the next one. Returns the dice total. */
     fun harvestDice(rng: Random, lastDice: IntArray): Int {
-        if (forecast[0] == 0) { forecast[0] = rng.nextInt(1, 7); forecast[1] = rng.nextInt(1, 7) }
+        seedForecast(rng)
         lastDice[0] = forecast[0]; lastDice[1] = forecast[1]
         forecast[0] = rng.nextInt(1, 7); forecast[1] = rng.nextInt(1, 7)
         return lastDice[0] + lastDice[1]
@@ -209,7 +223,7 @@ class AegStewardship(private val g: AegLand) {
     /** The season's mood from decrees, temples beside homes and wonders; taxes in, upkeep out. */
     fun seasonMoodAndGold(wa: BooleanArray) {
         var mood = when (decree[RATIONS]) { 0 -> -5; 2 -> 4; else -> 0 } + when (decree[TAXES]) { 0 -> 2; 2 -> -5; else -> 0 } + (if (decree[HOURS] == 1) -4 else 0)
-        mood += minOf(4, (0 until g.H).count { (g.building[it] == K.VILLAGE || g.building[it] == K.TOWN) && beside(it, K.TEMPLE, SKY_TEMPLE) })
+        mood += minOf(4, (0 until g.H).count { (g.building[it] == K.VILLAGE || g.building[it] == K.TOWN) && besideTemple(it) })
         if (wa[SKY_TEMPLE - LIGHTHOUSE]) mood += 5
         if (wa[PALACE - LIGHTHOUSE]) mood += 3
         if (wa[LIBRARY - LIGHTHOUSE]) mood += 2
@@ -303,29 +317,36 @@ class AegStewardship(private val g: AegLand) {
 
     private fun migrants() = 2 + g.diff / 2 + 2
 
+    /** Choices that promise a fixed cost require the full amount. */
+    fun canChoose(opt: Int): Boolean = opt in 0..1 && choice >= 0 && when {
+        choice == 6 && opt == 0 -> g.res[K.FOOD] >= 6
+        choice == 18 && opt == 0 -> g.res[K.GOLD] >= 4
+        else -> true
+    }
+
     /** What each answer to the waiting card will do, in a few words. */
     fun hint(opt: Int): String {
         val sky = active(SKY_TEMPLE)
         return when (choice) {
             2 -> if (opt == 0) "+${migrants()} people (homes for ${maxOf(0, housing() - people())})" else "+4 timber, +2 stone"
-            3 -> if (sky) "the Sky Temple keeps everyone safe" else if (opt == 0) "about ${g.pop / 30} die, mood −6" else "about ${if ((0 until g.H).any { g.building[it] == K.TEMPLE }) g.pop / 24 else maxOf(1, g.pop / 12)} die"
+            3 -> if (sky) (if (opt == 0) "no deaths, mood −6" else "no deaths") else if (opt == 0) "about ${g.pop / 30} die, mood −6" else "about ${if ((0 until g.H).any { g.building[it] == K.TEMPLE }) g.pop / 24 else maxOf(1, g.pop / 12)} die"
             4 -> if (opt == 0) "lose ${g.res[K.GOLD] / 4} gold" else if (g.armed() >= 3) "your ${g.armed()} soldiers win: +3 gold" else "a die plus your soldiers must beat 5"
-            5 -> if (opt == 0) "4 food for ${3 + 3 * (0 until g.H).count { g.building[it] == K.MARKET }} gold" else "5 gold for 4 timber and 4 stone"
-            6 -> if (opt == 0) "−6 food, +12 mood" else "mood −2"
+            5 -> if (opt == 0) { val f = minOf(4, g.res[K.FOOD]); "$f food for ${(3 + 3 * (0 until g.H).count { g.building[it] == K.MARKET }) * f / 4} gold" } else "5 gold for 4 timber and 4 stone"
+            6 -> if (opt == 0) (if (canChoose(0)) "−6 food, +12 mood" else "needs 6 food") else "mood −2"
             13 -> if (opt == 0) (if (g.res[K.GOLD] >= 4) "−4 gold" else "you can't: mood −8") else "the strongest rival grows; mood +4"
-            18 -> if (opt == 0) "−4 gold, +4 mood" else if (g.armed() >= 3) "mood −3: your soldiers keep the peace" else "mood −8"
+            18 -> if (opt == 0) (if (canChoose(0)) "−4 gold, +4 mood" else "needs 4 gold") else if (g.armed() >= 3) "mood −3: your soldiers keep the peace" else "mood −8"
             else -> ""
         }
     }
 
     /** Answers the waiting card. */
     fun choose(opt: Int, rng: Random) {
-        val c = choice; if (c < 0) return
+        val c = choice; if (!canChoose(opt)) return
         choice = -1; yearNote = 1000 + c * 2 + opt
         val r = g.res; val sky = active(SKY_TEMPLE)
         val temple = (0 until g.H).any { g.building[it] == K.TEMPLE }
         g.log += when (c) {
-            2 -> if (opt == 0) { g.pop += migrants(); "Migrants: ${migrants()} newcomers joined your people" } else { r[K.TIMBER] += 4; r[K.STONE] += 2; "Migrants worked a season for you: +4 timber, +2 stone" }
+            2 -> if (opt == 0) { val arrivals = migrants(); g.pop += arrivals; "Migrants: $arrivals newcomers joined your people" } else { r[K.TIMBER] += 4; r[K.STONE] += 2; "Migrants worked a season for you: +4 timber, +2 stone" }
             3 -> {
                 val n = if (sky) 0 else if (opt == 0) g.pop / 30 else if (temple) g.pop / 24 else maxOf(1, g.pop / 12)
                 g.pop -= n; if (opt == 0) g.happiness -= 6

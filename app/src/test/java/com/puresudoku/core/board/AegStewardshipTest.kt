@@ -48,7 +48,8 @@ class AegStewardshipTest {
 
     @Test fun wonderConstructionRequiresFourStaffedSeasons() {
         val game = AegConquest.newGame(Difficulty.EASY, Random(20))
-        val h = game.capital
+        val h = game.map.hexNbrs[game.capital].first { game.rivalLand[it] < 0 }
+        game.road[game.side(game.capital, h)] = true
         game.building[h] = AegStewardship.LIGHTHOUSE
         game.sw.started(h)
         repeat(2) { game.sw.endOfSeason(BooleanArray(game.H)) }
@@ -59,6 +60,15 @@ class AegStewardshipTest {
         game.sw.endOfSeason(staffed)
         assertEquals(0, game.sw.works[h])
         assertEquals(1, game.sw.wondersDone())
+        assertEquals(4, game.tradeRate()) // Finished but unstaffed.
+        game.workers[h] = AegConquest.WORKERS[AegStewardship.LIGHTHOUSE]
+        assertEquals(3, game.tradeRate())
+        game.res[AegConquest.FOOD] = 3
+        game.res[AegConquest.GOLD] = 0
+        assertTrue(game.legal(CAct.Trade(AegConquest.FOOD, AegConquest.GOLD)))
+        game.apply(CAct.Trade(AegConquest.FOOD, AegConquest.GOLD), Random(1))
+        assertEquals(0, game.res[AegConquest.FOOD])
+        assertEquals(1, game.res[AegConquest.GOLD])
         assertEquals(0, AegConquest.fromState(game.state()).sw.works[h])
     }
 }

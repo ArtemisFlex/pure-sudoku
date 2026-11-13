@@ -654,8 +654,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             for (e in 0 until m.EDGES) {
                 val o = g.wall[e]; if (o < 0) continue
                 val a = geo.vert(m.edgeA[e]); val b = geo.vert(m.edgeB[e]); val d = (b - a) * 0.08f
-                drawLine(Color(0xFF2B2B2B), a + d, b - d, u * 0.2f, StrokeCap.Round)
-                drawLine(Color(0xFFB8B2A6), a + d, b - d, u * 0.14f, StrokeCap.Round)
+                strategyWall(art, a + d, b - d, u, if (o == 0) YOU else RIVAL)
                 drawLine(if (o == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
             }
             if (s.mode == WisteriaSession.Mode.SIEGE) for (e in g.siegeTargets(0)) drawCircle(Color(0xFFFF7043).copy(alpha = pulse), u * 0.22f, geo.edgeMid(e), style = Stroke(u * 0.06f))

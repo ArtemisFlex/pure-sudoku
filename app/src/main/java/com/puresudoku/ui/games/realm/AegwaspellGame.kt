@@ -61,6 +61,7 @@ import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameKind
 import com.puresudoku.core.board.AAct
 import com.puresudoku.core.board.Aegwaspell
+import com.puresudoku.core.board.AegStewardship
 import com.puresudoku.core.board.AegwaspellAi
 import com.puresudoku.ui.components.GameIcon
 import com.puresudoku.ui.games.GameDef
@@ -88,9 +89,9 @@ class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession
     var selected by mutableIntStateOf(-1)
     var events by mutableStateOf<List<String>>(emptyList()); private set
 
-    override val middleStat get() = MiddleStat.Counter("People", "${g.pop}/${g.goal}")
+    override val middleStat get() = MiddleStat.Counter("People", "${g.sw.people()}/${g.goal}")
     override val progress: Float get() =
-        ((g.pop.toFloat() / g.goal).coerceAtMost(1f) * 0.5f + (g.rivals.count { !it.alive }.toFloat() / g.rivals.size.coerceAtLeast(1)) * 0.5f).coerceAtMost(0.95f)
+        ((g.sw.people().toFloat() / g.goal).coerceAtMost(1f) * 0.5f + (g.rivals.count { !it.alive }.toFloat() / g.rivals.size.coerceAtLeast(1)) * 0.5f).coerceAtMost(0.95f)
     override val wonTitle get() = "Your civilization endures!"
     override val lostTitle get() = "Your people are gone"
     override val lostMessage get() = "Your civilization lasted until ${A.SEASON[(g.season) % 4].lowercase()} of year ${g.year}. This game's save slot has been cleared."
@@ -122,7 +123,7 @@ class AegwaspellSession(difficulty: Difficulty, val g: Aegwaspell) : DuelSession
         announce(card, cardText.substringAfter(": ", cardText), 2600, true, RI.SCROLL)
         val rest = logs.filter { it != harvest && it != cardText && !it.startsWith("Games at") }
         if (rest.isNotEmpty()) announce("${A.SEASON[(g.season + 3) % 4]} ends", rest.joinToString("\n"), 2200, true, RI.CROWN)
-        announce("${g.seasonName}, year ${g.year}", "${g.pop} people · ${g.res[A.FOOD]} food · happiness ${g.happiness}", 1300, true, RI.SUN)
+        announce("${g.seasonName}, year ${g.year}", "${g.sw.people()} people · ${g.res[A.FOOD]} food · happiness ${g.happiness}", 1300, true, RI.SUN)
     }
 
     fun finishGame() {
@@ -270,6 +271,12 @@ private fun rememberAegArt(): AegArt {
         A.TOWER to img(com.puresudoku.R.drawable.rt_ag_tower),
         A.TEMPLE to img(com.puresudoku.R.drawable.rt_ag_temple),
         A.COLOSSEUM to img(com.puresudoku.R.drawable.rt_ag_colosseum),
+        AegStewardship.LIGHTHOUSE to img(com.puresudoku.R.drawable.rt_wonder_lighthouse),
+        AegStewardship.LIBRARY to img(com.puresudoku.R.drawable.rt_wonder_library),
+        AegStewardship.SKY_TEMPLE to img(com.puresudoku.R.drawable.rt_wonder_sky_temple),
+        AegStewardship.GARDENS to img(com.puresudoku.R.drawable.rt_wonder_gardens),
+        AegStewardship.CITADEL to img(com.puresudoku.R.drawable.rt_wonder_citadel),
+        AegStewardship.PALACE to img(com.puresudoku.R.drawable.rt_wonder_palace),
     ), img(com.puresudoku.R.drawable.rt_ag_capital))
 }
 
@@ -310,6 +317,12 @@ private val BUILD_ART = mapOf(
     A.MILL to com.puresudoku.R.drawable.rt_ag_mill, A.QUARRY to com.puresudoku.R.drawable.rt_ag_quarry, A.MINE to com.puresudoku.R.drawable.rt_ag_mine,
     A.GRANARY to com.puresudoku.R.drawable.rt_ag_granary, A.MARKET to com.puresudoku.R.drawable.rt_ag_market, A.BARRACKS to com.puresudoku.R.drawable.rt_ag_barracks,
     A.TOWER to com.puresudoku.R.drawable.rt_ag_tower, A.TEMPLE to com.puresudoku.R.drawable.rt_ag_temple, A.COLOSSEUM to com.puresudoku.R.drawable.rt_ag_colosseum,
+    AegStewardship.LIGHTHOUSE to com.puresudoku.R.drawable.rt_wonder_lighthouse,
+    AegStewardship.LIBRARY to com.puresudoku.R.drawable.rt_wonder_library,
+    AegStewardship.SKY_TEMPLE to com.puresudoku.R.drawable.rt_wonder_sky_temple,
+    AegStewardship.GARDENS to com.puresudoku.R.drawable.rt_wonder_gardens,
+    AegStewardship.CITADEL to com.puresudoku.R.drawable.rt_wonder_citadel,
+    AegStewardship.PALACE to com.puresudoku.R.drawable.rt_wonder_palace,
 )
 
 /** A building: its painted piece, or an icon until the painting arrives. [flip] mirrors it (a fishery turns to face the sea). */
@@ -393,8 +406,7 @@ fun AegwaspellBoard(s: AegwaspellSession, modifier: Modifier = Modifier, fitTop:
             // roads, from tile to tile
             for (h in vis) for (n in g.map.hexNbrs[h]) if (n > h && g.road[g.side(h, n)]) {
                 val a = at(h); val b = at(n)
-                drawLine(Color(0xFF3A2410), a, b, u * 0.2f, StrokeCap.Round)
-                drawLine(Color(0xFFC9A46A), a, b, u * 0.13f, StrokeCap.Round)
+                strategyRoad(art, a, b, u)
             }
             // ruins, buildings and rival capitals
             for (h in vis) {
@@ -440,7 +452,7 @@ private val RES_ICON = listOf(RI.SUN, RI.ROAD, RI.EARTH, RI.TOWER, RI.CROWN)
 private fun AegRes(r: Int, n: Int, modifier: Modifier = Modifier) {
     Column(modifier.parchment(PANEL).padding(vertical = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            when (r) { A.FOOD -> ResImg(2, 20.dp); A.TIMBER -> ResImg(0, 20.dp); A.ORE -> ResImg(1, 20.dp); else -> RIconOf(RES_ICON[r], 18.dp) }
+            when (r) { A.FOOD -> ResImg(2, 20.dp); A.TIMBER -> ResImg(0, 20.dp); A.ORE -> ResImg(1, 20.dp); A.STONE -> RIcon(20.dp) { c, sz -> actionIcon(RI.EARTH, c, sz) }; else -> RIconOf(RES_ICON[r], 18.dp) }
             Spacer(Modifier.width(3.dp))
             InkText("$n", 16, bold = true)
         }
@@ -453,7 +465,7 @@ private fun AegCost(cost: IntArray) {
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
         for (r in 0..4) if (cost[r] > 0) {
             InkText("${cost[r]}", 11, bold = true)
-            when (r) { A.FOOD -> ResImg(2, 12.dp); A.TIMBER -> ResImg(0, 12.dp); A.ORE -> ResImg(1, 12.dp); else -> RIconOf(RES_ICON[r], 11.dp) }
+            when (r) { A.FOOD -> ResImg(2, 12.dp); A.TIMBER -> ResImg(0, 12.dp); A.ORE -> ResImg(1, 12.dp); A.STONE -> RIcon(12.dp) { c, sz -> actionIcon(RI.EARTH, c, sz) }; else -> RIconOf(RES_ICON[r], 11.dp) }
         }
     }
 }
@@ -508,7 +520,7 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner("${g.pop}/${g.housing()}", "${g.pop}", YOU, true, "people · ${g.soldiers} soldiers", Modifier.weight(1f))
+                PlayerBanner("${g.sw.people()}/${g.housing()}", "${g.sw.people()}", YOU, true, "people · ${g.soldiers} soldiers", Modifier.weight(1f))
                 PlayerBanner("Mood ${g.happiness}", "${g.happiness}", if (g.happiness >= 60) Color(0xFF43A047) else if (g.happiness >= 30) GOLD else RIVAL, false,
                     "${g.rivalsLeft} of ${g.rivals.size} rivals left", Modifier.weight(1f))
             }
@@ -537,8 +549,10 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
             Spacer(Modifier.height(5.dp))
             PromptRibbon(s.prompt, s.heraldBusy)
             Spacer(Modifier.height(5.dp))
+            val actionsScroll = rememberScrollState()
+            if (s.myMove && (actionsScroll.canScrollForward || actionsScroll.canScrollBackward)) InkText("Swipe for more actions", 10, color = INK_SOFT)
             if (s.myMove) FlowRow(
-                Modifier.fillMaxWidth().heightIn(max = 220.dp).verticalScroll(rememberScrollState()).padding(horizontal = 6.dp),
+                Modifier.fillMaxWidth().heightIn(max = 220.dp).verticalScroll(actionsScroll).padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 AegButton("Stewardship", RI.SCROLL, null, true) { showStewardship = true }
