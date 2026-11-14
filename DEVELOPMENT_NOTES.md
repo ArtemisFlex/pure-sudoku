@@ -138,3 +138,7 @@ Final Backgammon review found a short window after the last die where Roll could
 The Backgammon emulator regression passed with the Roll button suppressed during turn completion, undo retaining the remaining die, and an uninterrupted turn advancing. The updated debug build and unit tests passed; the follow-up release build and vital lint are in progress.
 
 The follow-up debug and release APK builds, existing unit tests and release vital lint passed. The Backgammon timing/undo/reload regression passed on the emulator. The first pass-and-play GitHub build succeeded; the follow-up Roll-button fix is ready for Git delivery.
+
+Requested: selecting a building should show its purpose, relevant stats, available tips, and actions. Audit and implementation in progress.
+Completed: in both Aegwaspell games, selecting an owned building now shows its purpose, baseline effects, staffing, relevant current stats, wonder construction/activity, and applicable tips; existing tile actions remain available below. Conquest shows its actual defence and port trade rate, including the staffed Lighthouse 3:1 benefit.
+Verification: debug unit tests and debug APK build passed; emulator visually checked the selected Lighthouse in both games and confirmed Conquest worker removal updates its status to inactive. Final debug unit tests, debug APK build, release APK build, and release vital lint passed. Physical-device acceptance remains pending; the previously documented signing-key mismatch still prevents updating an incompatible installed APK.

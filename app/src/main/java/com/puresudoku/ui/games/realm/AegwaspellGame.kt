@@ -549,6 +549,14 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
             Spacer(Modifier.height(5.dp))
             PromptRibbon(s.prompt, s.heraldBusy)
             Spacer(Modifier.height(5.dp))
+            val selectedBuilding = s.selected
+            if (s.myMove && selectedBuilding >= 0 && g.revealed[selectedBuilding] && g.rivalLand[selectedBuilding] < 0 && g.building[selectedBuilding] != A.NONE) {
+                val b = g.building[selectedBuilding]
+                AegBuildingInfo(selectedBuilding, b, false, g.staffed()[selectedBuilding], null,
+                    g.connected()[selectedBuilding], g.sw.housingOf(selectedBuilding), g.sw.works[selectedBuilding],
+                    g.sw.fallow[selectedBuilding], null, null, g.sw.notes(selectedBuilding))
+                Spacer(Modifier.height(5.dp))
+            }
             val actionsScroll = rememberScrollState()
             if (s.myMove && (actionsScroll.canScrollForward || actionsScroll.canScrollBackward)) InkText("Swipe for more actions", 10, color = INK_SOFT)
             if (s.myMove) FlowRow(

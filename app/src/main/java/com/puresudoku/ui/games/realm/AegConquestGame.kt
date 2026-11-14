@@ -563,6 +563,15 @@ fun AegConquestUi(s: AegConquestSession, targets: DemoTargets?) {
             Spacer(Modifier.height(5.dp))
             PromptRibbon(s.prompt, s.heraldBusy)
             Spacer(Modifier.height(5.dp))
+            val selectedBuilding = s.selected
+            if (s.myMove && selectedBuilding >= 0 && g.revealed[selectedBuilding] && g.rivalLand[selectedBuilding] < 0 && g.building[selectedBuilding] != AC.NONE) {
+                val b = g.building[selectedBuilding]
+                AegBuildingInfo(selectedBuilding, b, true, g.staffed()[selectedBuilding], g.workers[selectedBuilding],
+                    g.connected()[selectedBuilding], g.sw.housingOf(selectedBuilding), g.sw.works[selectedBuilding],
+                    g.sw.fallow[selectedBuilding], g.defence(selectedBuilding),
+                    if (b == AC.PORT && g.canTrade()) g.tradeRate() else null, g.sw.notes(selectedBuilding))
+                Spacer(Modifier.height(5.dp))
+            }
             if (s.myMove && s.selected >= 0 && s.selected == g.capital && g.canTrade()) { PortTrade(s); Spacer(Modifier.height(5.dp)) }
             val actionsScroll = rememberScrollState()
             if (s.myMove && (actionsScroll.canScrollForward || actionsScroll.canScrollBackward)) InkText("Swipe for more actions", 10, color = INK_SOFT)

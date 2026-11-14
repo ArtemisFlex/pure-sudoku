@@ -366,7 +366,7 @@ class ArtQaActivity : ComponentActivity() {
                 while (h != g.capital) { val next = g.map.hexNbrs[h].minBy { g.hexDist(it, g.capital) }; g.road[g.side(h, next)] = true; h = next }
             }
             g.building[tiles[6]] = AegConquest.TOWN; g.pop = 80; g.res.fill(100)
-            val session = AegConquestSession(Difficulty.EASY, g); session.selected = tiles[7]
+            val session = AegConquestSession(Difficulty.EASY, g); session.selected = if (intent.getBooleanExtra("buildingDetails", false)) tiles[0] else tiles[7]
             setContent { PureSudokuTheme { AegConquestUi(session, null) } }
         } else {
             val g = Aegwaspell.newGame(Difficulty.EASY, Random(44))
@@ -379,7 +379,7 @@ class ArtQaActivity : ComponentActivity() {
                 while (h != g.capital) { val next = g.map.hexNbrs[h].minBy { g.hexDist(it, g.capital) }; g.road[g.side(h, next)] = true; h = next }
             }
             g.building[tiles[6]] = Aegwaspell.TOWN; g.pop = 80; g.res.fill(100)
-            val session = AegwaspellSession(Difficulty.EASY, g); session.selected = tiles[7]
+            val session = AegwaspellSession(Difficulty.EASY, g); session.selected = if (intent.getBooleanExtra("buildingDetails", false)) tiles[0] else tiles[7]
             setContent { PureSudokuTheme { AegwaspellUi(session, null) } }
         }
     }
