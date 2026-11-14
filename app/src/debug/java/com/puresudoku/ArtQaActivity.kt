@@ -85,6 +85,7 @@ class ArtQaActivity : ComponentActivity() {
                     val session = BackgammonSession(Difficulty.EASY, game).apply { localTwoPlayer = true; resume() }
                     val seq = game.sequences(dedupe = false).first { it.size == 2 }
                     for (step in seq) { session.tapPoint(step.from); session.tapPoint(step.to) }
+                    check(!session.needRoll) // A completed turn must not offer another roll before handoff.
                     val restored = BackgammonSession.restore(session.toJson()); restored.resume()
                     check(restored.localTwoPlayer && restored.g.turn == 1 && restored.g.dice.isEmpty())
                     check(session.canUndo); session.undo(); check(game.turn == 0 && game.dice.isNotEmpty())

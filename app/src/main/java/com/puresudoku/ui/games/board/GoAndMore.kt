@@ -290,7 +290,7 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
     override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else when (g.winPoints()) { 3 -> "Backgammon!"; 2 -> "Gammon!"; else -> "You bore off first!" }
     override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "The computer bore off first"
 
-    val needRoll get() = (localTwoPlayer || g.turn == 0) && g.dice.isEmpty() && !thinking && outcome == Outcome.PLAYING
+    val needRoll get() = (localTwoPlayer || g.turn == 0) && g.dice.isEmpty() && !turnEndPending && !thinking && outcome == Outcome.PLAYING
     val canUndo get() = played.isNotEmpty() && (localTwoPlayer || g.turn == 0)
 
     fun options(from: Int) = seqs.mapNotNull { it.firstOrNull() }.filter { it.from == from }.distinct()
