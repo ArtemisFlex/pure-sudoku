@@ -76,6 +76,29 @@ fun PlayScreen(vm: AppViewModel) {
     val def = Games.of(session.kind)
     val outcome = session.outcome
     val playing = outcome == Outcome.PLAYING
+    val duel = session as? com.puresudoku.ui.games.board.DuelSession
+    // Reading version observes engine turn changes, which are not themselves Compose state.
+    val actor = if (duel?.localTwoPlayer == true && playing) {
+        duel.version
+        duel.localActor
+    } else null
+    var acknowledgedActor by remember(session) { mutableStateOf<Int?>(null) }
+    if (actor != null && actor != acknowledgedActor) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {},
+            properties = androidx.compose.ui.window.DialogProperties(
+                dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false,
+            ),
+        ) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Hand phone to Player $actor", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(20.dp))
+                    Button(onClick = { acknowledgedActor = actor }) { Text("Ready") }
+                }
+            }
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         val backdrop = def.background(session)
         if (backdrop != 0) {
@@ -105,7 +128,7 @@ fun PlayScreen(vm: AppViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(session.difficulty.accent(), 8)
                         HSpace(6)
-                        Text((if (session.training) "Training wheels · " else "") + session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players · pass the phone" else (if (session.training) "Training wheels · " else "") + session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 IconButton(onClick = { vm.openTutorial(session.kind) }) {
@@ -119,7 +142,7 @@ fun PlayScreen(vm: AppViewModel) {
             if (!def.fullBleed) {
                 StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
                 Text(
-                    def.hint(session.difficulty),
+                    if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Take turns and pass the phone to the next player." else def.hint(session.difficulty),
                     fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -247,12 +270,13 @@ private fun WinCard(vm: AppViewModel, session: Session, def: GameDef, s: WinSumm
 private fun LostCard(vm: AppViewModel, session: Session) {
     EndCard {
         val draw = session.outcome == Outcome.DRAW
-        Text(if (draw) session.drawTitle else session.lostTitle, style = MaterialTheme.typography.headlineMedium)
+        val local = (session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true
+        Text(if (draw) session.drawTitle else if (local && session.outcome == Outcome.WON) session.wonTitle else session.lostTitle, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(6.dp))
-        Text(if (draw) session.drawMessage else session.lostMessage, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (local) "Pass-and-play match complete." else if (draw) session.drawMessage else session.lostMessage, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         StatLine("Time played", formatTime(session.elapsedMs))
-        StatLine("Score", session.score.toString(), bold = true)
+        if (!local) StatLine("Score", session.score.toString(), bold = true)
         Spacer(Modifier.height(20.dp))
         EndButtons(vm, session)
     }
@@ -262,7 +286,7 @@ private fun LostCard(vm: AppViewModel, session: Session) {
 private fun EndButtons(vm: AppViewModel, session: Session) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(onClick = vm::leaveGame) { Text("Menu") }
-        Button(onClick = vm::playAgain) { Text("New ${session.difficulty.label}") }
+        Button(onClick = vm::playAgain) { Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Play again" else "New ${session.difficulty.label}") }
     }
 }
 

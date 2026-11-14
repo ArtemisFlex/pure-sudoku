@@ -110,6 +110,11 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                         Text("New game", fontSize = 17.sp)
                     }
                 }
+                if (kind in com.puresudoku.core.localTwoPlayerGames) {
+                    OutlinedButton(onClick = { vm.startLocalTwoPlayer(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
+                        Text("Two players · pass the phone", fontSize = 16.sp)
+                    }
+                }
                 TextButton(onClick = { vm.openTutorial(kind) }, Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(18.dp))
                     HSpace(8)
@@ -337,12 +342,13 @@ fun SlotsScreen(vm: AppViewModel, kind: GameKind, replaceFor: Difficulty?) {
     var confirmDelete by remember { mutableIntStateOf(-1) }
     var confirmReplace by remember { mutableIntStateOf(-1) }
     val slots = vm.slots[kind].orEmpty()
+    val replacement = if (vm.choosingLocalTwoPlayer) "two-player match" else "${replaceFor?.label} game"
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         TopBar(if (replaceFor == null) "Saved ${kind.title}" else "Replace a save", vm::back)
         if (replaceFor != null) {
             Text(
-                "All slots are full. Choose a game to replace with a new ${replaceFor.label} puzzle.",
+                "All slots are full. Choose a game to replace with a new $replacement.",
                 Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
@@ -379,7 +385,7 @@ fun SlotsScreen(vm: AppViewModel, kind: GameKind, replaceFor: Difficulty?) {
         AlertDialog(
             onDismissRequest = { confirmReplace = -1 },
             title = { Text("Replace slot ${confirmReplace + 1}?") },
-            text = { Text("The saved game will be lost and a new ${replaceFor.label} puzzle will start there.") },
+            text = { Text("The saved game will be lost and a new $replacement will start there.") },
             confirmButton = {
                 TextButton(onClick = { val s = confirmReplace; confirmReplace = -1; vm.replaceSlot(kind, s, replaceFor) }) { Text("Replace") }
             },
@@ -396,7 +402,7 @@ private fun SlotCard(slot: Int, s: SlotSummary, onOpen: () -> Unit, onDelete: ((
                 Text("SLOT ${slot + 1}", fontSize = 11.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HSpace(10)
                 Dot(s.difficulty.accent(), 8); HSpace(6)
-                Text(s.difficulty.label, fontWeight = FontWeight.SemiBold)
+                Text(if (s.localTwoPlayer) "Two players" else s.difficulty.label, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 if (onDelete != null) IconButton(onClick = onDelete, Modifier.size(32.dp)) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)

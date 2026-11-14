@@ -68,13 +68,14 @@ private fun IntArray.jarr() = JSONArray().also { a -> forEach { a.put(it) } }
 // =====================================================================  Go
 
 class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO, difficulty) {
+    override val localActor: Int? get() = if (g.over || final != null) null else g.turn
     var ghost by mutableIntStateOf(-1); private set
     var final by mutableStateOf<GoGame.Estimate?>(null); private set
 
     init { message = "You are Black. Tap twice to place a stone" }
     override val middleStat get() = MiddleStat.Counter("Captures", "${g.captures[1]}–${g.captures[2]}")
-    override val wonTitle get() = "You win on the board!"
-    override val lostTitle get() = "White wins"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "You win on the board!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "White wins"
     override val lostMessage get() = "${scoreText()}. This game's save slot has been cleared."
     override val progress: Float get() = (g.moveCount / (g.n * g.n * 1.2f)).coerceAtMost(0.95f)
 
@@ -86,7 +87,7 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING || final != null) return
-        if (thinking || g.turn != 1) { nudge("White is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("White is thinking"); return }
         if (g.cells[i] != 0) { nudge("There's already a stone there"); return }
         if (!g.legal(i)) { nudge(if (i == g.ko) "Ko: you can't retake right away, play elsewhere first" else "That would be suicide: no liberties"); return }
         if (!guideAllows(-1, i)) return
@@ -98,16 +99,17 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
         bump(); changed()
         val code = guideDone()
         if (code != null) scriptedReply(code) { c -> if (g.play(c) != null) moves++; message = "Your move"; changed() }
+        else if (localTwoPlayer) { message = if (g.turn == 1) "Player 1: Black, your turn" else "Player 2: White, your turn"; changed() }
         else reply()
     }
 
     fun pass() {
-        if (outcome != Outcome.PLAYING || final != null || thinking || g.turn != 1) return
+        if (outcome != Outcome.PLAYING || final != null || thinking || (!localTwoPlayer && g.turn != 1)) return
         ghost = -1
         g.play(-1); moves++
         message = "You passed"
-        bump()
-        if (g.over) score() else { changed(); reply() }
+        bump(); changed()
+        if (g.over) score() else { if (localTwoPlayer) message = if (g.turn == 1) "Player 2 passed. Player 1: Black, your turn" else "Player 1 passed. Player 2: White, your turn"; changed(); if (!localTwoPlayer) reply() }
     }
 
     private fun reply() {
@@ -143,11 +145,11 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
 
     override fun resume() {
         if (outcome != Outcome.PLAYING) return
-        if (g.over) score() else if (g.turn == 2) reply()
+        if (g.over) score() else if (g.turn == 2 && !localTwoPlayer) reply()
     }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1 || final != null) return null
+        if (localTwoPlayer || g.turn != 1 || final != null) return null
         val copy = g.copy()
         return {
             val m = copy.aiMove(GoGame.level(Difficulty.HARD), Random(1))
@@ -157,14 +159,14 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
     }
 
     override fun saveState(): JSONObject = JSONObject().put("n", g.n).put("cells", g.cells.jarr()).put("turn", g.turn).put("ko", g.ko).put("passes", g.passes)
-        .put("mc", g.moveCount).put("caps", g.captures.jarr()).put("last", g.last).put("moves", moves)
+        .put("mc", g.moveCount).put("caps", g.captures.jarr()).put("last", g.last).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): GoSession {
             val st = o.getJSONObject("state"); val g = GoGame(st.getInt("n"))
             st.getJSONArray("cells").ints().copyInto(g.cells); g.turn = st.getInt("turn"); g.ko = st.getInt("ko"); g.passes = st.getInt("passes")
             g.moveCount = st.getInt("mc"); st.getJSONArray("caps").ints().copyInto(g.captures); g.last = st.getInt("last")
-            return GoSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = st.optInt("moves"); it.restoreCommon(o) }
+            return GoSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = st.optInt("moves"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); if (it.localTwoPlayer) it.message = if (g.turn == 1) "Player 1: Black, your turn" else "Player 2: White, your turn"; it.restoreCommon(o) }
         }
     }
 }
@@ -215,7 +217,7 @@ private fun GoUi(s: GoSession, targets: DemoTargets?) {
     val pop = rememberPop(g.last * 10000 + g.moveCount)
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ScoreChip("You captured", "${g.captures[1]}", Color(0xFF1D1D22), g.turn == 1)
+            ScoreChip(if (s.localTwoPlayer) "Black captured" else "You captured", "${g.captures[1]}", Color(0xFF1D1D22), g.turn == 1)
             ScoreChip("White captured", "${g.captures[2]}", Color(0xFFF2F0EA), g.turn == 2)
         }
         Spacer(Modifier.height(10.dp))
@@ -274,20 +276,22 @@ private fun GoUi(s: GoSession, targets: DemoTargets?) {
 // =====================================================================  Backgammon
 
 class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession(GameKind.BACKGAMMON, difficulty) {
+    override val localActor: Int get() = g.turn + 1
     var selected by mutableIntStateOf(-1); private set
     private var seqs: List<List<Backgammon.Step>> = emptyList()
     private val played = ArrayList<Backgammon.Step>()
+    private var turnEndPending = false
     var lastSteps by mutableStateOf<List<Backgammon.Step>>(emptyList()); private set
     var rollId by mutableIntStateOf(0); private set
 
     init { message = "Roll the dice to start" }
     override val middleStat get() = MiddleStat.Counter("Pips", "${g.pips(0)}–${g.pips(1)}")
     override val progress: Float get() = (g.off[0] / 15f).coerceAtMost(0.95f)
-    override val wonTitle get() = when (g.winPoints()) { 3 -> "Backgammon!"; 2 -> "Gammon!"; else -> "You bore off first!" }
-    override val lostTitle get() = "The computer bore off first"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else when (g.winPoints()) { 3 -> "Backgammon!"; 2 -> "Gammon!"; else -> "You bore off first!" }
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "The computer bore off first"
 
-    val needRoll get() = g.turn == 0 && g.dice.isEmpty() && !thinking && outcome == Outcome.PLAYING
-    val canUndo get() = played.isNotEmpty() && g.turn == 0
+    val needRoll get() = (localTwoPlayer || g.turn == 0) && g.dice.isEmpty() && !thinking && outcome == Outcome.PLAYING
+    val canUndo get() = played.isNotEmpty() && (localTwoPlayer || g.turn == 0)
 
     fun options(from: Int) = seqs.mapNotNull { it.firstOrNull() }.filter { it.from == from }.distinct()
     fun movableFrom() = seqs.mapNotNull { it.firstOrNull()?.from }.toSet()
@@ -301,22 +305,22 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
             if (fixed[0] == fixed[1]) repeat(4) { g.dice += fixed[0] } else { g.dice += fixed[0]; g.dice += fixed[1] }
         } else g.roll(rng)
         rollId++
-        seqs = g.sequences(dedupe = false); played.clear(); selected = -1
-        message = "You rolled ${g.rolled.joinToString(" and ")}"
-        bump()
-        if (seqs.all { it.isEmpty() }) { message += " · no legal moves"; bump(); AiWorker.later(1200) { endTurn() } }
+        seqs = g.sequences(dedupe = false); played.clear(); turnEndPending = false; selected = -1
+        message = "${if (localTwoPlayer) "Player ${g.turn + 1}" else "You"} rolled ${g.rolled.joinToString(" and ")}"
+        bump(); changed()
+        if (seqs.all { it.isEmpty() }) { message += " · no legal moves"; bump(); scheduleEndTurn(1200) }
     }
 
     fun tapPoint(p: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (g.turn != 0 || thinking) { nudge("The computer is playing"); return }
+        if ((!localTwoPlayer && g.turn != 0) || thinking) { nudge("The computer is playing"); return }
         if (g.dice.isEmpty()) { nudge("Roll the dice first"); return }
         if (selected != -1) {
             val st = options(selected).firstOrNull { it.to == p }
             if (st != null) { step(st); return }
         }
         if (p in movableFrom()) { selected = if (selected == p) -1 else p; bump(); return }
-        nudge(if (g.bar[0] > 0) "Bring your checker in from the bar first" else if (selected != -1) "That checker can't land there" else "No legal move from there")
+        nudge(if (g.bar[g.turn] > 0) "Bring your checker in from the bar first" else if (selected != -1) "That checker can't land there" else "No legal move from there")
     }
 
     private var cpuDice: IntArray? = null
@@ -327,25 +331,35 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
         guideDone()
         g.apply(st); g.dice.remove(st.die); played += st
         seqs = seqs.filter { it.firstOrNull() == st }.map { it.drop(1) }
-        selected = -1; bump()
-        if (g.winner == 0) { finishGame(); return }
-        if (seqs.all { it.isEmpty() }) AiWorker.later(500) { if (g.turn == 0 && played.isNotEmpty()) endTurn() }
+        selected = -1; turnEndPending = seqs.all { it.isEmpty() }; bump(); changed()
+        if (g.winner >= 0) { finishGame(); return }
+        if (turnEndPending) scheduleEndTurn(500, requirePlayed = true)
     }
 
     fun undo() {
         if (!canUndo) return
         val st = played.removeAt(played.lastIndex)
+        turnEndPending = false
         g.revert(st); g.dice += st.die
         seqs = g.sequences(left = g.dice.toList(), dedupe = false)
         // keep only sequences consistent with what's still played: recompute from the start of the turn
-        selected = -1; bump()
+        selected = -1; bump(); changed()
+    }
+
+    private fun scheduleEndTurn(delayMs: Long, requirePlayed: Boolean = false) {
+        val side = g.turn
+        val roll = rollId
+        AiWorker.later(delayMs) {
+            if (g.turn == side && rollId == roll && (requirePlayed || g.dice.isNotEmpty()) &&
+                seqs.all { it.isEmpty() } && (!requirePlayed || played.isNotEmpty())) endTurn()
+        }
     }
 
     private fun endTurn() {
-        if (outcome != Outcome.PLAYING || g.turn != 0) return
-        g.dice.clear(); played.clear(); seqs = emptyList(); moves++
-        g.turn = 1; changed()
-        computerTurn()
+        if (outcome != Outcome.PLAYING || (!localTwoPlayer && g.turn != 0)) return
+        g.dice.clear(); played.clear(); turnEndPending = false; seqs = emptyList(); moves++
+        g.turn = 1 - g.turn
+        if (localTwoPlayer) { message = "Player ${g.turn + 1}: roll"; bump(); changed() } else { changed(); computerTurn() }
     }
 
     private fun computerTurn() {
@@ -384,7 +398,7 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
     }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 0) return null
+        if (localTwoPlayer || g.turn != 0) return null
         if (g.dice.isEmpty()) return { Triple("Roll the dice first.", -1, -1) }
         val snap = Backgammon(); snap.load(g.state())
         return {
@@ -398,16 +412,18 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
 
     override fun resume() {
         if (outcome != Outcome.PLAYING) return
-        if (g.turn == 1) computerTurn()
-        else if (g.dice.isNotEmpty()) { seqs = g.sequences(dedupe = false); if (seqs.all { it.isEmpty() }) AiWorker.later(800) { endTurn() } }
+        if (g.winner >= 0) { AiWorker.later(0) { finishGame() }; return }
+        if (turnEndPending) { endTurn(); return }
+        if (g.turn == 1 && !localTwoPlayer) computerTurn()
+        else if (g.dice.isNotEmpty()) { seqs = g.sequences(dedupe = false); if (seqs.all { it.isEmpty() }) scheduleEndTurn(800) }
     }
 
-    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("moves", moves)
+    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("moves", moves).put("localTwoPlayer", localTwoPlayer).put("turnEndPending", turnEndPending)
 
     companion object {
         fun restore(o: JSONObject): BackgammonSession {
             val g = Backgammon(); g.load(o.getJSONObject("state").getJSONArray("s").ints())
-            return BackgammonSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.restoreCommon(o) }
+            return BackgammonSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.localTwoPlayer = o.getJSONObject("state").optBoolean("localTwoPlayer", false); it.turnEndPending = o.getJSONObject("state").optBoolean("turnEndPending", false); if (it.localTwoPlayer) it.message = "Player ${g.turn + 1}: ${if (g.dice.isEmpty()) "roll" else "continue your move"}"; it.restoreCommon(o) }
         }
     }
 }
@@ -487,13 +503,13 @@ private fun BackgammonUi(s: BackgammonSession, targets: DemoTargets?) {
             val w = min(maxWidth, maxHeight * 0.62f); val h = w / 0.62f
             val sel = s.selected
             val dests = if (sel != -1) s.options(sel).map { it.to }.toSet() else emptySet()
-            val movable = if (g.turn == 0 && g.dice.isNotEmpty()) s.movableFrom() else emptySet()
+            val movable = if ((s.localTwoPlayer || g.turn == 0) && g.dice.isNotEmpty()) s.movableFrom() else emptySet()
             Box(Modifier.size(w, h)) {
                 Canvas(Modifier.size(w, h).clip(RoundedCornerShape(10.dp)).pointerInput(s) {
                     detectTapGestures { o ->
                         val geo = BgGeo(size.width.toFloat(), size.height.toFloat())
                         when {
-                            geo.offRect.contains(o) -> s.tapPoint(Backgammon.OFF)
+                            (if (s.localTwoPlayer && g.turn == 1) geo.cpuOffRect else geo.offRect).contains(o) -> s.tapPoint(Backgammon.OFF)
                             geo.barRect.contains(o) -> s.tapPoint(Backgammon.BAR)
                             else -> (0..23).firstOrNull { geo.pointRect(it).contains(o) }?.let { s.tapPoint(it) }
                         }
@@ -549,7 +565,7 @@ private fun BackgammonUi(s: BackgammonSession, targets: DemoTargets?) {
                             drawRect(if (white) Color(0xFFF4EBD6) else Color(0xFF2B2B33), Offset(rect.left + 3f, y - (rect.height / 15f) * 0.42f), Size(rect.width - 6f, (rect.height / 15f) * 0.8f))
                         }
                     }
-                    if (Backgammon.OFF in dests) drawRect(Color(0xFF64B5F6), geo.offRect.topLeft, geo.offRect.size, style = Stroke(5f))
+                    if (Backgammon.OFF in dests) { val tray = if (s.localTwoPlayer && g.turn == 1) geo.cpuOffRect else geo.offRect; drawRect(Color(0xFF64B5F6), tray.topLeft, tray.size, style = Stroke(5f)) }
                     coachRings(listOf(s.coachFrom, s.coachTo).filter { it in 0..23 }.map { geo.pointRect(it).center }, geo.ptH * 0.5f)
                 }
                 val d = LocalDensity.current

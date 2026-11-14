@@ -45,6 +45,7 @@ data class SlotSummary(
     val strikes: Int,
     val usesStrikes: Boolean,
     val progress: Float,
+    val localTwoPlayer: Boolean = false,
 )
 
 /** Local-only persistence: 3 save slots per game, per-game records, settings. */
@@ -77,6 +78,7 @@ class SaveRepository(context: Context) {
                     strikes = o.optInt("strikes"),
                     usesStrikes = o.optBoolean("usesStrikes", true),
                     progress = o.optDouble("progress", 0.0).toFloat(),
+                    localTwoPlayer = o.optJSONObject("state")?.optBoolean("localTwoPlayer", false) == true,
                 )
             }.getOrNull()
         }

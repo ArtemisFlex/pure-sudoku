@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +65,9 @@ import kotlin.random.Random
 private val C8_NAMES = listOf("You", "Ava", "Ben", "Cleo")
 
 class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSession(GameKind.CRAZY_EIGHTS, difficulty) {
+    var handoffPending by mutableStateOf(true)
+    val currentPlayer get() = if (localTwoPlayer) g.turn else 0
+    fun acceptHandoff() { handoffPending = false; bump(); changed() }
     var eightAsk by mutableIntStateOf(-1); private set
     var errorFx by mutableStateOf<CardFx?>(null); private set
     var lastPlayer by mutableIntStateOf(-1); private set
@@ -71,11 +75,11 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
     init { message = "Match the suit or rank. Eights are wild" }
     override val middleStat get() = MiddleStat.Counter("Cards", "${g.hands[0].size}")
     override val progress: Float get() = (1f - g.hands[0].size / 12f).coerceIn(0f, 0.95f)
-    override val wonTitle get() = "Out first!"
-    override val lostTitle get() = "${C8_NAMES[g.winner.coerceAtLeast(1)]} went out first"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Out first!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "${C8_NAMES[g.winner.coerceAtLeast(1)]} went out first"
     override val lostMessage get() = "You still held ${g.hands[0].size} card${if (g.hands[0].size == 1) "" else "s"}. This game's save slot has been cleared."
 
-    private val myTurn get() = outcome == Outcome.PLAYING && g.turn == 0 && !thinking
+    private val myTurn get() = outcome == Outcome.PLAYING && (localTwoPlayer || g.turn == 0) && (!localTwoPlayer || !handoffPending) && !thinking
 
     fun tapCard(c: Int) {
         if (!myTurn) { nudge("Wait for your turn"); return }
@@ -95,18 +99,22 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
     }
 
     private fun playMine(c: Int, s: Int) {
-        g.play(0, c, s); moves++; lastPlayer = 0
-        message = if (Cards.rank(c) == 8) "You played an 8 and called ${Cards.suitName(s)}" else "You played ${Cards.label(c)}"
+        val p = currentPlayer
+        g.play(p, c, s); moves++; lastPlayer = p
+        if (localTwoPlayer && g.winner < 0) handoffPending = true
+        val who = if (localTwoPlayer) "Player ${p + 1}" else "You"
+        message = if (Cards.rank(c) == 8) "$who played an 8 and called ${Cards.suitName(s)}" else "$who played ${Cards.label(c)}"
         bump()
-        if (!checkEnd()) { changed(); runOpponents() }
+        if (!checkEnd()) { changed(); if (!localTwoPlayer) runOpponents() }
     }
 
     fun tapDeck() {
         if (!myTurn) { nudge("Wait for your turn"); return }
-        val c = g.draw(0)
+        val p = currentPlayer
+        val c = g.draw(p)
         if (c == null) {
-            g.pass(0); message = "Nothing left to draw: you pass"; bump()
-            if (!checkEnd()) { changed(); runOpponents() }
+            g.pass(p); if (localTwoPlayer) handoffPending = true; message = "Nothing left to draw: pass"; bump()
+            if (!checkEnd()) { changed(); if (!localTwoPlayer) runOpponents() }
             return
         }
         message = "You drew ${Cards.label(c)}"
@@ -167,10 +175,10 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
         if (g.turn == 0) { thinking = false; bump() } else whenQuiet { AiWorker.later(300) { opponentStep() } }
     }
 
-    override fun resume() { if (outcome == Outcome.PLAYING && g.turn != 0) runOpponents() }
+    override fun resume() { if (!localTwoPlayer && outcome == Outcome.PLAYING && g.turn != 0) runOpponents() }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 0) return null
+        if (localTwoPlayer || g.turn != 0) return null
         val opts = g.playable(0)
         val txt = if (opts.isEmpty()) "Nothing matches: draw from the deck."
         else {
@@ -182,14 +190,14 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
         return { Triple(txt, -1, -1) }
     }
 
-    override fun saveState(): JSONObject = JSONObject().put("s", JSONArray().also { a -> g.state().forEach { a.put(it) } }).put("moves", moves)
+    override fun saveState(): JSONObject = JSONObject().put("s", JSONArray().also { a -> g.state().forEach { a.put(it) } }).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): CrazyEightsSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state")
             val arr = st.getJSONArray("s"); val s = IntArray(arr.length()) { arr.getInt(it) }
             val g = CrazyEights(s[0], CrazyEights.config(d).skill, Random(System.nanoTime())); g.load(s)
-            return CrazyEightsSession(d, g).also { it.moves = st.optInt("moves"); it.restoreCommon(o) }
+            return CrazyEightsSession(d, g).also { it.moves = st.optInt("moves"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); it.restoreCommon(o) }
         }
     }
 }
@@ -245,18 +253,28 @@ object CrazyEightsDef : GameDef {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = ProvideCardTheme(CardThemes.CRAZY_EIGHTS) {
+    if (s.localTwoPlayer && s.handoffPending) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Hand phone to Player ${s.currentPlayer + 1}")
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = s::acceptHandoff) { Text("I'm ready") }
+            }
+        }
+        return@ProvideCardTheme
+    }
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
     val th = LocalCardTheme.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-            for (p in 1 until g.players) {
+            for (p in (0 until g.players).filter { it != s.currentPlayer }) {
                 val active = g.turn == p && s.outcome == Outcome.PLAYING
                 Column(
                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (active) th.back.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface).padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(C8_NAMES[p], fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(if (s.localTwoPlayer) "Player ${p + 1}" else C8_NAMES[p], fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy((-24).dp)) { repeat(minOf(7, g.hands[p].size)) { PlayingCard(0, false, 32.dp) } }
                     Spacer(Modifier.height(2.dp))
@@ -281,7 +299,7 @@ private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = Pro
         TurnBanner(if (s.thinking) s.message.ifEmpty { "Opponents are playing…" } else s.message, s.thinking)
         Spacer(Modifier.height(14.dp))
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((-10).dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (c in g.hands[0].sortedBy { Cards.suit(it) * 13 + Cards.rank(it) }) {
+            for (c in g.hands[s.currentPlayer].sortedBy { Cards.suit(it) * 13 + Cards.rank(it) }) {
                 PopCard(c, true, 62.dp, Modifier.demoTarget(targets, "h-$c"), fx = s.errorFx) { s.tapCard(c) }
             }
         }

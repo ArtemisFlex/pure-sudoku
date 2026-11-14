@@ -59,3 +59,12 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     AEG_CONQUEST("Aegwaspell: Conquest", "Conquest & Stewardship", "Post soldiers and workers tile by tile, trade at your port, and hold your land while rival civilizations fight for every tile.", GameCategory.STRATEGY),
     VEILGUARD("Veilguard", "Deception", "Give secret orders, hide your Crown and bluff with decoys. Find the rival's Crown to win.", GameCategory.STRATEGY),
 }
+
+/** Games offering equal-sided, local pass-and-play. */
+val localTwoPlayerGames = setOf(
+    GameKind.TIC_TAC_TOE, GameKind.GOMOKU, GameKind.CHESS, GameKind.CHECKERS, GameKind.GO,
+    GameKind.SHOGI, GameKind.XIANGQI, GameKind.MANCALA, GameKind.MORRIS, GameKind.BACKGAMMON,
+    GameKind.GO_FISH, GameKind.CRAZY_EIGHTS, GameKind.CUTTLE,
+    GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH,
+    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD,
+)

@@ -52,6 +52,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var session by mutableStateOf<Session?>(null); private set
     var activeKind by mutableStateOf(GameKind.SUDOKU); private set
     private var activeSlot = -1
+    private var pendingLocalTwoPlayer = false
+    val choosingLocalTwoPlayer: Boolean get() = pendingLocalTwoPlayer
     var paused by mutableStateOf(false); private set
     var winSummary by mutableStateOf<WinSummary?>(null); private set
     /** Game whose how-to-play cards are open, or null. */
@@ -135,7 +137,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun leaderboard(kind: GameKind) = repo.leaderboard(kind)
 
     fun openGame(kind: GameKind) { activeKind = kind; refreshMeta(); screen = Screen.Menu(kind) }
-    fun openLevelPicker(kind: GameKind) { screen = Screen.PickLevel(kind) }
+    fun openLevelPicker(kind: GameKind) { pendingLocalTwoPlayer = false; screen = Screen.PickLevel(kind) }
+
+    fun startLocalTwoPlayer(kind: GameKind) {
+        if (kind !in com.puresudoku.core.localTwoPlayerGames) return
+        pendingLocalTwoPlayer = true
+        chooseLevel(kind, Difficulty.EASY)
+    }
     fun openSlots(kind: GameKind) { refreshMeta(); screen = Screen.Slots(kind) }
 
     fun back() {
@@ -145,7 +153,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Category -> screen = Screen.Hub
             is Screen.Menu -> screen = Screen.Category(s.kind.category)
             is Screen.PickLevel -> screen = Screen.Menu(s.kind)
-            is Screen.Slots -> screen = if (s.replaceFor != null) Screen.PickLevel(s.kind) else Screen.Menu(s.kind)
+            is Screen.Slots -> {
+                val local = pendingLocalTwoPlayer
+                pendingLocalTwoPlayer = false
+                screen = if (s.replaceFor != null && !local) Screen.PickLevel(s.kind) else Screen.Menu(s.kind)
+            }
             is Screen.Generating -> { generateJob?.cancel(); screen = Screen.PickLevel(s.kind) }
             Screen.Playing -> if (session?.outcome == Outcome.PLAYING && !paused) pause() else leaveGame()
         }
@@ -200,12 +212,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun startNew(kind: GameKind, d: Difficulty, slot: Int) {
+        val local = pendingLocalTwoPlayer
+        pendingLocalTwoPlayer = false
         activeKind = kind
         screen = Screen.Generating(kind, d)
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
             val started = SystemClock.elapsedRealtime()
             val s = withContext(Dispatchers.Default) { Games.of(kind).generate(d) }
+            if (local) (s as? com.puresudoku.ui.games.board.DuelSession)?.let { duel ->
+                duel.localTwoPlayer = true
+                duel.message = when (kind) { GameKind.TIC_TAC_TOE -> "Player 1: X, your turn"; GameKind.CHESS -> "Player 1: White, your turn"; GameKind.SHOGI -> "Player 1: Sente, your turn"; GameKind.MANCALA -> "Player 1: bottom row, your turn"; GameKind.MORRIS -> "Player 1: White, your turn"; GameKind.BACKGAMMON -> "Player 1: roll"; GameKind.CHECKERS, GameKind.XIANGQI -> "Player 1: Red, your turn"; GameKind.GO, GameKind.GOMOKU -> "Player 1: Black, your turn"; else -> "Player 1, your turn" }
+            }
             // Let the build animation play for a moment, even when generation is instant.
             val wait = 900 - (SystemClock.elapsedRealtime() - started)
             if (wait > 0) delay(wait)
@@ -230,6 +248,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** A saved game thrown away unfinished counts in your history. */
     private fun recordAbandon(kind: GameKind, slot: Int) {
+        if (repo.loadJson(kind, slot)?.optJSONObject("state")?.optBoolean("localTwoPlayer", false) == true) return
         val sum = repo.summaries(kind).getOrNull(slot) ?: return
         repo.addHistory(kind, com.puresudoku.data.GameResult(com.puresudoku.data.GameResult.Result.ABANDONED, sum.score, sum.difficulty, sum.elapsedMs, System.currentTimeMillis()))
     }
@@ -250,7 +269,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         paused = false
         winSummary = null
         screen = Screen.Playing
-        if (!repo.tutorialSeen(s.kind)) {
+        if ((s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer != true && !repo.tutorialSeen(s.kind)) {
             repo.markTutorialSeen(s.kind)
             tutorialFor = s.kind
         }
@@ -264,6 +283,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (s.training) { startTraining(s.kind, s.difficulty); return }
         refreshMeta()
         // The finished game's slot was already cleared, so the new game reuses it.
+        pendingLocalTwoPlayer = (s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true
         startNew(s.kind, s.difficulty, activeSlot)
     }
 
@@ -279,6 +299,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stopTimer()
         if (s.training) return
         repo.clear(s.kind, activeSlot)
+        if ((s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) { refreshMeta(); autoBackup(); return }
         if (outcome == Outcome.WON) {
             repo.addKeepsakes(s.kind, s.keepsakes)
             val record = repo.recordSolve(s.kind, s.difficulty, s.score, s.elapsedMs)

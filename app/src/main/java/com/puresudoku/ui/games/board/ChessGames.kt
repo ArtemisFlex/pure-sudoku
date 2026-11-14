@@ -97,6 +97,7 @@ fun DrawScope.glyph(text: String, c: Offset, sizePx: Float, color: Color, bold: 
 // =====================================================================  Chess
 
 class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.CHESS, difficulty) {
+    override val localActor: Int get() = if (g.turn == 1) 1 else 2
     var selected by mutableIntStateOf(-1); private set
     var lastFrom by mutableIntStateOf(-1); private set
     var lastTo by mutableIntStateOf(-1); private set
@@ -104,16 +105,16 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
     var promoChoices by mutableStateOf<List<Int>?>(null); private set
     private var legalCache: List<Int> = emptyList(); private var legalAt = -1
 
-    val legal: List<Int> get() { if (legalAt != version) { legalCache = if (g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
+    val legal: List<Int> get() { if (legalAt != version) { legalCache = if (localTwoPlayer || g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
 
     init { message = "Your move: you are White" }
 
-    override val wonTitle get() = "Checkmate!"
-    override val lostTitle get() = "Checkmated"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Checkmate!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Checkmated"
 
     fun tap(sq: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 1) { nudge("The computer is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("The computer is thinking"); return }
         val p = g.b[sq]
         if (selected >= 0) {
             val ms = legal.filter { Chess.src(it) == selected && Chess.dst(it) == sq }
@@ -122,7 +123,7 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
                 play(ms[0]); return
             }
         }
-        if (p > 0) {
+        if (p * g.turn > 0) {
             if (legal.none { Chess.src(it) == sq }) { nudge(if (g.inCheck()) "You're in check: that piece can't help" else "That piece has no legal moves"); selected = -1; bump(); return }
             selected = if (selected == sq) -1 else sq; bump(); return
         }
@@ -134,13 +135,13 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
 
     private fun play(m: Int) {
         if (!guideAllows(Chess.src(m), Chess.dst(m))) { selected = -1; bump(); return }
-        message = "You played ${g.san(m)}"
+        message = if (localTwoPlayer) "Player ${if (g.turn == 1) 1 else 2} played ${g.san(m)}" else "You played ${g.san(m)}"
         apply(m)
         val code = guideDone()
         if (outcome != Outcome.PLAYING) return
         if (code != null) scriptedReply(code) { c ->
             g.legalMoves().firstOrNull { Chess.src(it) == c / 100 && Chess.dst(it) == c % 100 }?.let { mv -> message = "Computer played ${g.san(mv)}"; apply(mv) }
-        } else reply()
+        } else if (localTwoPlayer) { message += " · Player ${if (g.turn == 1) 1 else 2}, your turn"; changed() } else reply()
     }
 
     private fun apply(m: Int) {
@@ -171,10 +172,10 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
         }
     }
 
-    override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == -1 && outcome == Outcome.PLAYING) reply() }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1) return null
+        if (localTwoPlayer || g.turn != 1) return null
         val copy = g.copyGame()
         return {
             AlphaBeta(copy.searchable(), com.puresudoku.core.board.AiLevel(4, 1500, quiescence = true), Random(7)).best()?.let { m ->
@@ -192,7 +193,7 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
     override val drawMessage get() = "$message. This game's save slot has been cleared."
 
     override fun saveState(): JSONObject = JSONObject().put("b", g.b.jarr()).put("turn", g.turn).put("castle", g.castle).put("ep", g.ep)
-        .put("half", g.halfmove).put("keys", JSONArray(g.keys.map { it.toString() })).put("lf", lastFrom).put("lt", lastTo).put("moves", moves).put("msg", message)
+        .put("half", g.halfmove).put("keys", JSONArray(g.keys.map { it.toString() })).put("lf", lastFrom).put("lt", lastTo).put("moves", moves).put("msg", message).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): ChessSession {
@@ -202,7 +203,7 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
             st.optJSONArray("keys")?.let { a -> for (k in 0 until a.length()) g.keys += a.getString(k).toLong() }
             if (g.keys.isEmpty()) g.keys += g.key
             return ChessSession(Difficulty.valueOf(o.getString("difficulty")), g).also {
-                it.lastFrom = st.optInt("lf", -1); it.lastTo = st.optInt("lt", -1); it.moves = st.optInt("moves"); it.message = st.optString("msg"); it.restoreCommon(o)
+                it.lastFrom = st.optInt("lf", -1); it.lastTo = st.optInt("lt", -1); it.moves = st.optInt("moves"); it.message = st.optString("msg"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); it.restoreCommon(o)
             }
         }
     }
@@ -346,22 +347,23 @@ private fun CapturedRow(g: Chess, white: Boolean) {
 // =====================================================================  Xiangqi
 
 class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameKind.XIANGQI, difficulty) {
+    override val localActor: Int get() = if (g.turn == 1) 1 else 2
     var selected by mutableIntStateOf(-1); private set
     var lastFrom by mutableIntStateOf(-1); private set
     var lastTo by mutableIntStateOf(-1); private set
     var moveId by mutableIntStateOf(0); private set
     private var legalCache: List<Int> = emptyList(); private var legalAt = -1
-    val legal: List<Int> get() { if (legalAt != version) { legalCache = if (g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
+    val legal: List<Int> get() { if (legalAt != version) { legalCache = if (localTwoPlayer || g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
 
     init { message = "Your move: you are Red" }
 
-    override val wonTitle get() = "The general falls!"
-    override val lostTitle get() = "Your general is taken"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "The general falls!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Your general is taken"
     override val drawMessage get() = "$message. This game's save slot has been cleared."
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 1) { nudge("The computer is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("The computer is thinking"); return }
         if (selected >= 0) {
             val m = legal.firstOrNull { Xiangqi.src(it) == selected && Xiangqi.dst(it) == i }
             if (m != null) {
@@ -370,12 +372,13 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
                 val code = guideDone()
                 if (outcome == Outcome.PLAYING) {
                     if (code != null) scriptedReply(code) { c -> g.legalMoves().firstOrNull { Xiangqi.src(it) == c / 100 && Xiangqi.dst(it) == c % 100 }?.let { apply(it) } }
+                    else if (localTwoPlayer) { message += " · Player ${if (g.turn == 1) 1 else 2}, your turn"; changed() }
                     else reply()
                 }
                 return
             }
         }
-        if (g.b[i] > 0) {
+        if (g.b[i] * g.turn > 0) {
             if (legal.none { Xiangqi.src(it) == i }) { nudge(if (g.inCheck()) "Your general is in check" else "That piece can't move"); selected = -1; bump(); return }
             selected = if (selected == i) -1 else i; bump(); return
         }
@@ -386,7 +389,7 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
     private fun apply(m: Int) {
         val captured = g.b[Xiangqi.dst(m)]
         lastFrom = Xiangqi.src(m); lastTo = Xiangqi.dst(m); moveId++
-        val who = if (g.turn == 1) "You" else "Computer"
+        val who = if (localTwoPlayer) "Player ${if (g.turn == 1) 1 else 2}" else if (g.turn == 1) "You" else "Computer"
         val name = (if (g.b[lastFrom] > 0) Xiangqi.RED_NAMES else Xiangqi.BLACK_NAMES)[abs(g.b[lastFrom])]
         g.make(m); moves++; selected = -1
         message = "$who moved $name" + if (captured != 0) " and captured ${(if (captured > 0) Xiangqi.RED_NAMES else Xiangqi.BLACK_NAMES)[abs(captured)]}" else ""
@@ -411,10 +414,10 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
         }
     }
 
-    override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == -1 && outcome == Outcome.PLAYING) reply() }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1) return null
+        if (localTwoPlayer || g.turn != 1) return null
         val copy = Xiangqi(); copy.load(g.state())
         return {
             AlphaBeta(copy, com.puresudoku.core.board.AiLevel(4, 1500, quiescence = true), Random(7)).best()?.let { m ->
@@ -426,13 +429,13 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
         }
     }
 
-    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("lf", lastFrom).put("lt", lastTo).put("moves", moves).put("msg", message)
+    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("lf", lastFrom).put("lt", lastTo).put("moves", moves).put("msg", message).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): XiangqiSession {
             val st = o.getJSONObject("state"); val g = Xiangqi(); g.load(st.getJSONArray("s").ints())
             return XiangqiSession(Difficulty.valueOf(o.getString("difficulty")), g).also {
-                it.lastFrom = st.optInt("lf", -1); it.lastTo = st.optInt("lt", -1); it.moves = st.optInt("moves"); it.message = st.optString("msg"); it.restoreCommon(o)
+                it.lastFrom = st.optInt("lf", -1); it.lastTo = st.optInt("lt", -1); it.moves = st.optInt("moves"); it.message = st.optString("msg"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); it.restoreCommon(o)
             }
         }
     }
@@ -541,6 +544,7 @@ private fun XiangqiBoardUi(s: XiangqiSession, targets: DemoTargets?) {
 // =====================================================================  Shogi
 
 class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.SHOGI, difficulty) {
+    override val localActor: Int get() = if (g.turn == 1) 1 else 2
     /** Selected board square, or 100 + piece type for a piece in hand. */
     var selected by mutableIntStateOf(-1); private set
     var lastTo by mutableIntStateOf(-1); private set
@@ -548,12 +552,12 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
     var moveId by mutableIntStateOf(0); private set
     var promoAsk by mutableStateOf<Pair<Int, Int>?>(null); private set
     private var legalCache: List<Int> = emptyList(); private var legalAt = -1
-    val legal: List<Int> get() { if (legalAt != version) { legalCache = if (g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
+    val legal: List<Int> get() { if (legalAt != version) { legalCache = if (localTwoPlayer || g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
 
     init { message = "Your move: you are Sente (bottom)" }
 
-    override val wonTitle get() = "Tsumi! Checkmate"
-    override val lostTitle get() = "Your king is caught"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Tsumi! Checkmate"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Your king is caught"
     override val drawMessage get() = "$message. This game's save slot has been cleared."
 
     fun movesFromSelected(): List<Int> = when {
@@ -564,20 +568,20 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
 
     fun tapHand(t: Int) {
         if (outcome != Outcome.PLAYING || thinking) return
-        if (g.hands[0][t] == 0) return
+        if ((!localTwoPlayer && g.turn != 1) || g.hands[if (g.turn == 1) 0 else 1][t] == 0) return
         if (legal.none { Shogi.isDrop(it) && Shogi.src(it) - Shogi.DROP == t }) { nudge("That piece can't be dropped anywhere right now"); return }
         selected = if (selected == 100 + t) -1 else 100 + t; bump()
     }
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 1) { nudge("The computer is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("The computer is thinking"); return }
         if (selected >= 0) {
             val ms = movesFromSelected().filter { Shogi.dst(it) == i }
             if (ms.size == 2) { promoAsk = ms.first { Shogi.promotes(it) } to ms.first { !Shogi.promotes(it) }; return }
             if (ms.size == 1) { play(ms[0]); return }
         }
-        if (g.b[i] > 0) {
+        if (g.b[i] * g.turn > 0) {
             if (legal.none { !Shogi.isDrop(it) && Shogi.src(it) == i }) { nudge(if (g.inCheck()) "Your king is in check" else "That piece can't move"); selected = -1; bump(); return }
             selected = if (selected == i) -1 else i; bump(); return
         }
@@ -596,11 +600,12 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
         val code = guideDone()
         if (outcome != Outcome.PLAYING) return
         if (code != null) scriptedReply(code) { c -> g.legalMoves().firstOrNull { Shogi.src(it) == c / 100 && Shogi.dst(it) == c % 100 && !Shogi.promotes(it) }?.let { apply(it) } }
+        else if (localTwoPlayer) { message += " · Player ${if (g.turn == 1) 1 else 2}, your turn"; changed() }
         else reply()
     }
 
     private fun apply(m: Int) {
-        val who = if (g.turn == 1) "You" else "Computer"
+        val who = if (localTwoPlayer) "Player ${if (g.turn == 1) 1 else 2}" else if (g.turn == 1) "You" else "Computer"
         lastTo = Shogi.dst(m); lastFrom = if (Shogi.isDrop(m)) -1 else Shogi.src(m); moveId++
         val captured = if (Shogi.isDrop(m)) 0 else abs(g.b[lastTo])
         val piece = if (Shogi.isDrop(m)) Shogi.src(m) - Shogi.DROP else abs(g.b[Shogi.src(m)])
@@ -632,10 +637,10 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
         }
     }
 
-    override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == -1 && outcome == Outcome.PLAYING) reply() }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1) return null
+        if (localTwoPlayer || g.turn != 1) return null
         val copy = Shogi(); copy.load(g.state())
         return {
             AlphaBeta(copy, com.puresudoku.core.board.AiLevel(3, 2000, quiescence = true), Random(7)).best()?.let { m ->
@@ -653,13 +658,13 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
         }
     }
 
-    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("lt", lastTo).put("lf", lastFrom).put("moves", moves).put("msg", message)
+    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("lt", lastTo).put("lf", lastFrom).put("moves", moves).put("msg", message).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): ShogiSession {
             val st = o.getJSONObject("state"); val g = Shogi(); g.load(st.getJSONArray("s").ints())
             return ShogiSession(Difficulty.valueOf(o.getString("difficulty")), g).also {
-                it.lastTo = st.optInt("lt", -1); it.lastFrom = st.optInt("lf", -1); it.moves = st.optInt("moves"); it.message = st.optString("msg"); it.restoreCommon(o)
+                it.lastTo = st.optInt("lt", -1); it.lastFrom = st.optInt("lf", -1); it.moves = st.optInt("moves"); it.message = st.optString("msg"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); it.restoreCommon(o)
             }
         }
     }
@@ -725,7 +730,7 @@ private fun ShogiBoardUi(s: ShogiSession, targets: DemoTargets?) {
     val anim = remember(s.moveId) { Animatable(0f) }
     LaunchedEffect(s.moveId) { anim.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        HandRow(g.hands[1], mine = false, selected = -1, targets = null) {}
+        HandRow(g.hands[1], mine = false, selected = if (s.localTwoPlayer && g.turn == -1 && s.selected >= 100) s.selected - 100 else -1, targets = null, enabled = s.localTwoPlayer && g.turn == -1, label = if (s.localTwoPlayer) "Player 2 hand" else "Computer hand") { s.tapHand(it) }
         Spacer(Modifier.height(4.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val cw = min(maxWidth / 9.3f, maxHeight / 10f)
@@ -768,7 +773,7 @@ private fun ShogiBoardUi(s: ShogiSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(4.dp))
-        HandRow(g.hands[0], mine = true, selected = if (s.selected >= 100) s.selected - 100 else -1, targets = targets) { s.tapHand(it) }
+        HandRow(g.hands[0], mine = true, selected = if (g.turn == 1 && s.selected >= 100) s.selected - 100 else -1, targets = targets, enabled = g.turn == 1, label = if (s.localTwoPlayer) "Player 1 hand" else "Your hand") { s.tapHand(it) }
         Spacer(Modifier.height(6.dp))
         TurnBanner(if (s.thinking) "Computer is thinking…" else s.message.ifEmpty { "Your move" }, s.thinking)
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))
@@ -785,13 +790,13 @@ private fun ShogiBoardUi(s: ShogiSession, targets: DemoTargets?) {
 }
 
 @Composable
-private fun HandRow(hand: IntArray, mine: Boolean, selected: Int, targets: DemoTargets?, onTap: (Int) -> Unit) {
+private fun HandRow(hand: IntArray, mine: Boolean, selected: Int, targets: DemoTargets?, enabled: Boolean = mine, label: String = if (mine) "Your hand" else "Computer hand", onTap: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x33A0743A)).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(if (mine) "Your hand" else "Computer's hand", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 4.dp))
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 4.dp))
         for (t in 7 downTo 1) {
             if (hand[t] == 0) continue
-            Box(Modifier.size(34.dp, 40.dp).demoTarget(targets, "hand-$t").clickable(enabled = mine) { onTap(t) }, contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp, 40.dp).demoTarget(targets, "hand-$t").clickable(enabled = enabled) { onTap(t) }, contentAlignment = Alignment.Center) {
                 Canvas(Modifier.size(30.dp, 36.dp)) { shogiPiece(t, mine, center, size.width * 0.9f, size.height * 0.9f, selected == t) }
                 if (hand[t] > 1) Text("×${hand[t]}", Modifier.align(Alignment.BottomEnd), fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }

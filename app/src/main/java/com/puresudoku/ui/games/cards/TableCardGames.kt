@@ -316,10 +316,12 @@ private fun BlackjackTableUi(s: BlackjackSession, targets: DemoTargets?) {
 
 private val FISH_NAMES = listOf("You", "Ava", "Ben", "Cleo")
 
-class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO_FISH, difficulty) {
+class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.games.board.DuelSession(GameKind.GO_FISH, difficulty) {
     val cfg = GoFish.config(difficulty)
-    private val rules = ScoreRules(cfg.basePoints, cfg.parSeconds)
-    var version by mutableIntStateOf(0); private set
+    private val cardRules = ScoreRules(cfg.basePoints, cfg.parSeconds)
+    var handoffPending by mutableStateOf(true); private set
+    val currentPlayer get() = if (localTwoPlayer) g.turn else 0
+    fun acceptHandoff() { handoffPending = false; bump(); changed() }
     var rank by mutableIntStateOf(0); private set
     val log = mutableStateListOf("Pick a card, then tap a player to ask for that rank.")
     private var clock = 0L
@@ -327,8 +329,8 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
     override val usesStrikes get() = false
     override val middleStat get() = MiddleStat.Counter("Books", "${g.books[0].size}")
     override val progress: Float get() = g.books.sumOf { it.size } / 13f
-    override val wonTitle get() = "Most books!"
-    override val lostTitle get() = "Out-fished"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Most books!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Out-fished"
     override val lostMessage get() = "You made ${g.books[0].size} books; ${FISH_NAMES[best()]} made ${g.books[best()].size}. This game's save slot has been cleared."
 
     private fun best() = (1 until g.players).maxBy { g.books[it].size }
@@ -336,6 +338,16 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
     private var said = mutableListOf<String>()
 
     private fun say(events: List<FishEvent>) {
+        if (localTwoPlayer) {
+            for (e in events) when (e) {
+                is FishEvent.Asked -> log += "Player ${e.from + 1} asked for ${Cards.plural(e.rank)}: ${if (e.got > 0) "got ${e.got}" else "Go fish"}"
+                is FishEvent.Fished -> log += if (e.lucky) "Player ${e.player + 1} drew the requested rank and plays again." else "Player ${e.player + 1} drew a card."
+                is FishEvent.Book -> log += "Player ${e.player + 1} completed the ${Cards.plural(e.rank)}!"
+                is FishEvent.Drew -> Unit
+            }
+            while (log.size > 6) log.removeAt(0)
+            return
+        }
         for (e in events) log += (when (e) {
             is FishEvent.Asked -> "${FISH_NAMES[e.from]} asked ${if (e.to == 0) "you" else FISH_NAMES[e.to]} for ${Cards.plural(e.rank)}: " +
                 if (e.got > 0) "got ${e.got}!" else "Go fish!"
@@ -347,39 +359,41 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
     }
 
     fun pick(c: Int) {
-        if (outcome != Outcome.PLAYING) return
-        rank = if (rank == Cards.rank(c)) 0 else Cards.rank(c); version++
+        if (outcome != Outcome.PLAYING || (localTwoPlayer && handoffPending)) return
+        rank = if (rank == Cards.rank(c)) 0 else Cards.rank(c); bump()
     }
 
     fun ask(to: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (g.turn != 0) { nudge("Wait for your turn"); return }
+        if ((!localTwoPlayer && g.turn != 0) || (localTwoPlayer && handoffPending)) { nudge("Wait for your turn"); return }
         if (rank == 0) { nudge("First pick a card from your hand"); return }
-        if (g.hands[to].isEmpty()) { nudge("${FISH_NAMES[to]} has no cards"); return }
-        say(g.ask(0, to, rank))
-        if (rank !in g.ranksIn(0)) rank = 0
+        if (to == currentPlayer || g.hands[to].isEmpty()) { nudge("That player has no cards"); return }
+        val previous = currentPlayer
+        say(g.ask(previous, to, rank))
+        if (rank !in g.ranksIn(previous)) rank = 0
         clock = 0
-        after()
+        after(previous)
     }
 
     /** Draw when nobody else holds cards. */
     fun lonelyDraw() {
+        if (outcome != Outcome.PLAYING || (localTwoPlayer && handoffPending)) return
         val p = g.turn
         val ev = mutableListOf<FishEvent>()
         if (g.deck.isNotEmpty()) {
             val c = g.deck.removeAt(g.deck.lastIndex); g.hands[p] += c
-            if (p == 0) log += "Nobody else has cards. You drew ${Cards.label(c)}."
+            if (localTwoPlayer) log += "Player ${p + 1} drew a card." else if (p == 0) log += "Nobody else has cards. You drew ${Cards.label(c)}."
         }
         g.checkBooks(p, ev); say(ev)
         if (!g.over) g.advance(ev)
-        after()
+        after(p)
     }
 
-    private val othersEmpty get() = (0 until g.players).none { it != g.turn && g.hands[it].isNotEmpty() }
+    val othersEmpty get() = (0 until g.players).none { it != g.turn && g.hands[it].isNotEmpty() }
 
     /** One AI turn. */
     fun step() {
-        if (outcome != Outcome.PLAYING || g.turn == 0 || g.over) return
+        if (localTwoPlayer || outcome != Outcome.PLAYING || g.turn == 0 || g.over) return
         if (othersEmpty) { lonelyDraw(); return }
         val (to, r) = g.aiChoice(g.turn)
         said.clear()
@@ -389,7 +403,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
     }
 
     override fun onTick(dtMs: Long) {
-        if (outcome != Outcome.PLAYING) return
+        if (localTwoPlayer || outcome != Outcome.PLAYING) return
         if (g.turn == 0 && !(othersEmpty && !g.over)) return
         if (heraldBusy) { clock = 0; return }
         clock += dtMs
@@ -398,20 +412,24 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
         if (g.turn == 0) lonelyDraw() else step()
     }
 
-    private fun after() {
-        version++
-        score = g.books[0].size * rules.basePoints * 10
+    private fun after(previous: Int = g.turn) {
+        if (localTwoPlayer && !g.over && previous != g.turn) { handoffPending = true; rank = 0 }
+        bump()
+        score = g.books[0].size * cardRules.basePoints * 10
         if (g.over) {
-            if (g.books[0].size >= g.books[best()].size) finish(true, listOf(BonusLine("Time bonus", Scoring.finish(rules, elapsedMs, 0).timeBonus)))
+            if (localTwoPlayer && g.books[0].size == g.books[1].size) finishDraw()
+            else if (g.books[0].size >= g.books[best()].size) finish(true, listOf(BonusLine("Time bonus", Scoring.finish(cardRules, elapsedMs, 0).timeBonus)))
             else finish(false)
         } else changed()
     }
+
+    override fun resume() { /* The existing tick loop handles solo opponents. */ }
 
     override fun saveState(): JSONObject = JSONObject()
         .put("deck", g.deck.jarr()).put("turn", g.turn)
         .put("hands", JSONArray().also { a -> g.hands.forEach { a.put(it.jarr()) } })
         .put("books", JSONArray().also { a -> g.books.forEach { a.put(it.jarr()) } })
-        .put("log", JSONArray(log.toList()))
+        .put("log", JSONArray(log.toList())).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): GoFishSession {
@@ -421,6 +439,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : Session(GameKind.GO
             val hs = st.getJSONArray("hands"); for (p in 0 until g.players) g.hands[p] += hs.getJSONArray(p).intList()
             val bs = st.getJSONArray("books"); for (p in 0 until g.players) g.books[p] += bs.getJSONArray(p).intList()
             return GoFishSession(d, g).also { s ->
+                s.localTwoPlayer = st.optBoolean("localTwoPlayer", false)
                 st.optJSONArray("log")?.let { a -> s.log.clear(); for (k in 0 until a.length()) s.log += a.getString(k) }
                 s.restoreCommon(o)
             }
@@ -491,21 +510,32 @@ object GoFishDef : GameDef {
 @Composable
 private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
     com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.GO_FISH) {
+    if (s.localTwoPlayer && s.handoffPending) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Hand phone to Player ${s.currentPlayer + 1}")
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = s::acceptHandoff) { Text("Ready") }
+            }
+        }
+        return@ProvideCardTheme
+    }
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
+    val me = s.currentPlayer
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-            for (p in 1 until g.players) {
+            for (p in (0 until g.players).filter { it != me }) {
                 val turn = g.turn == p
                 Column(
                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
                         .background(if (turn) colors.sameDigit else MaterialTheme.colorScheme.surface)
-                        .border(if (s.rank != 0 && g.turn == 0 && g.hands[p].isNotEmpty()) 2.dp else 0.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                        .border(if (s.rank != 0 && g.turn == me && g.hands[p].isNotEmpty()) 2.dp else 0.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
                         .clickable { s.ask(p) }.demoTarget(targets, "opp-$p").padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(FISH_NAMES[p], fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(if (s.localTwoPlayer) "Player ${p + 1}" else FISH_NAMES[p], fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy((-26).dp)) { repeat(minOf(6, g.hands[p].size)) { PlayingCard(0, false, 34.dp) } }
                     Spacer(Modifier.height(4.dp))
@@ -522,20 +552,21 @@ private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.demoTarget(targets, "books").horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Label("Your books")
-            for (r in g.books[0]) Text(Cards.rankLabel(r), fontWeight = FontWeight.Bold, fontSize = 13.sp,
+            Label(if (s.localTwoPlayer) "Player ${me + 1} books" else "Your books")
+            for (r in g.books[me]) Text(Cards.rankLabel(r), fontWeight = FontWeight.Bold, fontSize = 13.sp,
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(colors.sameDigit).padding(horizontal = 8.dp, vertical = 2.dp))
         }
         Spacer(Modifier.height(10.dp))
         Text(when {
-            g.turn != 0 -> "${FISH_NAMES[g.turn]} is thinking…"
+            !s.localTwoPlayer && g.turn != 0 -> "${FISH_NAMES[g.turn]} is thinking…"
             s.rank == 0 -> "Your turn: pick a card"
             else -> "Ask a player for ${Cards.plural(s.rank)}"
         }, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(8.dp))
+        if (s.localTwoPlayer && s.othersEmpty && !g.over) Button(onClick = s::lonelyDraw) { Text("Draw a card") }
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((-14).dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val keyed = HashSet<Int>()
-            for (c in g.hands[0].sortedBy { Cards.rank(it) * 4 + Cards.suit(it) }) {
+            for (c in g.hands[me].sortedBy { Cards.rank(it) * 4 + Cards.suit(it) }) {
                 val r = Cards.rank(c)
                 val m = if (keyed.add(r)) Modifier.demoTarget(targets, "card-$r") else Modifier
                 PopCard(c, true, 58.dp, m, highlight = r == s.rank, lift = r == s.rank) { s.pick(c) }
@@ -550,10 +581,12 @@ private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
 // Cuttle
 // =====================================================================
 
-class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CUTTLE, difficulty) {
+class CuttleSession(difficulty: Difficulty, val g: Cuttle) : com.puresudoku.ui.games.board.DuelSession(GameKind.CUTTLE, difficulty) {
     val cfg = CuttleRules.config(difficulty)
-    private val rules = ScoreRules(cfg.basePoints, cfg.parSeconds)
-    var version by mutableIntStateOf(0); private set
+    private val cardRules = ScoreRules(cfg.basePoints, cfg.parSeconds)
+    var handoffPending by mutableStateOf(true); private set
+    val currentPlayer get() = if (localTwoPlayer) actor() else 0
+    fun acceptHandoff() { handoffPending = false; bump(); changed() }
     var selected by mutableIntStateOf(-1); private set
     val discards = mutableStateListOf<Int>()
     private var clock = 0L
@@ -561,8 +594,8 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
     override val usesStrikes get() = false
     override val middleStat get() = MiddleStat.Counter("Points", "${g.score(0)}/${g.goal(0)}")
     override val progress: Float get() = (g.score(0) / g.goal(0).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
-    override val wonTitle get() = "You win!"
-    override val lostTitle get() = if (g.stalemate) "Stalemate" else "Opponent wins"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "You win!"
+    override val lostTitle get() = if (g.stalemate) "Stalemate" else if (localTwoPlayer) "Player 2 wins!" else "Opponent wins"
     override val lostMessage get() = if (g.stalemate) "Nobody could reach their goal. This game's save slot has been cleared." else "They reached ${g.score(1)} points. This game's save slot has been cleared."
 
     fun actor(): Int = when (val w = g.wait) {
@@ -573,15 +606,15 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
         is CWait.Seven -> w.who
     }
 
-    val myTurn get() = outcome == Outcome.PLAYING && !g.over && actor() == 0
+    val myTurn get() = outcome == Outcome.PLAYING && !g.over && (localTwoPlayer || actor() == 0) && (!localTwoPlayer || !handoffPending)
 
     /** The moves offered for the selected card (or the 7's revealed card). */
     val options: List<CMove>
         get() {
             if (!myTurn) return emptyList()
             return when (val w = g.wait) {
-                CWait.Move -> if (selected in g.hands[0]) g.movesFor(0, selected) else emptyList()
-                is CWait.Seven -> g.movesFor(0, w.card)
+                CWait.Move -> if (selected in g.hands[currentPlayer]) g.movesFor(currentPlayer, selected) else emptyList()
+                is CWait.Seven -> g.movesFor(currentPlayer, w.card)
                 else -> emptyList()
             }
         }
@@ -591,38 +624,40 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
         when (g.wait) {
             CWait.Move -> {
                 selected = if (selected == c) -1 else c
-                if (selected >= 0 && g.movesFor(0, c).isEmpty()) { nudge("${Cards.label(c)} has no legal play right now"); selected = -1 }
+                if (selected >= 0 && g.movesFor(currentPlayer, c).isEmpty()) { nudge("${Cards.label(c)} has no legal play right now"); selected = -1 }
             }
             is CWait.Discard -> if (c in discards) discards.remove(c) else discards += c
             else -> {}
         }
-        version++
+        bump()
     }
 
-    fun play(m: CMove) { if (myTurn) { g.play(m); selected = -1; after() } }
+    fun play(m: CMove) { if (myTurn) { val p = currentPlayer; g.play(m); selected = -1; after(p) } }
 
-    fun draw() {
+    fun drawCard() {
         if (!myTurn || g.wait != CWait.Move) return
+        val p = currentPlayer
         when {
-            g.deck.isEmpty() -> { g.play(CMove.Pass()); after() }
-            g.hands[0].size >= Cuttle.HAND_LIMIT -> nudge("Your hand is full (${Cuttle.HAND_LIMIT}); play a card")
-            else -> { g.play(CMove.Draw()); selected = -1; after() }
+            g.deck.isEmpty() -> { g.play(CMove.Pass()); after(p) }
+            g.hands[p].size >= Cuttle.HAND_LIMIT -> nudge("Your hand is full (${Cuttle.HAND_LIMIT}); play a card")
+            else -> { g.play(CMove.Draw()); selected = -1; after(p) }
         }
     }
 
-    fun counter(two: Int?) { if (myTurn && g.wait is CWait.Counter) { g.counter(0, two); after() } }
+    fun counter(two: Int?) { if (myTurn && g.wait is CWait.Counter) { val p = currentPlayer; g.counter(p, two); after(p) } }
 
     fun confirmDiscard() {
         val w = g.wait as? CWait.Discard ?: return
+        if (!myTurn) return
         if (discards.size != w.count) { nudge("Choose ${w.count} card${if (w.count > 1) "s" else ""} to discard"); return }
-        g.discard(0, discards.toList()); discards.clear(); after()
+        val p = currentPlayer; g.discard(p, discards.toList()); discards.clear(); after(p)
     }
 
-    fun pickScrap(c: Int) { if (myTurn && g.wait is CWait.ScrapPick) { g.pickScrap(0, c); after() } }
+    fun pickScrap(c: Int) { if (myTurn && g.wait is CWait.ScrapPick) { val p = currentPlayer; g.pickScrap(p, c); after(p) } }
 
     /** One opponent action. */
     fun step() {
-        if (outcome != Outcome.PLAYING || g.over || actor() != 1) return
+        if (localTwoPlayer || outcome != Outcome.PLAYING || g.over || actor() != 1) return
         val before = g.log.size
         stepInner()
         g.log.drop(before).takeIf { it.isNotEmpty() }?.let { announce(it.first(), it.drop(1).joinToString("\n"), 2000) }
@@ -640,7 +675,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
     }
 
     override fun onTick(dtMs: Long) {
-        if (outcome != Outcome.PLAYING || g.over) return
+        if (localTwoPlayer || outcome != Outcome.PLAYING || g.over) return
         val autoPass = actor() == 0 && g.wait is CWait.Counter && g.hands[0].none { Cuttle.r(it) == 2 }
         if ((actor() != 1 && !autoPass) || heraldBusy) { clock = 0; return }
         clock += dtMs
@@ -649,16 +684,20 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
         if (autoPass) counter(null) else step()
     }
 
-    private fun after() {
-        version++
-        if (selected !in g.hands[0]) selected = -1
-        score = g.score(0) * rules.basePoints
+    private fun after(previous: Int = actor()) {
+        if (localTwoPlayer && !g.over && previous != actor()) { handoffPending = true; selected = -1; discards.clear() }
+        bump()
+        if (selected !in g.hands[currentPlayer]) selected = -1
+        score = g.score(0) * cardRules.basePoints
         when {
-            g.winner == 0 -> finish(true, listOf(BonusLine("Victory", rules.basePoints * 50), BonusLine("Time bonus", Scoring.finish(rules, elapsedMs, 0).timeBonus)))
+            g.winner == 0 -> finish(true, listOf(BonusLine("Victory", cardRules.basePoints * 50), BonusLine("Time bonus", Scoring.finish(cardRules, elapsedMs, 0).timeBonus)))
+            localTwoPlayer && g.stalemate -> finishDraw()
             g.over -> finish(false)
             else -> changed()
         }
     }
+
+    override fun resume() { /* The existing tick loop handles solo opponents. */ }
 
     override fun saveState(): JSONObject {
         fun pts(l: List<PointCard>) = JSONArray().also { a -> l.forEach { pc -> a.put((listOf(pc.card) + pc.jacks).jarr()) } }
@@ -675,7 +714,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
             .put("royals", JSONArray().put(g.royals[0].jarr()).put(g.royals[1].jarr()))
             .put("turn", g.turn).put("wait", w).put("passes", g.passes).put("turns", g.turns)
             .put("pending", g.pending?.let { JSONObject().put("card", it.card).put("target", it.target) } ?: JSONObject.NULL)
-            .put("by", g.pendingBy).put("counters", g.counters.jarr()).put("log", JSONArray(g.log.takeLast(5)))
+            .put("by", g.pendingBy).put("counters", g.counters.jarr()).put("log", JSONArray(g.log.takeLast(5))).put("localTwoPlayer", localTwoPlayer)
     }
 
     companion object {
@@ -701,7 +740,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : Session(GameKind.CU
             st.optJSONObject("pending")?.let { g.pending = CMove.OneOff(it.getInt("card"), it.getInt("target")) }
             g.pendingBy = st.getInt("by"); g.counters += st.getJSONArray("counters").intList()
             st.optJSONArray("log")?.let { a -> for (k in 0 until a.length()) g.log += a.getString(k) }
-            return CuttleSession(d, g).also { it.restoreCommon(o) }
+            return CuttleSession(d, g).also { it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); it.restoreCommon(o) }
         }
 
         fun label(m: CMove): String = when (m) {
@@ -795,43 +834,55 @@ private fun Field(points: List<PointCard>, royals: List<Int>, w: Dp) {
 @Composable
 private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
     com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.CUTTLE) {
+    if (s.localTwoPlayer && s.handoffPending) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Hand phone to Player ${s.currentPlayer + 1}")
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = s::acceptHandoff) { Text("Ready") }
+            }
+        }
+        return@ProvideCardTheme
+    }
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
+    val me = s.currentPlayer
+    val them = 1 - me
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Opponent ${g.score(1)}/${g.goal(1)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Text("${g.hands[1].size} in hand", fontSize = 12.sp, color = colors.note)
+            Text("${if (s.localTwoPlayer) "Player ${them + 1}" else "Opponent"} ${g.score(them)}/${g.goal(them)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Text("${g.hands[them].size} in hand", fontSize = 12.sp, color = colors.note)
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy((-20).dp)) {
-            val see = g.glasses(0)
-            for (c in g.hands[1]) PopCard(if (see) c else 0, see, 40.dp, art = if (see) CardArt.cuttle(c) else 0)
+            val see = g.glasses(me)
+            for (c in g.hands[them]) PopCard(if (see) c else 0, see, 40.dp, art = if (see) CardArt.cuttle(c) else 0)
         }
         Spacer(Modifier.height(6.dp))
-        Field(g.points[1], g.royals[1], 50.dp)
+        Field(g.points[them], g.royals[them], 50.dp)
         Spacer(Modifier.height(10.dp))
         Text("Deck ${g.deck.size} · Scrap ${g.scrap.size}", fontSize = 12.sp, color = colors.note)
         Spacer(Modifier.height(4.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
             val lines = g.log.takeLast(3)
-            lines.forEachIndexed { i, line -> Text(line, fontSize = 13.sp, color = if (i == lines.lastIndex) MaterialTheme.colorScheme.onSurface else colors.note) }
+            lines.forEachIndexed { i, line -> Text(if (s.localTwoPlayer) line.replace("You", "Player 1").replace("Opponent", "Player 2") else line, fontSize = 13.sp, color = if (i == lines.lastIndex) MaterialTheme.colorScheme.onSurface else colors.note) }
             if (lines.isEmpty()) Text("Your move: draw or play a card.", fontSize = 13.sp)
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("You ${g.score(0)}/${g.goal(0)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            if (g.queens(0) > 0) Text("Protected by ${g.queens(0)} Queen${if (g.queens(0) > 1) "s" else ""}", fontSize = 12.sp, color = colors.note)
+            Text("${if (s.localTwoPlayer) "Player ${me + 1}" else "You"} ${g.score(me)}/${g.goal(me)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            if (g.queens(me) > 0) Text("Protected by ${g.queens(me)} Queen${if (g.queens(me) > 1) "s" else ""}", fontSize = 12.sp, color = colors.note)
         }
         Spacer(Modifier.height(4.dp))
-        Field(g.points[0], g.royals[0], 50.dp)
+        Field(g.points[me], g.royals[me], 50.dp)
         Spacer(Modifier.height(10.dp))
 
         // prompt for whatever the game is waiting on
         val w = g.wait
         val prompt = when {
             g.over -> ""
-            s.actor() == 1 -> "Opponent is thinking…"
+            !s.localTwoPlayer && s.actor() == 1 -> "Opponent is thinking…"
             w is CWait.Counter -> "Opponent played a one-off. Counter it with a 2?"
             w is CWait.Discard -> "Choose ${w.count} card${if (w.count > 1) "s" else ""} to discard"
             w is CWait.ScrapPick -> "Take a card from the scrap pile"
@@ -842,8 +893,8 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         if (prompt.isNotEmpty()) Text(prompt, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
 
-        if (w is CWait.Seven && s.actor() == 0) { PopCard(w.card, true, 64.dp, highlight = true, art = CardArt.cuttle(w.card)); Spacer(Modifier.height(8.dp)) }
-        if (w is CWait.ScrapPick && s.actor() == 0) {
+        if (w is CWait.Seven && s.myTurn) { PopCard(w.card, true, 64.dp, highlight = true, art = CardArt.cuttle(w.card)); Spacer(Modifier.height(8.dp)) }
+        if (w is CWait.ScrapPick && s.myTurn) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (c in g.scrap.distinct()) PopCard(c, true, 48.dp, art = CardArt.cuttle(c)) { s.pickScrap(c) }
             }
@@ -855,16 +906,16 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
             opts.forEachIndexed { i, m -> OutlinedButton(onClick = { s.play(m) }, modifier = Modifier.demoTarget(targets, "opt-$i")) { Text(CuttleSession.label(m), fontSize = 13.sp) } }
         }
         if (s.myTurn && w is CWait.Counter) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (two in g.hands[0].filter { Cuttle.r(it) == 2 }) Button(onClick = { s.counter(two) }) { Text("Counter with ${Cuttle.name(two)}") }
+            for (two in g.hands[me].filter { Cuttle.r(it) == 2 }) Button(onClick = { s.counter(two) }) { Text("Counter with ${Cuttle.name(two)}") }
             OutlinedButton(onClick = { s.counter(null) }) { Text("Let it happen") }
         }
         if (s.myTurn && w is CWait.Discard) Button(onClick = s::confirmDiscard) { Text("Discard ${s.discards.size}/${w.count}") }
-        if (s.myTurn && w == CWait.Move && s.selected < 0) Button(onClick = s::draw, modifier = Modifier.demoTarget(targets, "draw")) {
+        if (s.myTurn && w == CWait.Move && s.selected < 0) Button(onClick = s::drawCard, modifier = Modifier.demoTarget(targets, "draw")) {
             Text(if (g.deck.isEmpty()) "Pass" else "Draw a card")
         }
         Spacer(Modifier.height(10.dp))
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (c in g.hands[0].sortedBy { Cuttle.r(it) * 4 + Cards.suit(it) }) {
+            for (c in g.hands[me].sortedBy { Cuttle.r(it) * 4 + Cards.suit(it) }) {
                 val sel = c == s.selected || c in s.discards
                 PopCard(c, true, 56.dp, Modifier.demoTarget(targets, "h-$c"), highlight = sel, lift = sel, art = CardArt.cuttle(c)) { s.select(c) }
             }

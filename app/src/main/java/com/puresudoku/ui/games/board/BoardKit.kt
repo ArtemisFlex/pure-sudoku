@@ -80,6 +80,10 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     /** Bumped whenever the session is replaced, so stale AI replies are dropped. */
     private var generation = 0
     var moves by mutableIntStateOf(0)
+    /** Enabled only by games that implement both human turns. */
+    var localTwoPlayer by mutableStateOf(false)
+    /** Current local seat, or null when a game handles its own private handoff. */
+    open val localActor: Int? get() = null
 
     override val usesStrikes get() = false
     override val middleStat: MiddleStat get() = MiddleStat.Counter("Moves", "$moves")

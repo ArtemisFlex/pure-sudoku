@@ -6,6 +6,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -91,6 +92,9 @@ internal val KSPELL_ICONS = listOf(RI.KNIGHT, RI.RELIC, RI.SHIELD, RI.MOON, RI.F
 // =====================================================================  session
 
 class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(GameKind.KREASHUN, difficulty) {
+    var handoffPending by mutableStateOf(true)
+    val currentPlayer get() = if (localTwoPlayer) g.actor else 0
+    fun acceptHandoff() { handoffPending = false; bump(); changed() }
     enum class Mode { NONE, WALL, VILLAGE, TOWER, STRIKE, RALLY, SIEGE }
 
     var selected by mutableIntStateOf(-1)
@@ -104,44 +108,47 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
 
     override val middleStat get() = MiddleStat.Counter("Points", "${g.vp(0)}/${g.target}")
     override val progress: Float get() = (g.vp(0) / g.target.toFloat()).coerceAtMost(0.95f)
-    override val wonTitle get() = "Kreashun is yours!"
-    override val lostTitle get() = "Your rival rules Kreashun"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Kreashun is yours!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Your rival rules Kreashun"
     override val lostMessage get() = (if (g.vp(1) >= g.target) "The rival reached ${g.vp(1)} points." else "You lost every tile you held.") + " This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.actor == 0 && g.phase != Kreashun.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && g.phase != Kreashun.OVER
 
-    private fun flush() { if (g.log.isNotEmpty()) { events = (events + g.log).takeLast(4); g.log.clear() } }
+    private fun flush() { if (g.log.isNotEmpty()) { events = (events + if (localTwoPlayer) localPublicEvents(g.log) else g.log).takeLast(4); g.log.clear() } }
 
     private fun act(a: KAct): Boolean {
         if (!g.legal(a)) { nudge("You can't do that right now"); return false }
         coachTip = null; coachFrom = -1
-        g.apply(a, rng); flush(); bump(); changed()
+        val previousActor = g.actor
+        g.apply(a, rng)
+        if (localTwoPlayer && g.actor != previousActor && g.phase != Kreashun.OVER) { handoffPending = true; selected = -1; mode = Mode.NONE }
+        flush(); bump(); changed()
         if (g.phase == Kreashun.OVER) { whenQuiet { finishGame() }; return true }
-        if (g.actor == 1) aiStep()
+        if (!localTwoPlayer && g.actor == 1) aiStep()
         return true
     }
 
     fun vertexTargets(): List<Int> = when {
         !myMove -> emptyList()
-        g.phase == Kreashun.SETUP -> if (g.setupVillage < 0) g.villageSpots(0) else emptyList()
+        g.phase == Kreashun.SETUP -> if (g.setupVillage < 0) g.villageSpots(currentPlayer) else emptyList()
         g.phase != Kreashun.MAIN -> emptyList()
-        mode == Mode.VILLAGE -> if (g.can(0, Kreashun.COST_VILLAGE)) g.villageSpots(0) else emptyList()
-        mode == Mode.TOWER -> if (g.can(0, Kreashun.COST_TOWER)) g.towerSpots(0) else emptyList()
+        mode == Mode.VILLAGE -> if (g.can(currentPlayer, Kreashun.COST_VILLAGE)) g.villageSpots(currentPlayer) else emptyList()
+        mode == Mode.TOWER -> if (g.can(currentPlayer, Kreashun.COST_TOWER)) g.towerSpots(currentPlayer) else emptyList()
         else -> emptyList()
     }
 
     fun edgeTargets(): List<Int> = when {
         !myMove -> emptyList()
-        g.phase == Kreashun.SETUP -> if (g.setupVillage >= 0) g.wallSpots(0) else emptyList()
-        g.phase == Kreashun.MAIN && mode == Mode.WALL && (g.freeWalls > 0 || g.can(0, Kreashun.COST_WALL)) -> g.wallSpots(0)
+        g.phase == Kreashun.SETUP -> if (g.setupVillage >= 0) g.wallSpots(currentPlayer) else emptyList()
+        g.phase == Kreashun.MAIN && mode == Mode.WALL && (g.freeWalls > 0 || g.can(currentPlayer, Kreashun.COST_WALL)) -> g.wallSpots(currentPlayer)
         else -> emptyList()
     }
 
     fun tileTargets(): List<Int> = when {
         !myMove || g.phase != Kreashun.MAIN -> emptyList()
-        mode == Mode.STRIKE -> g.strikeTargets(0, selected)
-        mode == Mode.RALLY -> g.rallySpots(0)
-        mode == Mode.SIEGE -> g.siegeTargets(0)
+        mode == Mode.STRIKE -> g.strikeTargets(currentPlayer, selected)
+        mode == Mode.RALLY -> g.rallySpots(currentPlayer)
+        mode == Mode.SIEGE -> g.siegeTargets(currentPlayer)
         else -> emptyList()
     }
 
@@ -158,7 +165,7 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     fun tapEdge(e: Int) {
         if (!myMove) return
         act(KAct.Wall(e))
-        if (g.phase == Kreashun.MAIN && g.freeWalls == 0 && !g.can(0, Kreashun.COST_WALL)) mode = Mode.NONE
+        if (g.phase == Kreashun.MAIN && g.freeWalls == 0 && !g.can(currentPlayer, Kreashun.COST_WALL)) mode = Mode.NONE
         bump()
     }
 
@@ -180,7 +187,7 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     fun trade(give: Int, get: Int) { if (myMove) act(KAct.Trade(give, get)) }
     fun buySpell() { if (myMove) act(KAct.BuySpell) }
     fun cast(kind: Int, a: Int = -1, b: Int = -1) {
-        if (!myMove || !g.canPlay(0, kind)) { nudge("You can't cast that now"); return }
+        if (!myMove || !g.canPlay(currentPlayer, kind)) { nudge("You can't cast that now"); return }
         when (kind) {
             Kreashun.RALLY -> { mode = Mode.RALLY; bump() }
             Kreashun.SIEGE -> { mode = Mode.SIEGE; bump() }
@@ -250,7 +257,7 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
         heraldBusy -> "Watch the rival's moves · tap a card to skip"
-        thinking || g.actor == 1 -> "The rival is taking its turn…"
+        thinking || (!localTwoPlayer && g.actor == 1) -> "The rival is taking its turn…"
         g.phase == Kreashun.SETUP -> if (g.setupVillage < 0) "Place a village: tap a glowing corner" else "Place a wall beside it: tap a glowing side"
         g.phase == Kreashun.ROLL -> "Roll the dice"
         mode == Mode.WALL -> (if (g.freeWalls > 0) "${g.freeWalls} free wall${if (g.freeWalls > 1) "s" else ""} · " else "") + "Tap a glowing side to wall it · close every side of a tile to capture it"
@@ -259,13 +266,13 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
         mode == Mode.STRIKE -> "Tap a touching rival tile to strike"
         mode == Mode.RALLY -> "Tap one of your tiles for the rallied knight"
         mode == Mode.SIEGE -> "Tap a rival castle to hurl Siege Fire"
-        selected >= 0 && g.owner[selected] == 0 -> "Build a castle, hire knights, or strike"
+        selected >= 0 && g.owner[selected] == currentPlayer -> "Build a castle, hire knights, or strike"
         selected >= 0 -> "${g.closedSides(selected)} of 6 sides walled"
         else -> "Build walls to capture tiles, or end your turn"
     }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.actor != 0 || g.phase == Kreashun.OVER) return null
+        if (localTwoPlayer || g.actor != 0 || g.phase == Kreashun.OVER) return null
         val snap = g.copy()
         return {
             val a = KreashunAi.next(snap, KreashunAi.level(Difficulty.EXTREME), Random(7))
@@ -289,16 +296,16 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     override fun resume() {
         if (outcome != Outcome.PLAYING) return
         if (g.phase == Kreashun.OVER) { finishGame(); return }
-        if (g.actor == 1) aiStep()
+        if (!localTwoPlayer && g.actor == 1) aiStep()
     }
 
-    override fun saveState(): JSONObject = JSONObject().put("s", JSONArray().also { a -> g.state().forEach { a.put(it) } }).put("moves", moves)
+    override fun saveState(): JSONObject = JSONObject().put("s", JSONArray().also { a -> g.state().forEach { a.put(it) } }).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): KreashunSession {
             val st = o.getJSONObject("state").getJSONArray("s")
             val g = Kreashun.fromState(IntArray(st.length()) { st.getInt(it) })
-            return KreashunSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.restoreCommon(o) }
+            return KreashunSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.localTwoPlayer = o.getJSONObject("state").optBoolean("localTwoPlayer", false); it.restoreCommon(o) }
         }
     }
 }
@@ -523,6 +530,16 @@ fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier 
 fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
+    if (s.localTwoPlayer && s.handoffPending) {
+        Box(Modifier.fillMaxSize().background(PARCH_TOP), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Hand phone to Player ${s.currentPlayer + 1}", color = INK, fontFamily = SERIF, fontSize = 22.sp)
+                Spacer(Modifier.height(16.dp))
+                WoodButton("I'm ready", null) { s.acceptHandoff() }
+            }
+        }
+        return
+    }
     val full = targets == null
     var topH by remember { mutableIntStateOf(0) }
     var botH by remember { mutableIntStateOf(0) }
@@ -538,13 +555,13 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner("You", "${g.vp(0)}", YOU, g.turn == 0 && g.phase != Kreashun.SETUP, "${g.tiles(0)} tiles · ${g.spells[0].sum()} spells", Modifier.weight(1f))
+                PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.currentPlayer == 0)}", YOU, g.turn == 0 && g.phase != Kreashun.SETUP, "${g.tiles(0)} tiles · ${g.spells[0].sum()} spells", Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RIconOf(RI.CROWN, 22.dp)
                     Text("${g.target}", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
                 }
-                PlayerBanner("Rival", "${g.vp(1, false)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Kreashun.SETUP, "${g.tiles(1)} tiles · ${g.total(1)} cards", Modifier.weight(1f))
+                PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.currentPlayer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Kreashun.SETUP, "${g.tiles(1)} tiles · ${g.total(1)} cards", Modifier.weight(1f))
             }
         }
 
@@ -568,10 +585,10 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (r in 0..4) ResChip(r, g.res[0][r], Modifier.weight(1f))
+                for (r in 0..4) ResChip(r, g.res[s.currentPlayer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon(s.prompt, s.thinking || s.heraldBusy || (g.actor == 1 && s.outcome == Outcome.PLAYING))
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.currentPlayer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
             Spacer(Modifier.height(5.dp))
             when {
                 s.myMove && g.phase == Kreashun.ROLL -> WoodButton("Roll", RI.DICE, Modifier.demoTarget(targets, "roll")) { s.roll() }
@@ -580,16 +597,16 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
                     horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     val h = s.selected
-                    if (h >= 0 && g.owner[h] == 0) {
-                        if (g.castle[h] == 0) BuildButton(if (g.halfCastle[h]) "Castle ½" else "Castle", RI.CROWN, g.castleCost(h), false, g.canCastle(0, h)) { s.castle(h) }
-                        BuildButton("Knight ${g.knights[h]}/${g.capacity(h)}", RI.KNIGHT, Kreashun.COST_KNIGHT, false, g.canHire(0, h)) { s.hire(h) }
-                        BuildButton("Strike", RI.KNIGHT, null, s.mode == KreashunSession.Mode.STRIKE, g.strikeTargets(0, h).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.STRIKE) }
+                    if (h >= 0 && g.owner[h] == s.currentPlayer) {
+                        if (g.castle[h] == 0) BuildButton(if (g.halfCastle[h]) "Castle ½" else "Castle", RI.CROWN, g.castleCost(h), false, g.canCastle(s.currentPlayer, h)) { s.castle(h) }
+                        BuildButton("Knight ${g.knights[h]}/${g.capacity(h)}", RI.KNIGHT, Kreashun.COST_KNIGHT, false, g.canHire(s.currentPlayer, h)) { s.hire(h) }
+                        BuildButton("Strike", RI.KNIGHT, null, s.mode == KreashunSession.Mode.STRIKE, g.strikeTargets(s.currentPlayer, h).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.STRIKE) }
                     }
-                    BuildButton("Wall", RI.SHIELD, Kreashun.COST_WALL, s.mode == KreashunSession.Mode.WALL, g.can(0, Kreashun.COST_WALL) && g.wallSpots(0).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.WALL) }
-                    BuildButton("Village", RI.VILLAGE, Kreashun.COST_VILLAGE, s.mode == KreashunSession.Mode.VILLAGE, g.can(0, Kreashun.COST_VILLAGE) && g.villageSpots(0).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.VILLAGE) }
-                    BuildButton("Tower", RI.TOWER, Kreashun.COST_TOWER, s.mode == KreashunSession.Mode.TOWER, g.can(0, Kreashun.COST_TOWER) && g.towerSpots(0).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.TOWER) }
-                    BuildButton("Spell", RI.SCROLL, Kreashun.COST_SPELL, false, g.can(0, Kreashun.COST_SPELL) && g.deck.isNotEmpty() && g.freeWalls == 0) { s.buySpell() }
-                    BuildButton("Spells ${g.spells[0].sum()}", RI.BOOK, null, false, g.spells[0].sum() > 0) { showSpells = true }
+                    BuildButton("Wall", RI.SHIELD, Kreashun.COST_WALL, s.mode == KreashunSession.Mode.WALL, g.can(s.currentPlayer, Kreashun.COST_WALL) && g.wallSpots(s.currentPlayer).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.WALL) }
+                    BuildButton("Village", RI.VILLAGE, Kreashun.COST_VILLAGE, s.mode == KreashunSession.Mode.VILLAGE, g.can(s.currentPlayer, Kreashun.COST_VILLAGE) && g.villageSpots(s.currentPlayer).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.VILLAGE) }
+                    BuildButton("Tower", RI.TOWER, Kreashun.COST_TOWER, s.mode == KreashunSession.Mode.TOWER, g.can(s.currentPlayer, Kreashun.COST_TOWER) && g.towerSpots(s.currentPlayer).isNotEmpty()) { s.toggleMode(KreashunSession.Mode.TOWER) }
+                    BuildButton("Spell", RI.SCROLL, Kreashun.COST_SPELL, false, g.can(s.currentPlayer, Kreashun.COST_SPELL) && g.deck.isNotEmpty() && g.freeWalls == 0) { s.buySpell() }
+                    BuildButton("Spells ${g.spells[s.currentPlayer].sum()}", RI.BOOK, null, false, g.spells[s.currentPlayer].sum() > 0) { showSpells = true }
                     BuildButton("Trade", RI.TRADE, null, false, true) { showTrade = true }
                     BuildButton("End turn", RI.END, null, false, true) { s.endTurn() }
                 }
@@ -599,9 +616,9 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
         }
     }
     if (showTrade) KTradeDialog(s) { showTrade = false }
-    if (showSpells) SpellbookDialog(Kreashun.SPELLS, Kreashun.SPELL_TEXT, KSPELL_ICONS, g.spells[0], g.fresh,
+    if (showSpells) SpellbookDialog(Kreashun.SPELLS, Kreashun.SPELL_TEXT, KSPELL_ICONS, g.spells[s.currentPlayer], g.fresh,
         if (g.spellPlayed) "You've already cast a spell this turn." else null, Kreashun.RELIC, Kreashun.HARVEST,
-        { g.canPlay(0, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
+        { g.canPlay(s.currentPlayer, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
 }
 
 @Composable
@@ -616,13 +633,13 @@ private fun KTradeDialog(s: KreashunSession, onDismiss: () -> Unit) {
         text = {
             Column {
                 InkText("You give 4", 13, bold = true); Spacer(Modifier.height(4.dp))
-                ResPicker(give, { r -> "${g.res[0][r]}" }, { r -> g.res[0][r] >= 4 }) { give = it; if (get == it) get = -1 }
+                ResPicker(give, { r -> "${g.res[s.currentPlayer][r]}" }, { r -> g.res[s.currentPlayer][r] >= 4 }) { give = it; if (get == it) get = -1 }
                 Spacer(Modifier.height(10.dp))
                 InkText("You get 1", 13, bold = true); Spacer(Modifier.height(4.dp))
                 ResPicker(get, { null }, { r -> r != give }) { get = it }
             }
         },
-        confirmButton = { WoodButton("Trade 4 for 1", null, enabled = give >= 0 && get >= 0 && g.res[0][give] >= 4) { s.trade(give, get); if (g.res[0][give] < 4) give = -1 } },
+        confirmButton = { WoodButton("Trade 4 for 1", null, enabled = give >= 0 && get >= 0 && g.res[s.currentPlayer][give] >= 4) { s.trade(give, get); if (g.res[s.currentPlayer][give] < 4) give = -1 } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Done", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
     )
 }

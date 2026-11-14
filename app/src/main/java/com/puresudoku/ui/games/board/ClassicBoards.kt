@@ -69,6 +69,7 @@ private fun IntArray.jarr() = JSONArray().also { a -> forEach { a.put(it) } }
 // =====================================================================  Tic-tac-toe
 
 class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(GameKind.TIC_TAC_TOE, difficulty) {
+    override val localActor: Int? get() = if (roundOver) null else g.turn
     var round by mutableIntStateOf(1); private set
     var youWins by mutableIntStateOf(0); private set
     var cpuWins by mutableIntStateOf(0); private set
@@ -81,22 +82,23 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
 
     override val middleStat get() = MiddleStat.Counter("Rounds", "$youWins–$cpuWins")
     override val progress: Float get() = (round - 1) / 5f
-    override val wonTitle get() = "Match won!"
-    override val lostTitle get() = "Match lost"
-    override val lostMessage get() = "You $youWins, computer $cpuWins. This game's save slot has been cleared."
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Match won!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Match lost"
+    override val lostMessage get() = if (localTwoPlayer) "Player 1: $youWins, Player 2: $cpuWins." else "You $youWins, computer $cpuWins. This game's save slot has been cleared."
     override val drawMessage get() = "You $youWins, computer $cpuWins. This game's save slot has been cleared."
 
     val youStart get() = round % 2 == 1
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING || roundOver) return
-        if (thinking || g.turn != 1) { nudge("Wait for O"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("Wait for O"); return }
         if (g.cells[i] != 0) { nudge("That square is taken"); return }
         if (!guideAllows(-1, i)) return
         g.make(i); moves++; placedAt[i] = moves; bump()
         val code = guideDone()
         if (!checkRound()) {
             if (code != null) scriptedReply(code) { c -> if (g.cells[c] == 0 && g.turn == 2) { g.make(c); moves++; placedAt[c] = moves }; checkRound(); changed() }
+            else if (localTwoPlayer) { message = "Player ${g.turn}: ${if (g.turn == 1) "X" else "O"}, your turn"; changed() }
             else reply()
         }
     }
@@ -118,8 +120,8 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
         if (!g.over) { message = "Your turn"; changed(); return false }
         roundOver = true
         when (g.winner) {
-            1 -> { youWins++; message = "You take round $round!" }
-            2 -> { cpuWins++; message = "O takes round $round" }
+            1 -> { youWins++; message = if (localTwoPlayer) "Player 1 takes round $round!" else "You take round $round!" }
+            2 -> { cpuWins++; message = if (localTwoPlayer) "Player 2 takes round $round!" else "O takes round $round" }
             else -> { draws++; message = "Round $round is a draw" }
         }
         bump()
@@ -138,18 +140,22 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
         round++; roundOver = false
         g.cells.fill(0); placedAt.fill(0)
         g.turn = if (youStart) 1 else 2
-        message = if (youStart) "Round $round: your move" else "Round $round: O starts"
+        message = if (localTwoPlayer) "Player ${g.turn}: ${if (g.turn == 1) "X" else "O"}, your turn" else if (youStart) "Round $round: your move" else "Round $round: O starts"
         bump(); changed()
-        if (!youStart) reply()
+        if (!youStart && !localTwoPlayer) reply()
     }
 
     override fun resume() {
         if (outcome != Outcome.PLAYING) return
-        if (roundOver || g.over) { roundOver = false; nextRound() } else if (g.turn == 2) reply()
+        if (roundOver || g.over) {
+            if (youWins >= 3 || cpuWins >= 3 || round >= 5) {
+                when { youWins > cpuWins -> win(); youWins < cpuWins -> lose(); else -> draw() }
+            } else { roundOver = false; nextRound() }
+        } else if (g.turn == 2 && !localTwoPlayer) reply()
     }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1 || roundOver) return null
+        if (localTwoPlayer || g.turn != 1 || roundOver) return null
         val copy = TicTacToe(g.cells.copyOf(), g.turn)
         return {
             AlphaBeta(copy, TicTacToe.level(Difficulty.EXTREME), Random(1)).best()?.let { m ->
@@ -162,7 +168,7 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
     }
 
     override fun saveState(): JSONObject = JSONObject().put("cells", g.cells.jarr()).put("turn", g.turn).put("round", round)
-        .put("you", youWins).put("cpu", cpuWins).put("draws", draws).put("moves", moves)
+        .put("you", youWins).put("cpu", cpuWins).put("draws", draws).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): TicTacToeSession {
@@ -170,7 +176,8 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
             val g = TicTacToe(st.getJSONArray("cells").ints(), st.getInt("turn"))
             return TicTacToeSession(Difficulty.valueOf(o.getString("difficulty")), g).also {
                 it.round = st.getInt("round"); it.youWins = st.getInt("you"); it.cpuWins = st.getInt("cpu"); it.draws = st.getInt("draws"); it.moves = st.optInt("moves")
-                it.message = "Round ${it.round}"; it.restoreCommon(o)
+                it.localTwoPlayer = st.optBoolean("localTwoPlayer", false)
+                it.message = if (it.localTwoPlayer) "Player ${g.turn}: ${if (g.turn == 1) "X" else "O"}, your turn" else "Round ${it.round}"; it.restoreCommon(o)
             }
         }
     }
@@ -223,9 +230,9 @@ private fun TicTacToeUi(s: TicTacToeSession, targets: DemoTargets?) {
     }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.demoTarget(targets, "score"), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ScoreChip("You (X)", "${s.youWins}", Color(0xFF2F6FD6), g.turn == 1 && !s.roundOver)
+            ScoreChip(if (s.localTwoPlayer) "Player 1 (X)" else "You (X)", "${s.youWins}", Color(0xFF2F6FD6), g.turn == 1 && !s.roundOver)
             ScoreChip("Draws", "${s.draws}", Color(0xFF9E9E9E), false)
-            ScoreChip("O", "${s.cpuWins}", Color(0xFFE53935), g.turn == 2 && !s.roundOver)
+            ScoreChip(if (s.localTwoPlayer) "Player 2 (O)" else "O", "${s.cpuWins}", Color(0xFFE53935), g.turn == 2 && !s.roundOver)
         }
         Spacer(Modifier.height(12.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -274,16 +281,17 @@ private fun TicTacToeUi(s: TicTacToeSession, targets: DemoTargets?) {
 // =====================================================================  Gomoku
 
 class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKind.GOMOKU, difficulty) {
+    override val localActor: Int get() = g.turn
     var ghost by mutableIntStateOf(-1); private set
 
     init { message = "You are Black: tap twice to place a stone" }
-    override val wonTitle get() = "Five in a row!"
-    override val lostTitle get() = "White made five"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Five in a row!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "White made five"
     override val drawMessage get() = "The board filled up. This game's save slot has been cleared."
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 1) { nudge("White is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("White is thinking"); return }
         if (g.cells[i] != 0) { nudge("There's already a stone there"); return }
         if (!guideAllows(-1, i)) return
         if (ghost != i) { ghost = i; bump(); return }
@@ -292,6 +300,7 @@ class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKin
         val code = guideDone()
         if (!end()) {
             if (code != null) scriptedReply(code) { c -> if (g.play(c)) moves++; message = "Your move"; end() }
+            else if (localTwoPlayer) { message = if (g.turn == 1) "Player 1: Black, your turn" else "Player 2: White, your turn"; changed() }
             else reply()
         }
     }
@@ -312,18 +321,18 @@ class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKin
         }
     }
 
-    override fun resume() { if (g.turn == 2 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == 2 && outcome == Outcome.PLAYING) reply() }
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1) return null
+        if (localTwoPlayer || g.turn != 1) return null
         val copy = Gomoku(g.n); for (m in g.moves) copy.play(m)
         return { val m = copy.aiMove(Gomoku.level(Difficulty.EXTREME), Random(1)); Triple("Place your stone on the ringed point (tap it twice).", -1, m) }
     }
-    override fun saveState(): JSONObject = JSONObject().put("moves", g.moves.toIntArray().jarr())
+    override fun saveState(): JSONObject = JSONObject().put("moves", g.moves.toIntArray().jarr()).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): GomokuSession {
             val g = Gomoku(); for (m in o.getJSONObject("state").getJSONArray("moves").ints()) g.play(m)
-            return GomokuSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = g.moves.size; it.restoreCommon(o) }
+            return GomokuSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = g.moves.size; it.localTwoPlayer = o.getJSONObject("state").optBoolean("localTwoPlayer", false); if (it.localTwoPlayer) it.message = if (g.turn == 1) "Player 1: Black, your turn" else "Player 2: White, your turn"; it.restoreCommon(o) }
         }
     }
 }
@@ -422,6 +431,7 @@ private fun GomokuUi(s: GomokuSession, targets: DemoTargets?) {
 // =====================================================================  Nine Men's Morris
 
 class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKind.MORRIS, difficulty) {
+    override val localActor: Int get() = g.turn
     var selected by mutableIntStateOf(-1); private set
     /** Moves waiting for you to choose which enemy piece to take. */
     var removing by mutableStateOf<List<Morris.Move>?>(null); private set
@@ -429,15 +439,15 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
 
     init { message = "Place your white men" }
     override val middleStat get() = MiddleStat.Counter("Men", "${g.count(1)}–${g.count(2)}")
-    override val wonTitle get() = "Victory!"
-    override val lostTitle get() = "Out of men"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Victory!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Out of men"
     override val drawMessage get() = "50 moves without a mill. This game's save slot has been cleared."
 
     val prompt: String get() = when {
         thinking -> "Black is thinking…"
-        removing != null -> "Mill! Take one of Black's men"
-        g.placing(1) -> "Place a man (${g.inHand[1]} left)"
-        g.flying(1) -> "Only three left: you may fly anywhere"
+        removing != null -> if (localTwoPlayer) "Mill! Take one of your opponent's men" else "Mill! Take one of Black's men"
+        g.placing(if (localTwoPlayer) g.turn else 1) -> "Place a man (${g.inHand[if (localTwoPlayer) g.turn else 1]} left)"
+        g.flying(if (localTwoPlayer) g.turn else 1) -> "Only three left: you may fly anywhere"
         selected >= 0 -> "Move to a neighbouring point"
         else -> message
     }
@@ -446,14 +456,14 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 1) { nudge("Black is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("Black is thinking"); return }
         removing?.let { opts ->
             val m = opts.firstOrNull { it.remove == i }
-            if (m == null) { nudge(if (g.board[i] == 2 && g.inMill(i)) "Pieces in a mill are protected while others are free" else "Tap one of Black's men"); return }
+            if (m == null) { nudge(if (g.board[i] == (3 - g.turn) && g.inMill(i)) "Pieces in a mill are protected while others are free" else "Tap one of Black's men"); return }
             removing = null; play(m); return
         }
-        val from = if (g.placing(1)) -1 else selected
-        if (g.placing(1) || selected >= 0) {
+        val from = if (g.placing(if (localTwoPlayer) g.turn else 1)) -1 else selected
+        if (g.placing(if (localTwoPlayer) g.turn else 1) || selected >= 0) {
             val ms = legal().filter { it.from == from && it.to == i }
             if (ms.isNotEmpty()) {
                 if (!guideAllows(from, i)) { selected = -1; bump(); return }
@@ -461,11 +471,11 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
                 play(ms[0]); return
             }
         }
-        if (!g.placing(1) && g.board[i] == 1) {
+        if (!g.placing(if (localTwoPlayer) g.turn else 1) && g.board[i] == g.turn) {
             if (legal().none { it.from == i }) { nudge("That man is boxed in"); return }
             selected = if (selected == i) -1 else i; bump(); return
         }
-        nudge(if (g.board[i] != 0) "That point is taken" else if (g.placing(1)) "Pick an empty point" else "Tap one of your men first")
+        nudge(if (g.board[i] != 0) "That point is taken" else if (g.placing(if (localTwoPlayer) g.turn else 1)) "Pick an empty point" else "Tap one of your men first")
     }
 
     private fun play(m: Morris.Move) {
@@ -475,7 +485,7 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
         if (code != null) scriptedReply(code) { c ->
             val f = c / 10000 - 1; val t = (c / 100) % 100; val rm = c % 100 - 1
             g.legalMoves().firstOrNull { it.from == f && it.to == t && (rm < 0 || it.remove == rm) }?.let { apply(it) }
-        } else reply()
+        } else if (localTwoPlayer) { message = "Player ${g.turn}, your turn"; changed() } else reply()
     }
 
     private fun apply(m: Morris.Move) {
@@ -500,9 +510,9 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
         }
     }
 
-    override fun resume() { if (g.turn == 2 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == 2 && outcome == Outcome.PLAYING) reply() }
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1 || removing != null) return null
+        if (localTwoPlayer || g.turn != 1 || removing != null) return null
         val copy = Morris(); copy.loadState(g.copyState())
         return {
             AlphaBeta(copy, Morris.level(Difficulty.EXPERT), Random(1)).best()?.let { m ->
@@ -511,12 +521,12 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
             }
         }
     }
-    override fun saveState(): JSONObject = JSONObject().put("s", g.copyState().jarr()).put("moves", moves)
+    override fun saveState(): JSONObject = JSONObject().put("s", g.copyState().jarr()).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): MorrisSession {
             val g = Morris(); g.loadState(o.getJSONObject("state").getJSONArray("s").ints())
-            return MorrisSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.restoreCommon(o) }
+            return MorrisSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.localTwoPlayer = o.getJSONObject("state").optBoolean("localTwoPlayer", false); if (it.localTwoPlayer) it.message = "Player ${g.turn}, your turn"; it.restoreCommon(o) }
         }
     }
 }
@@ -571,8 +581,8 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
     val pop = rememberPop(s.lastTo * 1000 + s.moves)
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ScoreChip("You", "${g.count(1)}", Color(0xFFF4EBD6), g.turn == 1)
-            ScoreChip("Black", "${g.count(2)}", Color(0xFF2B2B33), g.turn == 2)
+            ScoreChip(if (s.localTwoPlayer) "Player 1" else "You", "${g.count(1)}", Color(0xFFF4EBD6), g.turn == 1)
+            ScoreChip(if (s.localTwoPlayer) "Player 2" else "Black", "${g.count(2)}", Color(0xFF2B2B33), g.turn == 2)
         }
         Spacer(Modifier.height(10.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -580,8 +590,8 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
             val sel = s.selected
             val tg = when {
                 s.removing != null -> s.removing!!.map { it.remove }.toSet()
-                g.placing(1) && g.turn == 1 -> (0..23).filter { g.board[it] == 0 }.toSet()
-                sel >= 0 -> g.targets(sel, 1).toSet()
+                g.placing(g.turn) && (s.localTwoPlayer || g.turn == 1) -> (0..23).filter { g.board[it] == 0 }.toSet()
+                sel >= 0 -> g.targets(sel, if (s.localTwoPlayer) g.turn else 1).toSet()
                 else -> emptySet()
             }
             Box(Modifier.size(side)) {
@@ -616,7 +626,7 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(10.dp))
-        TurnBanner(s.prompt.ifEmpty { "Your move" }, s.thinking)
+        TurnBanner((if (s.localTwoPlayer) "Player ${g.turn} · " else "") + s.prompt.ifEmpty { "Your move" }, s.thinking)
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))
     }
 }
@@ -624,21 +634,22 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
 // =====================================================================  Mancala
 
 class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameKind.MANCALA, difficulty) {
+    override val localActor: Int get() = g.turn + 1
     /** Pits touched by the last sowing, in order, for the trail animation. */
     var trail by mutableStateOf<List<Int>>(emptyList()); private set
     var trailId by mutableIntStateOf(0); private set
 
     init { message = "Pick one of your pits (bottom row)" }
     override val middleStat get() = MiddleStat.Counter("Store", "${g.pits[6]}–${g.pits[13]}")
-    override val wonTitle get() = "Most seeds!"
-    override val lostTitle get() = "Out-sown"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Most seeds!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Out-sown"
     override val lostMessage get() = "${g.pits[6]} to ${g.pits[13]}. This game's save slot has been cleared."
     override val drawMessage get() = "${g.pits[6]} each. This game's save slot has been cleared."
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 0) { nudge("The computer is sowing"); return }
-        if (i !in 0..5) { nudge("Your pits are the bottom row"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 0)) { nudge("The computer is sowing"); return }
+        if (i !in (if (g.turn == 0) 0..5 else 7..12)) { nudge("Choose a pit on your side"); return }
         if (g.pits[i] == 0) { nudge("That pit is empty"); return }
         if (!guideAllows(-1, i)) return
         sow(i)
@@ -656,6 +667,7 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
             gained > 1 -> if (mover == 0) "Capture! +$gained" else "The computer captured $gained"
             else -> if (mover == 0) "Computer's turn" else "Your turn"
         }
+        if (localTwoPlayer && !g.over) message = "Player ${g.turn + 1}, your turn" + if (g.turn == mover) " · go again" else ""
         bump()
         if (g.over) {
             val d = g.pits[6] - g.pits[13]
@@ -663,7 +675,7 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
             return
         }
         changed()
-        if (g.turn == 1) AiWorker.later(60) { whenQuiet { if (outcome == Outcome.PLAYING && g.turn == 1) reply() } }
+        if (!localTwoPlayer && g.turn == 1) AiWorker.later(60) { whenQuiet { if (outcome == Outcome.PLAYING && g.turn == 1) reply() } }
     }
 
     private fun reply() {
@@ -676,9 +688,9 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
         }
     }
 
-    override fun resume() { if (g.turn == 1 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == 1 && outcome == Outcome.PLAYING) reply() }
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 0) return null
+        if (localTwoPlayer || g.turn != 0) return null
         val copy = Mancala(g.pits.copyOf(), 0)
         return {
             AlphaBeta(copy, Mancala.level(Difficulty.MASTER), Random(1)).best()?.let { m ->
@@ -687,12 +699,12 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
             }
         }
     }
-    override fun saveState(): JSONObject = JSONObject().put("pits", g.pits.jarr()).put("turn", g.turn).put("moves", moves)
+    override fun saveState(): JSONObject = JSONObject().put("pits", g.pits.jarr()).put("turn", g.turn).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): MancalaSession {
             val st = o.getJSONObject("state")
-            return MancalaSession(Difficulty.valueOf(o.getString("difficulty")), Mancala(st.getJSONArray("pits").ints(), st.getInt("turn"))).also { it.moves = st.optInt("moves"); it.restoreCommon(o) }
+            return MancalaSession(Difficulty.valueOf(o.getString("difficulty")), Mancala(st.getJSONArray("pits").ints(), st.getInt("turn"))).also { it.moves = st.optInt("moves"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); if (it.localTwoPlayer) it.message = "Player ${it.g.turn + 1}, your turn"; it.restoreCommon(o) }
         }
     }
 }
@@ -743,8 +755,8 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
     LaunchedEffect(s.trailId) { step.animateTo(s.trail.size.toFloat(), tween(110 * s.trail.size.coerceAtLeast(1))) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ScoreChip("You", "${g.pits[6]}", Color(0xFF8D6E63), g.turn == 0)
-            ScoreChip("Computer", "${g.pits[13]}", Color(0xFF455A64), g.turn == 1)
+            ScoreChip(if (s.localTwoPlayer) "Player 1" else "You", "${g.pits[6]}", Color(0xFF8D6E63), g.turn == 0)
+            ScoreChip(if (s.localTwoPlayer) "Player 2" else "Computer", "${g.pits[13]}", Color(0xFF455A64), g.turn == 1)
         }
         Spacer(Modifier.height(10.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -754,7 +766,7 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
                     detectTapGestures { o ->
                         val u = size.width / 8f
                         val col = (o.x / u).toInt()
-                        if (col in 1..6 && o.y > size.height / 2) s.tap(col - 1) else if (col in 1..6) s.nudge("Those are the computer's pits")
+                        if (col in 1..6 && o.y > size.height / 2) s.tap(col - 1) else if (col in 1..6 && s.localTwoPlayer) s.tap(13 - col) else if (col in 1..6) s.nudge("Those are the computer's pits")
                     }
                 }) {
                     val u = size.width / 8f
@@ -783,7 +795,7 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
                         }
                         glyph("$n", c + Offset(0f, if (store) 0f else if (i < 6) ry + u * 0.22f else -ry - u * 0.22f), u * 0.28f, Color(0xFFFFF3E0))
                     }
-                    if (g.turn == 0 && !s.thinking) for (i in 0..5) if (g.pits[i] > 0) {
+                    if (!s.thinking && (g.turn == 0 || s.localTwoPlayer)) for (i in (if (g.turn == 0) 0..5 else 7..12)) if (g.pits[i] > 0) {
                         val c = pitCenter(i); drawOval(Color(0x662F6FD6), c - Offset(u * 0.44f, size.height * 0.21f), Size(u * 0.88f, size.height * 0.42f), style = Stroke(3f))
                     }
                     if (s.coachTo >= 0) coachRings(listOf(pitCenter(s.coachTo)), u * 0.46f)
@@ -802,21 +814,22 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
 // =====================================================================  Checkers
 
 class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(GameKind.CHECKERS, difficulty) {
+    override val localActor: Int get() = if (g.turn == 1) 1 else 2
     var selected by mutableIntStateOf(-1); private set
     var lastPath by mutableStateOf<List<Int>>(emptyList()); private set
     var moveId by mutableIntStateOf(0); private set
 
     init { message = "You are Red, moving up. Captures are compulsory" }
     override val middleStat get() = MiddleStat.Counter("Pieces", "${g.b.count { it > 0 }}–${g.b.count { it < 0 }}")
-    override val wonTitle get() = "Board cleared!"
-    override val lostTitle get() = "Out of moves"
+    override val wonTitle get() = if (localTwoPlayer) "Player 1 wins!" else "Board cleared!"
+    override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Out of moves"
     override val drawMessage get() = "40 moves each without progress. This game's save slot has been cleared."
 
-    private fun legal() = if (g.turn == 1) g.legalMoves() else emptyList()
+    private fun legal() = if (localTwoPlayer || g.turn == 1) g.legalMoves() else emptyList()
 
     fun tap(i: Int) {
         if (outcome != Outcome.PLAYING) return
-        if (thinking || g.turn != 1) { nudge("Black is thinking"); return }
+        if (thinking || (!localTwoPlayer && g.turn != 1)) { nudge("Black is thinking"); return }
         val ms = legal()
         if (selected >= 0) {
             val m = ms.filter { it.from == selected && it.to == i }.maxByOrNull { it.captured.size }
@@ -826,12 +839,13 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
                 val code = guideDone()
                 if (outcome == Outcome.PLAYING) {
                     if (code != null) scriptedReply(code) { c -> g.legalMoves().firstOrNull { it.from == c / 100 && it.to == c % 100 }?.let { apply(it) } }
+                    else if (localTwoPlayer) { message = if (g.turn == 1) "Player 1: Red, your turn" else "Player 2: Black, your turn"; changed() }
                     else reply()
                 }
                 return
             }
         }
-        if (g.b[i] > 0) {
+        if (g.b[i] * g.turn > 0) {
             if (ms.none { it.from == i }) {
                 nudge(if (ms.any { it.captured.isNotEmpty() }) "You must capture: another piece can jump" else "That piece is blocked")
                 return
@@ -871,9 +885,9 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
         }
     }
 
-    override fun resume() { if (g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && g.turn == -1 && outcome == Outcome.PLAYING) reply() }
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (g.turn != 1) return null
+        if (localTwoPlayer || g.turn != 1) return null
         val copy = Checkers(); copy.load(g.state())
         return {
             AlphaBeta(copy, Checkers.level(Difficulty.EXPERT), Random(1)).best()?.let { m ->
@@ -881,12 +895,12 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
             }
         }
     }
-    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("moves", moves)
+    override fun saveState(): JSONObject = JSONObject().put("s", g.state().jarr()).put("moves", moves).put("localTwoPlayer", localTwoPlayer)
 
     companion object {
         fun restore(o: JSONObject): CheckersSession {
             val g = Checkers(); g.load(o.getJSONObject("state").getJSONArray("s").ints())
-            return CheckersSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.restoreCommon(o) }
+            return CheckersSession(Difficulty.valueOf(o.getString("difficulty")), g).also { it.moves = o.getJSONObject("state").optInt("moves"); it.localTwoPlayer = o.getJSONObject("state").optBoolean("localTwoPlayer", false); if (it.localTwoPlayer) it.message = if (g.turn == 1) "Player 1: Red, your turn" else "Player 2: Black, your turn"; it.restoreCommon(o) }
         }
     }
 }
