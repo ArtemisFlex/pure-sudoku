@@ -460,7 +460,7 @@ internal object RulebookText {
         bl("**60 or more:** your people grow quickly.", "**Under 30:** people leave.", "**Under 10:** they revolt and burn a building.")
 
         ch("Rivals and War")
-        drop("Two to four **rival civilizations** wait beyond the fog. Each has a **strength** that grows over the years, and they raid you from the third year on.")
+        drop("Two to four **rival civilizations** wait beyond the fog. Each has a **strength** that grows over the years, and they raid you from the third year on. From Expert up their growth speeds up as the years pass; on Master and Extreme the strongest rival also raids on its own every few seasons, and from Hard up every surviving rival grows stronger, alarmed, each time a capital falls. Towers and soldiers at home are your defence.")
         p("**Soldiers** cost 2 food, 1 ore and 1 gold each, and come from your people. Barracks hold 8 each. Lay roads until they touch a rival's land, select it, and **attack with every soldier**: your soldiers plus two dice against their strength plus two dice. Win and their capital falls: its people join you and its gold is yours.")
 
         ch("Advice from the Old Stewards")

@@ -221,8 +221,8 @@ object AegConquestDef : GameDef {
         Difficulty.MEDIUM -> "Rivals grow a little faster."
         Difficulty.HARD -> "Three rivals, and now they attack: you and each other."
         Difficulty.EXPERT -> "Three rivals that grow quickly."
-        Difficulty.MASTER -> "A vast world and four rivals."
-        Difficulty.EXTREME -> "Four strong rivals and a great people to raise."
+        Difficulty.MASTER -> "A vast world and four rivals whose armies swell over time."
+        Difficulty.EXTREME -> "Four strong rivals that raise soldiers faster every year."
     }
     @Composable override fun Play(session: Session) = AegConquestUi(session as AegConquestSession, null)
     @Composable override fun Icon(size: Dp) = GameIcon(kind, size)
@@ -485,7 +485,7 @@ private fun AegCost(cost: IntArray) {
 }
 
 @Composable
-private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean, art: Int? = null, onClick: () -> Unit) {
+private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean, art: Int? = null, workers: Int = 0, idle: Int = 0, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         Modifier.demoTargetOf("b-" + label.substringBefore(' ').lowercase()).alpha(if (enabled) 1f else 0.45f).clip(shape).parchment(shape)
@@ -498,6 +498,8 @@ private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean
             InkText(label, 12, bold = true)
         } else Row(verticalAlignment = Alignment.CenterVertically) { RIconOf(icon, 18.dp); Spacer(Modifier.width(4.dp)); InkText(label, 13, bold = true) }
         if (cost != null && cost.any { it > 0 }) { Spacer(Modifier.height(1.dp)); AegCost(cost) }
+        // the crew it needs, against the people free to work it
+        if (workers > 0) InkText("$workers worker${if (workers == 1) "" else "s"}", 10, bold = true, color = if (idle >= workers) Color(0xFF2E7D32) else Color(0xFFB23B2E))
     }
 }
 
@@ -573,6 +575,10 @@ fun AegConquestUi(s: AegConquestSession, targets: DemoTargets?) {
                 Spacer(Modifier.height(5.dp))
             }
             if (s.myMove && s.selected >= 0 && s.selected == g.capital && g.canTrade()) { PortTrade(s); Spacer(Modifier.height(5.dp)) }
+            if (s.myMove && selectedBuilding >= 0 && g.revealed[selectedBuilding] && g.building[selectedBuilding] == AC.NONE) {
+                val opts = g.buildable(selectedBuilding)
+                if (opts.isNotEmpty()) { AegBuildGuide(selectedBuilding, opts, true, g.idle()); Spacer(Modifier.height(5.dp)) }
+            }
             val actionsScroll = rememberScrollState()
             if (s.myMove && (actionsScroll.canScrollForward || actionsScroll.canScrollBackward)) InkText("Swipe for more actions", 10, color = INK_SOFT)
             if (s.myMove) FlowRow(
@@ -583,7 +589,7 @@ fun AegConquestUi(s: AegConquestSession, targets: DemoTargets?) {
                 val h = s.selected
                 val conn = g.connected()
                 if (h >= 0 && g.revealed[h] && g.isLand(h)) {
-                    for (t in g.buildable(h, conn)) AegButton(AC.NAME[t], BUILD_ICON[t] ?: RI.VILLAGE, AC.COST[t], g.can(AC.COST[t]), BUILD_ART[t]) { s.act(CAct.Build(h, t)) }
+                    for (t in g.buildable(h, conn)) AegButton(AC.NAME[t], BUILD_ICON[t] ?: RI.VILLAGE, AC.COST[t], g.can(AC.COST[t]), BUILD_ART[t], AC.WORKERS[t], g.idle()) { s.act(CAct.Build(h, t)) }
                     if (g.building[h] == AC.VILLAGE) AegButton("Town", RI.VILLAGE, AC.COST[AC.TOWN], g.can(AC.COST[AC.TOWN]), BUILD_ART[AC.TOWN]) { s.act(CAct.Upgrade(h)) }
                     // workers: you choose who works where
                     if (conn[h] && AC.WORKERS[g.building[h]] > 0) {

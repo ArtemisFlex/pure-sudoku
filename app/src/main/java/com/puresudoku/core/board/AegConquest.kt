@@ -92,6 +92,8 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
         val RIVAL_START = intArrayOf(5, 6, 7, 8, 9, 10)
         /** Seasons between each point of rival growth. */
         val RIVAL_GROWS = intArrayOf(6, 5, 5, 4, 4, 3)
+        /** From Master up, each growth step raises one more soldier for every this many seasons played (0: never). */
+        val RIVAL_RAMP = intArrayOf(0, 0, 0, 0, 28, 20)
         val RIVAL_NAMES = listOf("the Ironhold", "the Thornmarch", "the Saltreach", "the Duskfen")
         val SEASON = listOf("Spring", "Summer", "Autumn", "Winter")
 
@@ -479,7 +481,7 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
             val mine = (0 until H).filter { rivalLand[it] == r }
             if (mine.isEmpty()) { rv.alive = false; continue }
             // new soldiers, on the borders that face an enemy, weakest first
-            if (season % RIVAL_GROWS[diff] == 0 && rivalStrength(r) < mine.size * 4) repeat(1 + mine.size / 5) {
+            if (season % RIVAL_GROWS[diff] == 0 && rivalStrength(r) < mine.size * 4) repeat(1 + mine.size / 5 + if (RIVAL_RAMP[diff] > 0) season / RIVAL_RAMP[diff] else 0) {
                 val border = mine.filter { h -> map.hexNbrs[h].any { n -> ownerOf(n, conn).let { it >= 0 && it != 1 + r } } }
                 val at = border.minByOrNull { rivalGuard[it] } ?: rv.capital
                 rivalGuard[at]++

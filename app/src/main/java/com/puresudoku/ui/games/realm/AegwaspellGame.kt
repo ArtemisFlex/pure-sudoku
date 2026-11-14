@@ -216,9 +216,9 @@ object AegwaspellDef : GameDef {
         Difficulty.EASY -> "A small world and two slow rivals."
         Difficulty.MEDIUM -> "Rivals grow a little faster."
         Difficulty.HARD -> "A wider world with three rivals."
-        Difficulty.EXPERT -> "Three rivals that grow quickly."
-        Difficulty.MASTER -> "A vast world and four rivals."
-        Difficulty.EXTREME -> "Four strong rivals and a great people to raise."
+        Difficulty.EXPERT -> "Three rivals that grow faster every year."
+        Difficulty.MASTER -> "A vast world and four rivals that raid your lands."
+        Difficulty.EXTREME -> "Four fast-growing rivals that raid often. Each fallen capital alarms the rest."
     }
     @Composable override fun Play(session: Session) = AegwaspellUi(session as AegwaspellSession, null)
     @Composable override fun Icon(size: Dp) = GameIcon(kind, size)
@@ -232,7 +232,7 @@ object AegwaspellDef : GameDef {
             LessonStep("Villages and towns house your people. Buildings need workers: an idle one makes nothing. People are born when there's food to spare, room to live and a good mood."),
             LessonStep("Each season ends with the harvest dice (a low roll is a poor year, a high roll a bountiful one) and an event card: migrants, plague, bandits, raids, festivals and more."),
             LessonStep("Temples and the colosseum keep people happy. Unhappy people leave, and very unhappy people revolt."),
-            LessonStep("Rival civilizations wait beyond the fog, and grow stronger each year. Build barracks, train soldiers, lay roads to their lands, and march on their capitals."),
+            LessonStep("Rival civilizations wait beyond the fog, and grow stronger each year; on the hardest levels they raid you and grow faster as time passes. Build barracks, train soldiers, lay roads to their lands, and march on their capitals."),
             LessonStep("Win with ${A.POP_GOAL[0]} people (on Easy) once every rival capital has fallen. Lose if your last person dies. Good luck!"),
         )
     }
@@ -471,7 +471,7 @@ private fun AegCost(cost: IntArray) {
 }
 
 @Composable
-private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean, art: Int? = null, onClick: () -> Unit) {
+private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean, art: Int? = null, workers: Int = 0, idle: Int = 0, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         Modifier.demoTargetOf("b-" + label.substringBefore(' ').lowercase()).alpha(if (enabled) 1f else 0.45f).clip(shape).parchment(shape)
@@ -484,6 +484,8 @@ private fun AegButton(label: String, icon: RI, cost: IntArray?, enabled: Boolean
             InkText(label, 12, bold = true)
         } else Row(verticalAlignment = Alignment.CenterVertically) { RIconOf(icon, 18.dp); Spacer(Modifier.width(4.dp)); InkText(label, 13, bold = true) }
         if (cost != null && cost.any { it > 0 }) { Spacer(Modifier.height(1.dp)); AegCost(cost) }
+        // the crew it needs, against the people free to work it
+        if (workers > 0) InkText("$workers worker${if (workers == 1) "" else "s"}", 10, bold = true, color = if (idle >= workers) Color(0xFF2E7D32) else Color(0xFFB23B2E))
     }
 }
 
@@ -520,7 +522,7 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner("${g.sw.people()}/${g.housing()}", "${g.sw.people()}", YOU, true, "people · ${g.soldiers} soldiers", Modifier.weight(1f))
+                PlayerBanner("${g.sw.people()}/${g.housing()}", "${g.sw.people()}", YOU, true, "people · ${g.idle()} idle · ${g.soldiers} soldiers", Modifier.weight(1f))
                 PlayerBanner("Mood ${g.happiness}", "${g.happiness}", if (g.happiness >= 60) Color(0xFF43A047) else if (g.happiness >= 30) GOLD else RIVAL, false,
                     "${g.rivalsLeft} of ${g.rivals.size} rivals left", Modifier.weight(1f))
             }
@@ -557,6 +559,10 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
                     g.sw.fallow[selectedBuilding], null, null, g.sw.notes(selectedBuilding))
                 Spacer(Modifier.height(5.dp))
             }
+            if (s.myMove && selectedBuilding >= 0 && g.revealed[selectedBuilding] && g.building[selectedBuilding] == A.NONE) {
+                val opts = g.buildable(selectedBuilding)
+                if (opts.isNotEmpty()) { AegBuildGuide(selectedBuilding, opts, false, g.idle()); Spacer(Modifier.height(5.dp)) }
+            }
             val actionsScroll = rememberScrollState()
             if (s.myMove && (actionsScroll.canScrollForward || actionsScroll.canScrollBackward)) InkText("Swipe for more actions", 10, color = INK_SOFT)
             if (s.myMove) FlowRow(
@@ -567,7 +573,7 @@ fun AegwaspellUi(s: AegwaspellSession, targets: DemoTargets?) {
                 val h = s.selected
                 val conn = g.connected()
                 if (h >= 0 && g.revealed[h] && g.isLand(h)) {
-                    for (t in g.buildable(h, conn)) AegButton(A.NAME[t], BUILD_ICON[t] ?: RI.VILLAGE, A.COST[t], g.can(A.COST[t]), BUILD_ART[t]) { s.act(AAct.Build(h, t)) }
+                    for (t in g.buildable(h, conn)) AegButton(A.NAME[t], BUILD_ICON[t] ?: RI.VILLAGE, A.COST[t], g.can(A.COST[t]), BUILD_ART[t], A.WORKERS[t], g.idle()) { s.act(AAct.Build(h, t)) }
                     if (g.building[h] == A.VILLAGE) AegButton("Town", RI.VILLAGE, A.COST[A.TOWN], g.can(A.COST[A.TOWN]), BUILD_ART[A.TOWN]) { s.act(AAct.Upgrade(h)) }
                     if (g.building[h] == A.BARRACKS || (g.count(A.BARRACKS) > 0 && h == g.capital)) {
                         val room = g.soldierCap() - g.soldiers

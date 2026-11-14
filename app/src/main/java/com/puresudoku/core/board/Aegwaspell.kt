@@ -84,6 +84,12 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
         val RIVAL_START = intArrayOf(5, 6, 7, 8, 9, 10)
         /** Seasons between each point of rival growth. */
         val RIVAL_GROWS = intArrayOf(6, 5, 4, 4, 3, 3)
+        /** From Expert up, rivals grow faster as the years pass: +1 strength per growth step for every this many seasons played (0: never). */
+        val RIVAL_RAMP = intArrayOf(0, 0, 0, 40, 28, 20)
+        /** From Master up, the strongest rival raids on its own every this many seasons once year 3 begins (0: only on the raid card). */
+        val RIVAL_RAIDS = intArrayOf(0, 0, 0, 0, 8, 6)
+        /** Strength every surviving rival gains, alarmed, when a capital falls. */
+        val RIVAL_ALARM = intArrayOf(0, 0, 1, 2, 3, 3)
         val RIVAL_NAMES = listOf("the Ironhold", "the Thornmarch", "the Saltreach", "the Duskfen")
         val SEASON = listOf("Spring", "Summer", "Autumn", "Winter")
 
@@ -221,6 +227,9 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
         return out
     }
 
+    /** People not needed at any staffed building: the workers free for a new one. */
+    fun idle(): Int { val st = staffed(); return pop - (0 until H).sumOf { if (st[it]) WORKERS[building[it]] else 0 } }
+
     /** What each staffed building makes this season, before the harvest die. */
     fun production(harvest: Float = 1f, cold: Boolean = winter): IntArray {
         val out = IntArray(5)
@@ -328,6 +337,8 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
             val lost = minOf(n - 1, (rv.strength + 1) / 2); soldiers -= lost
             for (h in 0 until H) if (rivalLand[h] == r) { rivalLand[h] = -1; revealed[h] = true }
             res[GOLD] += 10 + rv.strength / 2
+            val alarm = RIVAL_ALARM[diff]
+            if (alarm > 0) for (o in rivals) if (o.alive) o.strength += alarm
             val joined = 4 + rv.strength / 4; pop += joined
             log += "Your army took the capital of ${rv.name}! ${if (lost > 0) "$lost soldiers fell. " else ""}$joined of their people joined you, with ${10 + rv.strength / 2} gold"
         } else {
@@ -382,7 +393,10 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
             }
         }
         // rivals grow
-        for (rv in rivals) if (rv.alive && season % RIVAL_GROWS[diff] == 0) rv.strength++
+        val ramp = RIVAL_RAMP[diff]
+        for (rv in rivals) if (rv.alive && season % RIVAL_GROWS[diff] == 0) rv.strength += 1 + if (ramp > 0) season / ramp else 0
+        val raids = RIVAL_RAIDS[diff]
+        if (raids > 0 && year >= 3 && season % raids == raids - 1 && rivalsLeft > 0) log += raid(rng)
         sw.endOfSeason(staffed())
         season++
         if (season % 4 == 0) sw.record(year - 1)
@@ -451,7 +465,7 @@ class Aegwaspell(override val map: RealmGrid, override val diff: Int) : AegLand 
         val atk = rv.strength / 3 + roll(rng)
         return if (def >= atk) { rv.strength = maxOf(1, rv.strength - 1); "Raid: $name attacked, and your defenders threw them back" }
         else {
-            val killed = minOf(pop, 1 + rv.strength / 6); pop -= killed
+            val killed = minOf(pop, 1 + rv.strength / 8); pop -= killed
             val lostS = minOf(soldiers, 1 + soldiers / 3); soldiers -= lostS
             val h = (0 until H).filter { building[it] != NONE && building[it] != PORT }.maxByOrNull { -hexDist(it, rv.capital) }
             val g = res[GOLD] / 3; res[GOLD] -= g

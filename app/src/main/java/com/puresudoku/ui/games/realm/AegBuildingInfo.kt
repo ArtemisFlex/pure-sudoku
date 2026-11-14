@@ -71,3 +71,28 @@ internal fun AegBuildingInfo(
         }
     }
 }
+
+/** What each building on offer would do here, so a new player can weigh the choice before paying for it. */
+@Composable
+internal fun AegBuildGuide(tile: Int, options: List<Int>, conquest: Boolean, idle: Int) {
+    if (options.isEmpty()) return
+    key(tile) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).parchment(PANEL).padding(horizontal = 10.dp, vertical = 5.dp)) {
+            InkText("Build here · $idle worker${if (idle == 1) "" else "s"} free", 13, bold = true)
+            Column(Modifier.heightIn(max = 102.dp).verticalScroll(rememberScrollState())) {
+                for (b in options) {
+                    val need = A.WORKERS[b]
+                    val crew = when {
+                        need == 0 -> "no workers"
+                        idle >= need -> "$need worker${if (need == 1) "" else "s"}"
+                        else -> "$need workers: you have $idle free, so it will stand idle until more people arrive"
+                    }
+                    val upkeep = AegStewardship.upkeep(b)
+                    InkText("${A.NAME[b]} ($crew${if (upkeep > 0) ", $upkeep gold upkeep" else ""})", 12, bold = true)
+                    InkText(aegBuildingPurpose(b, conquest), 12)
+                }
+            }
+            InkText("Swipe details · Tap a building below to build it", 10, color = INK_SOFT)
+        }
+    }
+}
