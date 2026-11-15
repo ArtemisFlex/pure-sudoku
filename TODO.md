@@ -8,6 +8,7 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Done
 
+- 2026-11-15 Favourites: pin up to 16 games with the star (game cards and game pages); they show in a 4×4 grid at the top of the home screen. Long-press one there to unpin.
 - 2026-11-15 Every game has a manual: Manual button on the pause screen and in How to play. Strategy games open their illustrated rulebook; all others have a full written manual with rules, tips, levels and two-player play.
 - 2026-11-15 Table mode (pause screen toggle, remembered): lay the device flat between two players; on Player 2's turn the words, buttons and hands turn to face them while the board or map stays put.
 - 2026-11-15 Pass-the-phone screens (card games, Aegwaspell, Veilguard, Wisteria, Kreashun) now fill the whole screen in the next player's colour (Player 1 blue, Player 2 red) with white text.

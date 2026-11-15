@@ -44,6 +44,19 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
     var screen by mutableStateOf<Screen>(Screen.Hub); private set
     var themeMode by mutableStateOf(repo.themeMode()); private set
     var tableMode by mutableStateOf(repo.tableMode()); private set
+    /** Pinned favourites shown at the top of the home screen. */
+    var favorites by mutableStateOf(repo.favorites()); private set
+    fun isFavorite(kind: GameKind) = kind in favorites
+    /** Pins or unpins a game; returns false if all 16 favourite spots are taken. */
+    fun toggleFavorite(kind: GameKind): Boolean {
+        favorites = when {
+            kind in favorites -> favorites - kind
+            favorites.size >= MAX_FAVORITES -> return false
+            else -> favorites + kind
+        }
+        repo.setFavorites(favorites)
+        return true
+    }
     fun toggleTableMode() { tableMode = !tableMode; repo.setTableMode(tableMode) }
     var slots by mutableStateOf(loadSlots()); private set
     var stats by mutableStateOf(loadStats()); private set
@@ -403,3 +416,5 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         viewModelScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 }
+
+const val MAX_FAVORITES = 16

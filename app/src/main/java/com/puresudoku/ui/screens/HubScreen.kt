@@ -70,6 +70,8 @@ fun HubScreen(vm: AppViewModel) {
             Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(Modifier.height(44.dp))   // clear of the settings button
+            com.puresudoku.ui.components.FavoritesCard(vm)
             Spacer(Modifier.height(24.dp))
             GamesLogo(104.dp, introDelayMs = 150)
             Spacer(Modifier.height(16.dp))
@@ -205,14 +207,15 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
     LaunchedEffect(Unit) { delay(120L + index * 60L); enter.animateTo(1f, spring(0.7f, Spring.StiffnessMediumLow)) }
     val saved = vm.slots[g.kind]?.count { it != null } ?: 0
     val solves = vm.stats[g.kind]?.values?.sumOf { it.wins } ?: 0
+    Box(Modifier.fillMaxWidth().graphicsLayer {
+        alpha = enter.value.coerceIn(0f, 1f)
+        translationY = (1f - enter.value) * 50.dp.toPx()
+    }) {
     Surface(
         onClick = { vm.openGame(g.kind) },
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth().graphicsLayer {
-            alpha = enter.value.coerceIn(0f, 1f)
-            translationY = (1f - enter.value) * 50.dp.toPx()
-        },
+        modifier = Modifier.fillMaxWidth(),
     ) {
         val logo = com.puresudoku.ui.components.gameLogoRes(g.kind)
         if (g.kind.category == GameCategory.STRATEGY && logo != 0) {
@@ -248,6 +251,8 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+    com.puresudoku.ui.components.FavoriteStar(vm, g.kind, Modifier.align(Alignment.TopEnd).padding(4.dp))
     }
 }
 

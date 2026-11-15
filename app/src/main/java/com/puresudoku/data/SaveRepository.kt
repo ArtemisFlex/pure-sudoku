@@ -246,6 +246,10 @@ class SaveRepository(private val prefs: KeyValueStore) {
 
     fun setThemeMode(m: ThemeMode) { prefs.edit().putString("theme_mode", m.name).apply() }
     /** Two players at a table, facing each other: the screen turns round for Player 2. */
+    /** Pinned games, in the order they were pinned (up to 16). */
+    fun favorites(): List<com.puresudoku.core.GameKind> =
+        (prefs.getString("favorites", "") ?: "").split(',').mapNotNull { n -> com.puresudoku.core.GameKind.entries.firstOrNull { it.name == n } }
+    fun setFavorites(kinds: List<com.puresudoku.core.GameKind>) { prefs.edit().putString("favorites", kinds.joinToString(",") { it.name }).apply() }
     fun tableMode() = prefs.getBoolean("table_mode", false)
     fun setTableMode(on: Boolean) { prefs.edit().putBoolean("table_mode", on).apply() }
 

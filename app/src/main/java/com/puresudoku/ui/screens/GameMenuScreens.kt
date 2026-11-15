@@ -81,6 +81,7 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
     val saved = vm.slots[kind]?.count { it != null } ?: 0
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         TopBar("", vm::back) {
+            com.puresudoku.ui.components.FavoriteStar(vm, kind)
             IconButton(onClick = { vm.openTutorial(kind) }) { Icon(Icons.Outlined.Info, contentDescription = "How to play") }
         }
         Column(
