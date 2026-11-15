@@ -124,15 +124,31 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
 
     val busy get() = glide != null || heraldBusy
 
-    init { score = g.earned; startLeg() }
 
     fun bump() { version++; score = g.earned; changed() }
 
     /** A new stop is current: fix its turn list and clear the hints. */
+    /** The route the GPS is following for this leg. */
+    var planned by mutableStateOf<List<Int>>(emptyList()); private set
+    /** Different ways to the next stop, offered before you set off (full GPS and turn list). */
+    var alts by mutableStateOf<List<List<Int>>>(emptyList()); private set
+    var altPicked by mutableIntStateOf(0); private set
+
     private fun startLeg() {
         val s = g.current
         pinFor = -1; hintEdge = -1; routeUntil = 0; pointReveal = -1
-        legSteps = if (s != null) g.steps(g.route(g.at, g.city.places[s.place].edge), g.at) else emptyList()
+        if (s == null) { planned = emptyList(); alts = emptyList(); legSteps = emptyList(); return }
+        val target = g.city.places[s.place].edge
+        alts = if (s.help <= Help.TURNS.ordinal) g.alternatives(g.at, target) else emptyList()
+        altPicked = 0
+        planned = alts.firstOrNull() ?: g.route(g.at, target)
+        legSteps = g.steps(planned, g.at)
+    }
+
+    /** Choose one of the offered routes. */
+    fun pickRoute(i: Int) {
+        val r = alts.getOrNull(i) ?: return
+        altPicked = i; planned = r; legSteps = g.steps(r, g.at); bump()
     }
 
     fun accept() {
@@ -172,14 +188,28 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
         val from = g.at
         val e = g.city.edges[t.edge]
         val stopBefore = g.current
+        val following = planned.firstOrNull()
         val a = g.drive(t.edge)
         hintEdge = -1
+        alts = emptyList()
+        // off the planned route: the GPS finds a new one from here (that's a reroute)
+        var rerouted = false
+        val st = g.current
+        if (st != null && st == stopBefore) {
+            if (following != null && following != t.edge) {
+                rerouted = st.help <= Help.TURNS.ordinal
+                if (rerouted) g.order?.let { it.reroutes++ }
+                planned = g.route(g.at, g.city.places[st.place].edge)
+                if (st.help == Help.TURNS.ordinal) legSteps = g.steps(planned, g.at)
+            } else planned = planned.drop(1)
+        }
         val driveMs = (g.driveSeconds(e) * 28L).coerceIn(380, 1100)
         val waitMs = when { a.waited >= 10 -> 900L; a.waited > 0 -> 420L; else -> 0L }
         glide = Glide(from, g.at, nowMillis(), driveMs, waitMs)
         onMainLater(driveMs + waitMs) {
             glide = null
-            if (a.waited >= 10 && g.city.lights[g.at] != null) nudge("Red light: ${a.waited} s")
+            if (rerouted) nudge("Rerouting… new route from ${g.city.streets[e.street].name}")
+            else if (a.waited >= 10 && g.city.lights[g.at] != null) nudge("Red light: ${a.waited} s")
             for (s in a.reached) {
                 val p = g.city.places[s.place]
                 when (s.kind) {
@@ -203,7 +233,11 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
             announce("Home! Shift complete", "+${a.bonus} coins. Tomorrow brings new road works.", 2200, mine = true)
         } else {
             val tip = if (a.tip >= 0) "+${a.tip} tip" else "${a.tip} for lateness"
-            announce("Delivered! +${a.pay + a.tip} coins", "Pay ${a.pay}, $tip.", 2000, mine = true)
+            announce("Delivered! +${a.pay + a.tip + a.routeBonus} coins", "Pay ${a.pay}, $tip." +
+                if (a.routeBonus > 0) " Shortest-path bonus +${a.routeBonus}!" else "", 2200, mine = true)
+            val km = { m: Int -> "${m / 1000}.${(m % 1000) / 100} km" }
+            if (a.shortest > 0) announce(if (a.meters <= a.shortest * 103 / 100) "You took the shortest path" else "Your route: ${km(a.meters)}",
+                "Shortest possible: ${km(a.shortest)}" + if (a.reroutes > 0) " · ${a.reroutes} reroute${if (a.reroutes > 1) "s" else ""}" else "", 1800, mine = true)
         }
         for (id in a.learned) {
             val h = g.helpFor(id)
@@ -224,7 +258,7 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
         when (h) {
             StreetSmarts.Hint.NEXT_TURN -> hintEdge = g.route(g.at, g.city.places[s.place].edge).firstOrNull() ?: -1
             StreetSmarts.Hint.PIN -> pinFor = s.place
-            StreetSmarts.Hint.ROUTE -> routeUntil = nowMillis() + 6000
+            StreetSmarts.Hint.ROUTE -> { planned = g.route(g.at, g.city.places[s.place].edge); routeUntil = nowMillis() + 6000 }
         }
         bump()
     }
@@ -234,6 +268,9 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
         if (!ok) nudge("Not enough coins")
         bump()
     }
+
+    // last, so every property above exists before the first leg is planned
+    init { score = g.earned; startLeg() }
 
     override fun saveState(): JSONObject = JSONObject().put("g", g.state()).put("pointed", pointedFor)
 
@@ -322,6 +359,7 @@ private fun kindColor(k: City.Kind): Color = when (k) {
 @Composable
 private fun StreetMap(
     g: StreetSmarts, s: StreetSmartsSession?, help: Help, routeShown: Boolean, pinPlace: Int, hintEdge: Int,
+    planned: List<Int> = emptyList(), alts: List<List<Int>> = emptyList(), altPicked: Int = 0,
     glideProgress: () -> Pair<Glide, Float>?, modifier: Modifier,
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -398,11 +436,20 @@ private fun StreetMap(
 
             // the route: drawn at full help, or for a few seconds as a hint
             val cur = g.current
-            if (cur != null && routeShown) {
-                val path = g.route(g.at, city.places[cur.place].edge)
+            fun routeLine(path: List<Int>): Path {
                 var n = g.at
                 val line = Path(); line.moveTo(sx(cx), sy(cy))
                 for (id in path) { n = city.other(city.edges[id], n); line.lineTo(p(n).x, p(n).y) }
+                return line
+            }
+            // other ways there, in grey, while you choose
+            if (cur != null && alts.size > 1) for ((i, alt) in alts.withIndex()) if (i != altPicked) {
+                val line = routeLine(alt)
+                drawPath(line, Color(0xFF80868B), style = Stroke(9f * scale + 2 * density, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(line, Color(0xFFBDC1C6), style = Stroke(9f * scale, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            if (cur != null && (routeShown || alts.size > 1)) {
+                val line = routeLine(planned.ifEmpty { g.route(g.at, city.places[cur.place].edge) })
                 drawPath(line, mc.routeEdge, style = Stroke(9f * scale + 2 * density, cap = StrokeCap.Round, join = StrokeJoin.Round))
                 drawPath(line, mc.route, style = Stroke(9f * scale, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
@@ -420,8 +467,18 @@ private fun StreetMap(
                 if (light != null) {
                     val probe = city.touching[n].map { city.edges[it] }.firstOrNull { city.axisOf(it) == axisNow } ?: city.edges[city.touching[n][0]]
                     val green = g.greenFor(n, probe)
-                    drawRoundRect(Color(0xFF202124), c + Offset(6f * scale, -10f * scale), Size(7f * scale, 13f * scale), androidx.compose.ui.geometry.CornerRadius(2f * scale))
-                    drawCircle(if (green) Color(0xFF34A853) else Color(0xFFEA4335), 2.6f * scale, c + Offset(9.5f * scale, if (green) 0f else -6f * scale))
+                    val u = 3.2f * density.coerceAtMost(scale * 1.6f + density * 0.5f)
+                    val box = c + Offset(5f * scale, -15f * scale)
+                    drawRoundRect(Color(0xFF202124), box, Size(u * 2.2f, u * 6.2f), androidx.compose.ui.geometry.CornerRadius(u * 0.7f))
+                    val lamp = { i: Int, col: Color, lit: Boolean -> drawCircle(if (lit) col else col.copy(alpha = 0.22f), u * 0.75f, box + Offset(u * 1.1f, u * (1.1f + i * 2f))) }
+                    lamp(0, Color(0xFFEA4335), !green); lamp(1, Color(0xFFFBBC04), false); lamp(2, Color(0xFF34A853), green)
+                    // seconds until it changes, for the lights around you
+                    if (hypot(city.nodeX[n] - city.nodeX[g.at], city.nodeY[n] - city.nodeY[g.at]) < 260f) {
+                        val ph = ((g.clock + light.offset) % light.cycle + light.cycle) % light.cycle
+                        val ns = city.axisOf(probe) != City.Axis.EW
+                        val left = when { ns && ph < light.nsGreen -> light.nsGreen - ph; ns -> light.cycle - ph; ph >= light.nsGreen -> light.cycle - ph; else -> light.nsGreen - ph }
+                        label(tm, "${left}s", box + Offset(u * 1.1f, u * 7.6f), 9f, if (green) Color(0xFF34A853) else Color(0xFFEA4335), mc.labelHalo, 0f)
+                    }
                 } else if (city.allWayStop[n]) {
                     drawOctagon(c + Offset(8f * scale, -8f * scale), 6f * scale)
                 }
@@ -576,7 +633,7 @@ fun StreetSmartsUi(s: StreetSmartsSession) {
             StreetMap(
                 g, s, help,
                 routeShown = (help == Help.ROUTE || now < s.routeUntil) && s.glide == null,
-                pinPlace = s.pinFor, hintEdge = s.hintEdge,
+                pinPlace = s.pinFor, hintEdge = s.hintEdge, planned = s.planned, alts = s.alts, altPicked = s.altPicked,
                 glideProgress = gp@{
                     val gl = s.glide ?: return@gp null
                     val f = ((now - gl.start).toFloat() / gl.driveMs).coerceIn(0f, 1f)
@@ -627,7 +684,7 @@ private fun GpsPanel(s: StreetSmartsSession, help: Help) {
             }
             when (help) {
                 Help.ROUTE -> {
-                    val path = g.route(g.at, p.edge)
+                    val path = s.planned.ifEmpty { g.route(g.at, p.edge) }
                     val steps = g.steps(path, g.at)
                     val first = steps.firstOrNull()
                     val then = steps.getOrNull(1)
@@ -662,6 +719,7 @@ private fun GpsPanel(s: StreetSmartsSession, help: Help) {
                     Text(if (help == Help.NAME) "From memory: no address." else "From memory: no address, and only landmarks are marked.", color = white.copy(alpha = 0.85f), fontSize = 13.sp)
                 }
             }
+            if (s.alts.size > 1) RouteChoices(s)
             val more = g.order?.stops?.filter { !it.done }?.drop(1)
             if (!more.isNullOrEmpty()) Text("Then: " + more.joinToString(", ") { g.city.places[it.place].name }, color = white.copy(alpha = 0.75f), fontSize = 12.sp)
         }
@@ -673,6 +731,27 @@ private fun legHeading(g: StreetSmarts, s: StreetSmartsSession): String {
     val first = s.legSteps.firstOrNull() ?: return "out"
     val e = g.city.touching[first.node].map { g.city.edges[it] }.firstOrNull { g.city.streets[it.street].name == first.street && g.canDrive(it, first.node) } ?: return "out"
     return compassLabel(g.heading(e, first.node)).lowercase()
+}
+
+/** The ways to the next stop, like a map app: time, distance and the main road. Tap one to follow it. */
+@Composable
+private fun RouteChoices(s: StreetSmartsSession) {
+    val g = s.g
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for ((i, r) in s.alts.withIndex()) {
+            val secs = g.pathSeconds(r, g.at); val m = g.pathMeters(r)
+            val via = r.groupingBy { g.city.edges[it].street }.eachCount().maxByOrNull { it.value }?.key?.let { g.city.streets[it].name } ?: ""
+            val picked = i == s.altPicked
+            Surface(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { s.pickRoute(i) }, shape = RoundedCornerShape(10.dp),
+                color = if (picked) Color.White else Color.White.copy(alpha = 0.16f)) {
+                Column(Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
+                    val ink = if (picked) Color(0xFF0B57D0) else Color.White
+                    Text("${secs / 60}:${(secs % 60).toString().padStart(2, '0')}" + if (i == 0) " · fastest" else "", color = ink, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("${m / 1000}.${(m % 1000) / 100} km · via $via", color = ink, fontSize = 11.sp, maxLines = 1)
+                }
+            }
+        }
+    }
 }
 
 private fun clockText(t: Int): String {

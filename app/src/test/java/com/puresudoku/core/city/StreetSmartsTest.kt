@@ -61,4 +61,24 @@ class StreetSmartsTest {
         }
         assertTrue("simple legs $simple of $legs", simple * 10 >= legs * 7)
     }
+
+    @Test fun shortestPathEarnsTheRouteBonusAndAlternativesDiffer() {
+        val g = StreetSmarts.newGame(21)
+        var bonuses = 0
+        repeat(6) {
+            if (g.offer == null) g.makeOffer()
+            g.accept()
+            var last: StreetSmarts.Arrival? = null
+            while (g.order != null) {
+                val stop = g.current!!
+                val alts = g.alternatives(g.at, city.places[stop.place].edge)
+                assertTrue("at least one route", alts.isNotEmpty())
+                assertEquals("alternatives are distinct", alts.size, alts.toSet().size)
+                for (id in g.route(g.at, city.places[stop.place].edge, byDistance = true)) last = g.drive(id)
+            }
+            if (last!!.routeBonus > 0) bonuses++
+            assertEquals("no reroutes when following the GPS", 0, last.reroutes)
+        }
+        assertTrue("shortest-path bonus earned ($bonuses of 6)", bonuses >= 5)
+    }
 }

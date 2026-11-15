@@ -179,7 +179,8 @@ class City private constructor() {
         for (n in 0 until N * N) {
             if (!alive(n)) continue
             val majors = touching[n].map { streets[edges[it].street] }.filter { it.major }.map { it.axis }.toSet()
-            if (majors.size >= 2) {
+            val nearCentre = ring(n) <= 10 && gx(n) % 2 == 0 && gy(n) % 2 == 0
+            if (majors.size >= 2 || (majors.size == 1 && nearCentre && touching[n].size >= 3)) {
                 val cycle = listOf(50, 60, 70, 80, 90)[rng.nextInt(5)]
                 lights[n] = Light(cycle, (cycle * (0.4f + rng.nextFloat() * 0.2f)).toInt(), rng.nextInt(cycle))
             } else if (majors.isEmpty() && touching[n].size >= 3 && rng.nextInt(3) == 0) allWayStop[n] = true

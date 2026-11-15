@@ -122,7 +122,7 @@ class StreetSmarts(val city: City = City.harbor) {
     // ---------------------------------------------------------------- routing
 
     /** Fastest path from [from] (heading in on [via]) to drive along edge [target]: the edges in order. */
-    fun route(from: Int, target: Int, startTime: Int = clock): List<Int> {
+    fun route(from: Int, target: Int, startTime: Int = clock, penalty: Map<Int, Float>? = null, byDistance: Boolean = false): List<Int> {
         val n = City.N * City.N
         val best = IntArray(n) { Int.MAX_VALUE }
         val prev = IntArray(n) { -1 }
@@ -135,7 +135,7 @@ class StreetSmarts(val city: City = City.harbor) {
             if (best[u] >= doneCost) break
             // reaching either end of the target block and driving it completes the trip
             if ((u == t.a || u == t.b) && canDrive(t, u)) {
-                val c = best[u] + driveSeconds(t)
+                val c = best[u] + if (byDistance) t.length.roundToInt() else driveSeconds(t)
                 if (c < doneCost) { doneCost = c; done = u }
             }
             for (id in city.touching[u]) {
@@ -143,7 +143,8 @@ class StreetSmarts(val city: City = City.harbor) {
                 if (!canDrive(e, u)) continue
                 val v = city.other(e, u)
                 val avgWait = city.lights[v]?.let { it.cycle / 4 } ?: if (city.allWayStop[v]) City.STOP_WAIT else 1
-                val c = best[u] + driveSeconds(e) + avgWait
+                val step = if (byDistance) e.length.roundToInt() else driveSeconds(e) + avgWait
+                val c = best[u] + ((penalty?.get(id) ?: 1f) * step).roundToInt()
                 if (c < best[v]) { best[v] = c; prev[v] = id; if (v !in open) open += v }
             }
         }
@@ -155,6 +156,27 @@ class StreetSmarts(val city: City = City.harbor) {
         path += target
         return path
     }
+
+    /**
+     * Up to three different routes, fastest first, like a map app offers: each next one avoids most
+     * of the blocks the earlier ones use, so they really are different ways there.
+     */
+    fun alternatives(from: Int, target: Int): List<List<Int>> {
+        val out = ArrayList<List<Int>>()
+        val penalty = HashMap<Int, Float>()
+        repeat(4) {
+            val p = route(from, target, penalty = penalty)
+            if (p.isEmpty()) return out
+            val shared = out.maxOfOrNull { o -> p.count { it in o }.toFloat() / p.size } ?: 0f
+            if (shared < 0.75f && out.none { it == p }) out += p
+            for (id in p) penalty[id] = (penalty[id] ?: 1f) * 1.8f
+            if (out.size == 3) return out
+        }
+        return out
+    }
+
+    /** Length in metres of a path. */
+    fun pathMeters(path: List<Int>): Int = path.sumOf { city.edges[it].length.toDouble() }.roundToInt()
 
     /** The intersection a path ends at. */
     fun endOf(path: List<Int>, from: Int): Int { var n = from; for (id in path) n = city.other(city.edges[id], n); return n }
@@ -194,6 +216,9 @@ class StreetSmarts(val city: City = City.harbor) {
         var hintsUsed = 0
         var pointed = false
         var driven = 0      // seconds on the road for this order
+        var meters = 0      // distance driven for this order
+        var shortest = 0    // the shortest possible distance for all its legs
+        var reroutes = 0    // times the GPS had to find a new route
     }
 
     var order: Order? = null
@@ -236,10 +261,14 @@ class StreetSmarts(val city: City = City.harbor) {
             stops += Stop(p.id, StopKind.DROP, helpFor(p.id))
         }
         val rush = level >= 2 && r.nextInt(4) == 0
-        var est = 0; var n = at
-        for (s in stops) { val p = route(n, city.places[s.place].edge); est += pathSeconds(p, n); n = endOf(p, n) }
+        var est = 0; var n = at; var shortest = 0
+        for (s in stops) {
+            val p = route(n, city.places[s.place].edge); est += pathSeconds(p, n)
+            shortest += pathMeters(route(n, city.places[s.place].edge, byDistance = true))
+            n = endOf(p, n)
+        }
         val pay = 8 + est / 15 + stops.size * 4 + if (rush) 10 else 0
-        offer = Order(stops, pay, rush, clock, max(60, (est * (if (rush) 1.35 else 1.8)).toInt()))
+        offer = Order(stops, pay, rush, clock, max(60, (est * (if (rush) 1.35 else 1.8)).toInt())).also { it.shortest = shortest }
     }
 
     private fun dist(a: City.Place, b: City.Place): Float {
@@ -283,7 +312,8 @@ class StreetSmarts(val city: City = City.harbor) {
 
     // ---------------------------------------------------------------- driving
 
-    class Arrival(val waited: Int, val reached: List<Stop>, val orderDone: Boolean, val pay: Int, val tip: Int, val bonus: Int, val learned: List<Int>)
+    class Arrival(val waited: Int, val reached: List<Stop>, val orderDone: Boolean, val pay: Int, val tip: Int, val bonus: Int, val learned: List<Int>,
+                  val routeBonus: Int = 0, val meters: Int = 0, val shortest: Int = 0, val reroutes: Int = 0)
 
     /** Drives one block along [edgeId]. Returns what happened when the car reached the next intersection. */
     fun drive(edgeId: Int): Arrival {
@@ -293,7 +323,7 @@ class StreetSmarts(val city: City = City.harbor) {
         val waited = waitAt(to, e, clock + secs)
         secs += waited
         clock += secs
-        order?.let { it.driven += secs }
+        order?.let { it.driven += secs; it.meters += e.length.roundToInt() }
         at = to; cameBy = edgeId
         // stops reached: driving their block counts, in order
         val o = order ?: return Arrival(waited, emptyList(), false, 0, 0, 0, emptyList())
@@ -345,8 +375,11 @@ class StreetSmarts(val city: City = City.harbor) {
         val tip = when { ratio <= 0.7 -> o.pay * 6 / 10; ratio <= 1.0 -> o.pay * 3 / 10; ratio <= 1.5 -> 0; else -> -o.pay / 3 } +
             o.stops.sumOf { it.help } * 2 - o.hintsUsed * 2
         val paid = max(3, o.pay + tip)
-        coins += paid; earned += paid
-        return Arrival(waited, reached, true, o.pay, paid - o.pay, 0, learned)
+        // the shortest way there pays best: within 3% of the shortest distance, or close to it
+        val detour = o.meters.toDouble() / max(1, o.shortest)
+        val routeBonus = when { o.shortest <= 0 -> 0; detour <= 1.03 -> max(5, o.pay / 2); detour <= 1.15 -> max(2, o.pay / 5); else -> 0 }
+        coins += paid + routeBonus; earned += paid + routeBonus
+        return Arrival(waited, reached, true, o.pay, paid - o.pay, 0, learned, routeBonus, o.meters, o.shortest, o.reroutes)
     }
 
     // ---------------------------------------------------------------- sense of direction
@@ -420,7 +453,7 @@ class StreetSmarts(val city: City = City.harbor) {
     }
 
     private fun orderText(o: Order?) = if (o == null) "" else
-        listOf(o.pay, if (o.rush) 1 else 0, o.started, o.budget, o.hintsUsed, if (o.pointed) 1 else 0, o.driven).joinToString(",") + "/" +
+        listOf(o.pay, if (o.rush) 1 else 0, o.started, o.budget, o.hintsUsed, if (o.pointed) 1 else 0, o.driven, o.meters, o.shortest, o.reroutes).joinToString(",") + "/" +
             o.stops.joinToString(";") { "${it.place}:${it.kind.ordinal}:${it.help}:${if (it.done) 1 else 0}" }
 
     private fun orderFrom(t: String): Order? {
@@ -428,7 +461,10 @@ class StreetSmarts(val city: City = City.harbor) {
         val (h, s) = t.split('/')
         val v = h.split(',').map { it.toInt() }
         val stops = s.split(';').map { st -> st.split(':').map { it.toInt() }.let { Stop(it[0], StopKind.entries[it[1]], it[2], it[3] == 1) } }
-        return Order(stops, v[0], v[1] == 1, v[2], v[3]).also { it.hintsUsed = v[4]; it.pointed = v[5] == 1; it.driven = v[6] }
+        return Order(stops, v[0], v[1] == 1, v[2], v[3]).also {
+            it.hintsUsed = v[4]; it.pointed = v[5] == 1; it.driven = v[6]
+            it.meters = v.getOrElse(7) { 0 }; it.shortest = v.getOrElse(8) { 0 }; it.reroutes = v.getOrElse(9) { 0 }
+        }
     }
 
     fun load(s: String) {
