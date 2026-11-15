@@ -77,7 +77,7 @@ class Wisteria(val map: RealmGrid, val diff: Int, val target: Int, val ashfall: 
         val NB_Q = intArrayOf(1, 1, 0, -1, -1, 0)
         val NB_R = intArrayOf(0, -1, -1, 0, 1, 1)
         private val gridCache = HashMap<String, RealmGrid>()
-        private fun grid(q: IntArray, r: IntArray): RealmGrid = synchronized(gridCache) {
+        private fun grid(q: IntArray, r: IntArray): RealmGrid = com.puresudoku.platform.locked(gridCache) {
             gridCache.getOrPut(q.joinToString(",") + "/" + r.joinToString(",")) { RealmMap.fromCoords(q, r) }
         }
 

@@ -1,6 +1,5 @@
 package com.puresudoku.ui.components
 
-import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
@@ -83,12 +82,13 @@ object BackdropInks {
     private const val SCRIM_WHITE_MAX = 0.30
     private const val SCRIM_DARK_MIN = 0.12
 
-    fun of(ctx: Context, res: Int, aspect: Float): BackdropInk = synchronized(cache) {
-        cache.getOrPut(res) { analyse(ctx, res, aspect) }
+    /** [render] draws backdrop [res] cropped to cover a w x h image and returns its ARGB pixels, row by row. */
+    fun of(res: Int, aspect: Float, render: (res: Int, w: Int, h: Int) -> IntArray?): BackdropInk = com.puresudoku.platform.locked(cache) {
+        cache.getOrPut(res) { analyse(res, aspect, render) }
     }
 
-    private fun analyse(ctx: Context, res: Int, aspect: Float): BackdropInk {
-        val all = sample(ctx, res, aspect) ?: return BackdropInk(DARK, Color.White, 0.8f)
+    private fun analyse(res: Int, aspect: Float, render: (Int, Int, Int) -> IntArray?): BackdropInk {
+        val all = sample(res, aspect, render) ?: return BackdropInk(DARK, Color.White, 0.8f)
         // Pixels are row-major, so the top of the screen is the front of the array.
         val lum = all.copyOfRange(0, (all.size * TEXT_REGION).toInt())
         val mean = lum.average()
@@ -118,21 +118,9 @@ object BackdropInks {
     }
 
     /** Relative luminance of each pixel in the text region, from a small render of the backdrop as it is cropped on screen. */
-    private fun sample(ctx: Context, res: Int, aspect: Float): DoubleArray? = runCatching {
-        val d = androidx.core.content.ContextCompat.getDrawable(ctx, res) ?: return null
+    private fun sample(res: Int, aspect: Float, render: (Int, Int, Int) -> IntArray?): DoubleArray? = runCatching {
         val w = 60; val h = (w / aspect).toInt().coerceIn(60, 200)
-        // Mirror ContentScale.Crop: scale to cover, centre.
-        val iw = d.intrinsicWidth.takeIf { it > 0 } ?: w
-        val ih = d.intrinsicHeight.takeIf { it > 0 } ?: h
-        val s = maxOf(w.toFloat() / iw, h.toFloat() / ih)
-        val dw = (iw * s).toInt(); val dh = (ih * s).toInt()
-        val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-        val c = android.graphics.Canvas(bmp)
-        d.setBounds((w - dw) / 2, (h - dh) / 2, (w - dw) / 2 + dw, (h - dh) / 2 + dh)
-        d.draw(c)
-        val px = IntArray(w * h)
-        bmp.getPixels(px, 0, w, 0, 0, w, h)
-        bmp.recycle()
+        val px = render(res, w, h) ?: return null
         DoubleArray(px.size) { i ->
             val p = px[i]
             0.2126 * lin((p shr 16) and 0xFF) + 0.7152 * lin((p shr 8) and 0xFF) + 0.0722 * lin(p and 0xFF)

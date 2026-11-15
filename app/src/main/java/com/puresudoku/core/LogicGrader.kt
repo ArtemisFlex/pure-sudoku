@@ -65,8 +65,8 @@ object LogicGrader {
 
         private fun nakedSingle(): Boolean {
             for (i in 0 until 81) {
-                if (v[i] == 0 && Integer.bitCount(cand[i]) == 1) {
-                    place(i, Integer.numberOfTrailingZeros(cand[i])); return true
+                if (v[i] == 0 && (cand[i]).countOneBits() == 1) {
+                    place(i, (cand[i]).countTrailingZeroBits()); return true
                 }
             }
             return false
@@ -105,12 +105,12 @@ object LogicGrader {
 
         private fun nakedSubset(n: Int): Boolean {
             for (unit in Grid.UNITS) {
-                val pool = unit.filter { v[it] == 0 && Integer.bitCount(cand[it]) in 2..n }
+                val pool = unit.filter { v[it] == 0 && (cand[it]).countOneBits() in 2..n }
                 if (pool.size < n) continue
                 val hit = combinations(pool.size, n) { idx ->
                     var union = 0
                     for (k in idx) union = union or cand[pool[k]]
-                    if (Integer.bitCount(union) != n) return@combinations false
+                    if ((union).countOneBits() != n) return@combinations false
                     val members = idx.map { pool[it] }
                     var changed = false
                     for (c in unit) if (c !in members && eliminate(c, union)) changed = true
@@ -129,13 +129,13 @@ object LogicGrader {
                     for (k in 0 until 9) if (cand[unit[k]] and (1 shl d) != 0) pos = pos or (1 shl k)
                     digits[d] = pos
                 }
-                val pool = (1..9).filter { Integer.bitCount(digits[it]) in 2..n }
+                val pool = (1..9).filter { (digits[it]).countOneBits() in 2..n }
                 if (pool.size < n) continue
                 val hit = combinations(pool.size, n) { idx ->
                     var positions = 0
                     var keep = 0
                     for (k in idx) { positions = positions or digits[pool[k]]; keep = keep or (1 shl pool[k]) }
-                    if (Integer.bitCount(positions) != n) return@combinations false
+                    if ((positions).countOneBits() != n) return@combinations false
                     var changed = false
                     for (k in 0 until 9) if (positions and (1 shl k) != 0 && eliminate(unit[k], keep.inv() and Grid.ALL)) changed = true
                     changed
@@ -156,12 +156,12 @@ object LogicGrader {
                         for (k in 0 until 9) if (cand[cell(line, k)] and bit != 0) m = m or (1 shl k)
                         m
                     }
-                    val pool = (0 until 9).filter { Integer.bitCount(lineMask[it]) in 2..n }
+                    val pool = (0 until 9).filter { (lineMask[it]).countOneBits() in 2..n }
                     if (pool.size < n) continue
                     val hit = combinations(pool.size, n) { idx ->
                         var cover = 0
                         for (k in idx) cover = cover or lineMask[pool[k]]
-                        if (Integer.bitCount(cover) != n) return@combinations false
+                        if ((cover).countOneBits() != n) return@combinations false
                         val lines = idx.map { pool[it] }
                         var changed = false
                         for (line in 0 until 9) {
@@ -178,10 +178,10 @@ object LogicGrader {
 
         private fun xyWing(): Boolean {
             for (pivot in 0 until 81) {
-                if (v[pivot] != 0 || Integer.bitCount(cand[pivot]) != 2) continue
+                if (v[pivot] != 0 || (cand[pivot]).countOneBits() != 2) continue
                 val pm = cand[pivot]
                 val wings = Grid.PEERS[pivot].filter {
-                    v[it] == 0 && Integer.bitCount(cand[it]) == 2 && Integer.bitCount(cand[it] and pm) == 1
+                    v[it] == 0 && (cand[it]).countOneBits() == 2 && (cand[it] and pm).countOneBits() == 1
                 }
                 for (a in wings.indices) for (b in a + 1 until wings.size) {
                     val w1 = wings[a]; val w2 = wings[b]
@@ -200,16 +200,16 @@ object LogicGrader {
 
         private fun xyzWing(): Boolean {
             for (pivot in 0 until 81) {
-                if (v[pivot] != 0 || Integer.bitCount(cand[pivot]) != 3) continue
+                if (v[pivot] != 0 || (cand[pivot]).countOneBits() != 3) continue
                 val pm = cand[pivot]
                 val wings = Grid.PEERS[pivot].filter {
-                    v[it] == 0 && Integer.bitCount(cand[it]) == 2 && cand[it] and pm == cand[it]
+                    v[it] == 0 && (cand[it]).countOneBits() == 2 && cand[it] and pm == cand[it]
                 }
                 for (a in wings.indices) for (b in a + 1 until wings.size) {
                     val w1 = wings[a]; val w2 = wings[b]
                     if (cand[w1] or cand[w2] != pm) continue
                     val z = cand[w1] and cand[w2]
-                    if (Integer.bitCount(z) != 1) continue
+                    if ((z).countOneBits() != 1) continue
                     var changed = false
                     for (c in Grid.PEERS[pivot]) if (c != w1 && c != w2 && Grid.sees(c, w1) && Grid.sees(c, w2) && eliminate(c, z)) changed = true
                     if (changed) return true

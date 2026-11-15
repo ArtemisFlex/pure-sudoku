@@ -31,7 +31,7 @@ private val ConfettiColors = listOf(
 @Composable
 fun Confetti(modifier: Modifier = Modifier, count: Int = 140) {
     val pieces = remember {
-        val r = Random(System.nanoTime())
+        val r = Random(kotlin.random.Random.nextLong())
         List(count) {
             Piece(
                 x = r.nextFloat(), delay = r.nextFloat() * 0.9f, speed = 0.35f + r.nextFloat() * 0.35f,

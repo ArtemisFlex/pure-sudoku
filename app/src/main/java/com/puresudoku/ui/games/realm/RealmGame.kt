@@ -379,7 +379,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
 // =====================================================================  game definitions
 
 abstract class RealmDefBase(final override val kind: GameKind, private val twist: Int) : GameDef {
-    override fun generate(d: Difficulty): Session = RealmSession(kind, d, Realm.newGame(twist, d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = RealmSession(kind, d, Realm.newGame(twist, d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = RealmSession.restore(kind, o).also { it.resume() }
     override val fullBleed: Boolean get() = true
     override val hasHeader: Boolean get() = true
@@ -508,7 +508,7 @@ internal fun DrawScope.flowArrow(a: Offset, b: Offset, u: Float, color: Color, f
     for (k in 0..1) {
         val t = (flow + k * 0.5f) % 1f
         val c = s + (e - s) * t
-        val fade = kotlin.math.sin(t * Math.PI.toFloat())
+        val fade = kotlin.math.sin(t * kotlin.math.PI.toFloat())
         val chev = Path().apply {
             val p0 = c - dir * (u * 0.08f) + nrm * (w * 0.85f); moveTo(p0.x, p0.y)
             to(c + dir * (u * 0.06f)); to(c - dir * (u * 0.08f) - nrm * (w * 0.85f))
@@ -766,7 +766,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
                     val a = geo.vert(m.edgeA[e]); val b = geo.vert(m.edgeB[e])
                     val img = if (o == 0) art.roadYou else art.roadRival
                     val mid = (a + b) / 2f; val len = (b - a).getDistance() * 0.74f; val hh = len * img.height / img.width
-                    rotate(Math.toDegrees(kotlin.math.atan2((b - a).y.toDouble(), (b - a).x.toDouble())).toFloat(), mid) {
+                    rotate(((kotlin.math.atan2((b - a).y.toDouble(), (b - a).x.toDouble())) * 180.0 / kotlin.math.PI).toFloat(), mid) {
                         drawImage(img, dstOffset = IntOffset((mid.x - len / 2).toInt(), (mid.y - hh / 2).toInt()), dstSize = IntSize(len.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
                     }
                 }
@@ -1239,7 +1239,7 @@ internal fun DrawScope.strategyWall(art: RealmArt, a: Offset, b: Offset, u: Floa
     if (len < 1f) return
     val mid = (a + b) / 2f
     val height = u * 0.24f
-    rotate(Math.toDegrees(kotlin.math.atan2(d.y.toDouble(), d.x.toDouble())).toFloat(), mid) {
+    rotate(((kotlin.math.atan2(d.y.toDouble(), d.x.toDouble())) * 180.0 / kotlin.math.PI).toFloat(), mid) {
         drawImage(art.stoneWall, dstOffset = IntOffset((mid.x - len / 2).toInt(), (mid.y - height / 2).toInt()),
             dstSize = IntSize(maxOf(1, len.toInt()), maxOf(1, height.toInt())),
             colorFilter = ColorFilter.tint(owner.copy(alpha = 0.65f), BlendMode.SrcAtop), filterQuality = FilterQuality.Medium)
@@ -1251,7 +1251,7 @@ internal fun DrawScope.strategyRoad(art: RealmArt, a: Offset, b: Offset, u: Floa
     val d = b - a; val len = d.getDistance()
     if (len < 1f) return
     val mid = (a + b) / 2f; val height = u * 0.2f
-    rotate(Math.toDegrees(kotlin.math.atan2(d.y.toDouble(), d.x.toDouble())).toFloat(), mid) {
+    rotate(((kotlin.math.atan2(d.y.toDouble(), d.x.toDouble())) * 180.0 / kotlin.math.PI).toFloat(), mid) {
         drawImage(art.stoneRoad, dstOffset = IntOffset((mid.x - len / 2).toInt(), (mid.y - height / 2).toInt()),
             dstSize = IntSize(maxOf(1, len.toInt()), maxOf(1, height.toInt())), filterQuality = FilterQuality.Medium)
     }

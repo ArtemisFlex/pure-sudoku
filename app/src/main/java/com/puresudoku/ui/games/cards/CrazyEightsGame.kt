@@ -198,7 +198,7 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
         fun restore(o: JSONObject): CrazyEightsSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state")
             val arr = st.getJSONArray("s"); val s = IntArray(arr.length()) { arr.getInt(it) }
-            val g = CrazyEights(s[0], CrazyEights.config(d).skill, Random(System.nanoTime())); g.load(s)
+            val g = CrazyEights(s[0], CrazyEights.config(d).skill, Random(kotlin.random.Random.nextLong())); g.load(s)
             return CrazyEightsSession(d, g).also { it.moves = st.optInt("moves"); it.localTwoPlayer = st.optBoolean("localTwoPlayer", false); it.restoreCommon(o) }
         }
     }
@@ -207,7 +207,7 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
 object CrazyEightsDef : GameDef {
     override fun lesson() = com.puresudoku.ui.training.CardScripts.crazyEights()
     override val kind = GameKind.CRAZY_EIGHTS
-    override fun generate(d: Difficulty): Session = CrazyEightsSession(d, CrazyEights.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = CrazyEightsSession(d, CrazyEights.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = CrazyEightsSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Play a card matching the suit or rank on top. Eights are wild. Tap the deck to draw."
     override fun levelInfo(d: Difficulty) = CrazyEights.config(d).let { "${it.opponents} opponent${if (it.opponents > 1) "s" else ""}" }

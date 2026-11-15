@@ -84,7 +84,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -163,9 +162,9 @@ class LadderSession(
 object LadderDef : GameDef {
     override val kind = GameKind.WORD_LADDER
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_word_ladder
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
-    override fun generate(d: Difficulty): Session = LadderSession(d, synchronized(rng) { LadderRules.generate(d, rng) })
+    override fun generate(d: Difficulty): Session = LadderSession(d, com.puresudoku.platform.locked(rng) { LadderRules.generate(d, rng) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))
@@ -381,9 +380,9 @@ class WheelSession(
 object WheelDef : GameDef {
     override val kind = GameKind.WORD_WHEEL
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_word_wheel
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
-    override fun generate(d: Difficulty): Session = WheelSession(d, synchronized(rng) { WheelRules.generate(d, rng) })
+    override fun generate(d: Difficulty): Session = WheelSession(d, com.puresudoku.platform.locked(rng) { WheelRules.generate(d, rng) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))
@@ -520,7 +519,7 @@ private fun Wheel(s: WheelSession, side: Dp, targets: DemoTargets?) {
     Box(Modifier.size(side)) {
         LetterBall(s.puzzle.center, tile, strong = true, modifier = Modifier.offset(side / 2 - tile / 2, side / 2 - tile / 2).demoTarget(targets, "wl-${s.puzzle.center}")) { s.tap(s.puzzle.center) }
         s.outer.forEachIndexed { k, c ->
-            val a = Math.toRadians(60.0 * k - 90)
+            val a = ((60.0 * k - 90) * kotlin.math.PI / 180.0)
             val x = side / 2 + r * cos(a).toFloat() - tile / 2
             val y = side / 2 + r * sin(a).toFloat() - tile / 2
             LetterBall(c, tile, strong = false, modifier = Modifier.offset(x, y).demoTarget(targets, "wl-$c")) { s.tap(c) }

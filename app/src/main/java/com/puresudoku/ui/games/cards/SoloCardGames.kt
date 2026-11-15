@@ -86,7 +86,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.random.Random
 
 /** A card that pops in when it first appears, and shakes on [fx]. */
@@ -203,8 +202,8 @@ object ScoundrelDef : GameDef {
         return if (s.g.room.any { Scoundrel.isMonster(it) && Scoundrel.value(it) >= 13 }) com.puresudoku.R.drawable.bg_scoundrel_boss else com.puresudoku.R.drawable.bg_scoundrel
     }
     override val kind = GameKind.SCOUNDREL
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = ScoundrelSession(d, synchronized(rng) { Scoundrel.newGame(d, rng) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = ScoundrelSession(d, com.puresudoku.platform.locked(rng) { Scoundrel.newGame(d, rng) })
     override fun restore(o: JSONObject): Session = ScoundrelSession.restore(o)
     override fun hint(d: Difficulty) = "♣♠ are monsters, ♦ weapons, ♥ potions. Resolve three cards per room. Reach the end of the deck alive."
     override fun levelInfo(d: Difficulty) = Scoundrel.config(d).let { "${it.health} health" + if (it.avoidLimit >= 0) " · ${it.avoidLimit} avoids" else "" }
@@ -406,7 +405,7 @@ class RegicideSession(difficulty: Difficulty, val g: Regicide) : Session(GameKin
     companion object {
         fun restore(o: JSONObject): RegicideSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state"); val cfg = Regicide.config(d)
-            val g = Regicide(cfg.hand, st.getInt("jesters"), Random(SecureRandom().nextLong()))
+            val g = Regicide(cfg.hand, st.getInt("jesters"), Random(kotlin.random.Random.nextLong()))
             g.castle += st.getJSONArray("castle").ints(); g.tavern += st.getJSONArray("tavern").ints(); g.discard += st.getJSONArray("discard").ints()
             g.hand += st.getJSONArray("hand").ints(); g.played += st.getJSONArray("played").ints()
             g.enemy = st.getInt("enemy"); g.damage = st.getInt("damage"); g.shield = st.getInt("shield"); g.suffer = st.getInt("suffer")
@@ -429,8 +428,8 @@ object RegicideDef : GameDef {
         }
     }
     override val kind = GameKind.REGICIDE
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = RegicideSession(d, synchronized(rng) { Regicide.newGame(d, rng) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = RegicideSession(d, com.puresudoku.platform.locked(rng) { Regicide.newGame(d, rng) })
     override fun restore(o: JSONObject): Session = RegicideSession.restore(o)
     override fun hint(d: Difficulty) = "Select cards and Play to attack. ♥ heals your deck, ♦ draws, ♣ doubles damage, ♠ shields. Survive each counterattack."
     override fun levelInfo(d: Difficulty) = Regicide.config(d).let { "hand ${it.hand} · ${it.jesters} jester${if (it.jesters == 1) "" else "s"}" }
@@ -589,7 +588,7 @@ class DungeonSession(difficulty: Difficulty, val g: DungeonSolitaire) : Session(
     companion object {
         fun restore(o: JSONObject): DungeonSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state"); val cfg = DungeonSolitaire.config(d)
-            val g = DungeonSolitaire(cfg.hp, cfg.kings, Random(SecureRandom().nextLong()))
+            val g = DungeonSolitaire(cfg.hp, cfg.kings, Random(kotlin.random.Random.nextLong()))
             g.deck += st.getJSONArray("deck").ints(); g.hp = st.getInt("hp"); g.torches = st.getInt("torches"); g.hand += st.getJSONArray("hand").ints()
             fun turns(a: JSONArray) = List(a.length()) { k -> a.getJSONObject(k).let { DungeonTurn(it.getJSONArray("c").ints(), it.getInt("e"), it.getInt("r")) } }
             g.delve += turns(st.getJSONArray("delve")); g.retreat += turns(st.getJSONArray("retreat"))
@@ -608,8 +607,8 @@ object DungeonDef : GameDef {
         return if (s.g.retreating) com.puresudoku.R.drawable.bg_tomb_escape else com.puresudoku.R.drawable.bg_tomb
     }
     override val kind = GameKind.DUNGEON_SOLITAIRE
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = DungeonSession(d, synchronized(rng) { DungeonSolitaire.newGame(d, rng) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = DungeonSession(d, com.puresudoku.platform.locked(rng) { DungeonSolitaire.newGame(d, rng) })
     override fun restore(o: JSONObject): Session = DungeonSession.restore(o)
     override fun hint(d: Difficulty) = "Turn cards to face what lies ahead. ♠ monsters, ♦ traps, ♣ doors. Find the four Kings, then turn back and escape."
     override fun levelInfo(d: Difficulty) = DungeonSolitaire.config(d).let { "${it.hp} health · escape with ${it.kings}+ kings" }
@@ -817,8 +816,8 @@ object JailbreakDef : GameDef {
     override fun lesson() = com.puresudoku.ui.training.CardScripts.jailbreak()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_jailbreak
     override val kind = GameKind.JAILBREAK
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = JailbreakSession(d, synchronized(rng) { Jailbreak.newGame(d, rng) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = JailbreakSession(d, com.puresudoku.platform.locked(rng) { Jailbreak.newGame(d, rng) })
     override fun restore(o: JSONObject): Session = JailbreakSession.restore(o)
     override fun hint(d: Difficulty) = "Tap a black card and red cards that add up to it to clear them. Empty one wall (N, E, S or W) to free the Joker."
     override fun levelInfo(d: Difficulty) = "Joker holds ${Jailbreak.config(d).cap}"

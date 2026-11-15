@@ -42,7 +42,7 @@ class RealmGrid(val hexQ: IntArray, val hexR: IntArray) {
         val vx = ArrayList<Float>(); val vy = ArrayList<Float>()
         hexVerts = Array(HEXES) { h ->
             IntArray(6) { k ->
-                val a = Math.toRadians(60.0 * k - 90.0)
+                val a = ((60.0 * k - 90.0) * kotlin.math.PI / 180.0)
                 val x = hexX[h] + kotlin.math.cos(a).toFloat(); val y = hexY[h] + kotlin.math.sin(a).toFloat()
                 val key = (x * 1000).roundToInt().toLong() * 100_000L + (y * 1000).roundToInt()
                 keys.getOrPut(key) { vx += x; vy += y; vx.size - 1 }
@@ -77,7 +77,7 @@ class RealmGrid(val hexQ: IntArray, val hexR: IntArray) {
             val want = atan2((RealmMap.DOCK_PY[k] - RealmMap.ISLAND_CY).toDouble(), (RealmMap.DOCK_PX[k] - RealmMap.ISLAND_CX).toDouble())
             coast.filter { it !in used }.minBy { e ->
                 val mx = (vertX[edgeA[e]] + vertX[edgeB[e]]) / 2.0; val my = (vertY[edgeA[e]] + vertY[edgeB[e]]) / 2.0
-                var d = abs(atan2(my, mx) - want); if (d > Math.PI) d = 2 * Math.PI - d
+                var d = abs(atan2(my, mx) - want); if (d > kotlin.math.PI) d = 2 * kotlin.math.PI - d
                 d * 4 - sqrt(mx * mx + my * my) * 0.25
             }.also { used += it }
         }
@@ -347,7 +347,7 @@ class Realm(val twist: Int, val target: Int, val map: RealmGrid = RealmMap.stand
             val tips = (0 until map.VERTS).filter { map.vertHexes[it].size == 1 }
             ley = intArrayOf(45, 135, 225, 315).map { deg ->
                 tips.minBy { v ->
-                    val a = Math.toDegrees(atan2(map.vertY[v].toDouble(), map.vertX[v].toDouble())).let { if (it < 0) it + 360 else it }
+                    val a = ((atan2(map.vertY[v].toDouble(), map.vertX[v].toDouble())) * 180.0 / kotlin.math.PI).let { if (it < 0) it + 360 else it }
                     minOf(abs(a - deg), 360 - abs(a - deg)) - sqrt(map.vertX[v] * map.vertX[v] + map.vertY[v] * map.vertY[v]) * 2
                 }
             }.toIntArray()

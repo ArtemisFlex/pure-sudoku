@@ -319,7 +319,7 @@ object VeilguardDef : GameDef {
     override val hasHeader: Boolean get() = true
     @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Veilguard · ")
 
-    override fun generate(d: Difficulty): Session = VeilguardSession(d, Veilguard.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = VeilguardSession(d, Veilguard.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = VeilguardSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Give secret orders, hide your Crown, and bluff with decoy banners. Take the rival's Crown to win at once. Beware the Veilnight Thief."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean

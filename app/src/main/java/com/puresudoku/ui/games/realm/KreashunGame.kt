@@ -318,7 +318,7 @@ object KreashunDef : GameDef {
     override val hasHeader: Boolean get() = true
     @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Kreashun · ")
 
-    override fun generate(d: Difficulty): Session = KreashunSession(d, Kreashun.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = KreashunSession(d, Kreashun.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = KreashunSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Wall every side of a tile to capture it: the closing wall takes it. Captured tiles pay double, raise castles and send knights against touching rival tiles."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean

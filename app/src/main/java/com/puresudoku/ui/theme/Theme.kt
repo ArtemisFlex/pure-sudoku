@@ -10,11 +10,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.puresudoku.R
 import com.puresudoku.core.Difficulty
 
 @Immutable
@@ -81,13 +79,6 @@ fun Difficulty.accent(): Color = when (this) {
     Difficulty.EXTREME -> Color(0xFFB81E4A)
 }
 
-/** Poppins, the typeface of the Pure Sudoku logo (SIL Open Font License). */
-val Poppins = FontFamily(
-    Font(R.font.poppins_medium, FontWeight.Normal),
-    Font(R.font.poppins_medium, FontWeight.Medium),
-    Font(R.font.poppins_bold, FontWeight.SemiBold),
-    Font(R.font.poppins_bold, FontWeight.Bold),
-)
 
 private val Display = Poppins
 

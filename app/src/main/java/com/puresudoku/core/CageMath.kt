@@ -1,6 +1,5 @@
 package com.puresudoku.core
 
-import java.security.SecureRandom
 import kotlin.random.Random
 
 /** One outlined group of cells and the result its digits must produce. */
@@ -126,7 +125,7 @@ class CageSolver(private val n: Int, private val cages: List<Cage>) {
         for (i in 0 until cells) {
             if (grid[i] != 0) continue
             val m = cand[i] and all and (rowUsed[i / n] or colUsed[i % n]).inv()
-            val cnt = Integer.bitCount(m)
+            val cnt = (m).countOneBits()
             if (cnt == 0) return 0
             if (cnt < bestCount) { best = i; bestCount = cnt; cand[i] = m; if (cnt == 1) break } else cand[i] = m
         }
@@ -139,7 +138,7 @@ class CageSolver(private val n: Int, private val cages: List<Cage>) {
         while (m != 0) {
             val bit = m and -m
             m = m xor bit
-            val d = Integer.numberOfTrailingZeros(bit)
+            val d = (bit).countTrailingZeroBits()
             grid[best] = d; rowUsed[best / n] = rowUsed[best / n] or bit; colUsed[best % n] = colUsed[best % n] or bit
             total += search(limit - total)
             grid[best] = 0; rowUsed[best / n] = rowUsed[best / n] and bit.inv(); colUsed[best % n] = colUsed[best % n] and bit.inv()
@@ -156,7 +155,7 @@ class CageSolver(private val n: Int, private val cages: List<Cage>) {
  *  3. solver check; if more than one answer exists, a cell where two answers
  *     differ is split off into its own given cell, and the check repeats.
  */
-class CageMathGenerator(seed: Long = SecureRandom().nextLong() xor System.nanoTime()) {
+class CageMathGenerator(seed: Long = kotlin.random.Random.nextLong()) {
     private val rng = Random(seed)
 
     fun generate(d: Difficulty): CagePuzzle {

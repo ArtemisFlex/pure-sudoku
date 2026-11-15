@@ -204,7 +204,7 @@ object AegwaspellDef : GameDef {
     override val hasHeader: Boolean get() = true
     @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Aegwaspell · ")
 
-    override fun generate(d: Difficulty): Session = AegwaspellSession(d, Aegwaspell.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = AegwaspellSession(d, Aegwaspell.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = AegwaspellSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Grow a civilization from a single port. Build one thing on each tile your roads reach, feed and house your people, and survive the seasons' dice and cards. Win with a great people once every rival capital has fallen."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
@@ -303,7 +303,7 @@ private fun DrawScope.aegTile(g: Aegwaspell, h: Int, c: Offset, u: Float, art: R
 
 private fun hexAt(c: Offset, u: Float, k: Float = 1f) = androidx.compose.ui.graphics.Path().apply {
     for (i in 0..5) {
-        val a = Math.toRadians(60.0 * i - 90.0)
+        val a = ((60.0 * i - 90.0) * kotlin.math.PI / 180.0)
         val p = c + Offset((kotlin.math.cos(a) * u * k).toFloat(), (kotlin.math.sin(a) * u * k).toFloat())
         if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
     }

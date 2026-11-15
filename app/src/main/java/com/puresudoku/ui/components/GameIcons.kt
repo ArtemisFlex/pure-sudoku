@@ -309,7 +309,7 @@ private fun DrawScope.wheel(c: BoardColors, tm: TextMeasurer, o: Float, inner: F
     val rad = inner * 0.3f
     val letters = "PLANETS"
     for (k in 0 until 6) {
-        val a = Math.toRadians(60.0 * k - 90).toFloat()
+        val a = ((60.0 * k - 90) * kotlin.math.PI / 180.0).toFloat()
         val p = Offset(cx + rad * kotlin.math.cos(a), cy + rad * kotlin.math.sin(a))
         drawCircle(c.related, inner * 0.13f, p)
         label(tm, "${letters[k + 1]}", p.x, p.y, inner * 0.14f, c.given, center = true)
@@ -444,7 +444,7 @@ private fun DrawScope.realmIcon(c: BoardColors, o: Float, inner: Float, variant:
     val cx = o + inner * 0.5f; val cy = o + inner * 0.54f; val r = inner * 0.4f
     val hex = androidx.compose.ui.graphics.Path().apply {
         for (k in 0 until 6) {
-            val a = Math.toRadians(60.0 * k - 90.0)
+            val a = ((60.0 * k - 90.0) * kotlin.math.PI / 180.0)
             val x = cx + r * kotlin.math.cos(a).toFloat(); val y = cy + r * kotlin.math.sin(a).toFloat()
             if (k == 0) moveTo(x, y) else lineTo(x, y)
         }

@@ -1,6 +1,5 @@
 package com.puresudoku.core
 
-import java.security.SecureRandom
 import kotlin.random.Random
 
 /** An island at (r, c) that needs [need] bridges in total. */
@@ -138,7 +137,7 @@ class HashiSolver(private val p: HashiPuzzle) {
  * from an existing island to a new one, adds a few extra bridges to make
  * loops, then keeps only puzzles the solver proves have one answer.
  */
-class HashiGenerator(seed: Long = SecureRandom().nextLong() xor System.nanoTime()) {
+class HashiGenerator(seed: Long = kotlin.random.Random.nextLong()) {
     private val rng = Random(seed)
 
     fun generate(d: Difficulty): HashiPuzzle {

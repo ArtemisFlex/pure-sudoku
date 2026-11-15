@@ -537,7 +537,7 @@ private fun DiceChart(accent: Color) {
 // =====================================================================  drawing
 
 private fun hexCorner(c: Offset, u: Float, k: Int): Offset {
-    val a = Math.toRadians(60.0 * k - 90.0)
+    val a = ((60.0 * k - 90.0) * kotlin.math.PI / 180.0)
     return Offset(c.x + u * cos(a).toFloat(), c.y + u * sin(a).toFloat())
 }
 
@@ -572,7 +572,7 @@ private fun DrawScope.wallLine(art: RealmArt, a: Offset, b: Offset, u: Float, ow
 private fun DrawScope.roadPiece(art: RealmArt, a: Offset, b: Offset, owner: Int) {
     val img = if (owner == 0) art.roadYou else art.roadRival
     val mid = (a + b) / 2f; val len = (b - a).getDistance() * 0.74f; val hh = len * img.height / img.width
-    rotate(Math.toDegrees(atan2((b - a).y.toDouble(), (b - a).x.toDouble())).toFloat(), mid) {
+    rotate(((atan2((b - a).y.toDouble(), (b - a).x.toDouble())) * 180.0 / kotlin.math.PI).toFloat(), mid) {
         drawImage(img, dstOffset = IntOffset((mid.x - len / 2).toInt(), (mid.y - hh / 2).toInt()), dstSize = IntSize(len.toInt(), hh.toInt()), filterQuality = FilterQuality.Medium)
     }
 }

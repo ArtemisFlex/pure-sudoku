@@ -1,6 +1,5 @@
 package com.puresudoku.core
 
-import java.security.SecureRandom
 import kotlin.random.Random
 
 data class GeneratedPuzzle(
@@ -25,18 +24,18 @@ data class GeneratedPuzzle(
  *    techniques for the requested difficulty; otherwise try again. If the time
  *    budget runs out, the closest candidate found is used.
  */
-class SudokuGenerator(seed: Long = SecureRandom().nextLong() xor System.nanoTime()) {
+class SudokuGenerator(seed: Long = kotlin.random.Random.nextLong()) {
     private val rng = Random(seed)
 
     fun generate(difficulty: Difficulty, isCancelled: () -> Boolean = { false }): GeneratedPuzzle {
-        val deadline = System.currentTimeMillis() + difficulty.budgetMs
+        val deadline = com.puresudoku.platform.nowMillis() + difficulty.budgetMs
         var best: GeneratedPuzzle? = null
         var bestCost = Int.MAX_VALUE
         while (true) {
             val attempt = attempt(difficulty)
             val cost = cost(attempt, difficulty)
             if (cost < bestCost) { best = attempt; bestCost = cost }
-            if (cost == 0 || isCancelled() || System.currentTimeMillis() > deadline) return best!!
+            if (cost == 0 || isCancelled() || com.puresudoku.platform.nowMillis() > deadline) return best!!
         }
     }
 

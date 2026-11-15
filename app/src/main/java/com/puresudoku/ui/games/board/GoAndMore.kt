@@ -82,7 +82,8 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
     private fun scoreText(): String {
         val f = final ?: return ""
         val s = f.score
-        return if (s > 0) "Black wins by ${"%.1f".format(s)}" else "White wins by ${"%.1f".format(-s)}"
+        fun one(x: Double): String { val t = kotlin.math.round(x * 10).toLong(); return "${t / 10}.${t % 10}" }
+        return if (s > 0) "Black wins by ${one(s)}" else "White wins by ${one(-s)}"
     }
 
     fun tap(i: Int) {
@@ -588,7 +589,7 @@ private fun BackgammonUi(s: BackgammonSession, targets: DemoTargets?) {
 class MahjongSession(difficulty: Difficulty, val g: Mahjong) : Session(GameKind.MAHJONG, difficulty) {
     val cfg = Mahjong.config(difficulty)
     private val rules = com.puresudoku.core.ScoreRules(difficulty.basePoints * 2, difficulty.parSeconds)
-    private val rng = Random(System.nanoTime())
+    private val rng = Random(kotlin.random.Random.nextLong())
     var version by mutableIntStateOf(0); private set
     var selected by mutableIntStateOf(-1); private set
     var shuffles by mutableIntStateOf(cfg.shuffles)
@@ -607,7 +608,7 @@ class MahjongSession(difficulty: Difficulty, val g: Mahjong) : Session(GameKind.
     fun tap(id: Int) {
         if (outcome != Outcome.PLAYING) return
         val t = g.tiles[id]; if (t.removed) return
-        if (!g.isFree(t)) { shakeId = id to System.nanoTime(); nudge("That tile is blocked: it needs a free left or right side and nothing on top"); return }
+        if (!g.isFree(t)) { shakeId = id to com.puresudoku.platform.nowMillis(); nudge("That tile is blocked: it needs a free left or right side and nothing on top"); return }
         hinted = null
         when {
             selected == id -> selected = -1
@@ -617,7 +618,7 @@ class MahjongSession(difficulty: Difficulty, val g: Mahjong) : Session(GameKind.
                 message = ""
                 after()
             }
-            selected >= 0 -> { shakeId = id to System.nanoTime(); selected = id; message = "Not a match" }
+            selected >= 0 -> { shakeId = id to com.puresudoku.platform.nowMillis(); selected = id; message = "Not a match" }
             else -> selected = id
         }
         version++
@@ -679,7 +680,7 @@ object MahjongDef : GameDef {
         )
     }
     override val kind = GameKind.MAHJONG
-    override fun generate(d: Difficulty): Session = MahjongSession(d, Mahjong.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = MahjongSession(d, Mahjong.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = MahjongSession.restore(o)
     override fun hint(d: Difficulty) = "Tap two matching free tiles to clear them. A tile is free with nothing on top and an open left or right side."
     override fun levelInfo(d: Difficulty) = Mahjong.config(d).let { "${it.name} layout · ${if (it.shuffles >= 99) "unlimited" else it.shuffles.toString()} shuffles" }

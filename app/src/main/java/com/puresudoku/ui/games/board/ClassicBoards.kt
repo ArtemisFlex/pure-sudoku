@@ -600,7 +600,7 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
                         val u = size.width / 7f
                         val hit = (0..23).minByOrNull { val p = Morris.XY[it]; val dx = o.x - (p[0] + 0.5f) * u; val dy = o.y - (p[1] + 0.5f) * u; dx * dx + dy * dy }!!
                         val p = Morris.XY[hit]
-                        if (Math.hypot((o.x - (p[0] + 0.5f) * u).toDouble(), (o.y - (p[1] + 0.5f) * u).toDouble()) < u * 0.7) s.tap(hit)
+                        if (kotlin.math.hypot((o.x - (p[0] + 0.5f) * u).toDouble(), (o.y - (p[1] + 0.5f) * u).toDouble()) < u * 0.7) s.tap(hit)
                     }
                 }) {
                     drawRect(Brush.linearGradient(listOf(Color(0xFFE8D9B5), Color(0xFFCDB689))))

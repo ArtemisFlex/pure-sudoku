@@ -342,7 +342,7 @@ object WisteriaDef : GameDef {
     override val hasHeader: Boolean get() = true
     @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Wisteria · ")
 
-    override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = WisteriaSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Claim land next to yours, raise towers and castles, and conquer your rival's tiles with knights. The dragon strikes the leader every few turns; slay it for the Black Dragon Knight."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
@@ -385,7 +385,7 @@ object AshfallDef : GameDef {
     override val hasHeader: Boolean get() = true
     @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Ashfall · ")
 
-    override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newAshfall(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = WisteriaSession(d, Wisteria.newAshfall(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = WisteriaSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Wisteria on a living island. The volcano erupts every turn, and a die picks which way its lava runs, in a straight row. The ashen waste is renewed into rich land, and lava that reaches the sea builds new land."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean

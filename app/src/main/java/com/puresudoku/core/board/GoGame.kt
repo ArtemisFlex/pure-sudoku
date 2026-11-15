@@ -148,13 +148,13 @@ class GoGame(val n: Int, val komi: Double = 7.5) {
         if (cands.isEmpty()) return -1
         if (rng.nextDouble() < level.noise) return cands[rng.nextInt(cands.size)]
         val wins = DoubleArray(cands.size); val visits = IntArray(cands.size)
-        val deadline = System.currentTimeMillis() + level.timeMs
+        val deadline = com.puresudoku.platform.nowMillis() + level.timeMs
         var total = 0
-        while (total < level.playouts && System.currentTimeMillis() < deadline) {
+        while (total < level.playouts && com.puresudoku.platform.nowMillis() < deadline) {
             val k = if (total < cands.size) total else {
                 var best = 0; var bv = -1.0
                 for (j in cands.indices) {
-                    val v = wins[j] / visits[j] + 1.2 * Math.sqrt(Math.log(total.toDouble()) / visits[j])
+                    val v = wins[j] / visits[j] + 1.2 * kotlin.math.sqrt(kotlin.math.ln(total.toDouble()) / visits[j])
                     if (v > bv) { bv = v; best = j }
                 }
                 best

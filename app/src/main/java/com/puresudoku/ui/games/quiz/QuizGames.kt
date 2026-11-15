@@ -71,7 +71,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.random.Random
 
 private val GOOD = Color(0xFF3FA66B)
@@ -157,12 +156,12 @@ class QuizSession(
 
 /** Shared definition for the three quiz games. */
 abstract class QuizDef : GameDef {
-    protected val rng = Random(SecureRandom().nextLong())
+    protected val rng = Random(kotlin.random.Random.nextLong())
     abstract fun round(d: Difficulty, i: Int, used: MutableSet<String>): QuizQuestion
 
     override fun generate(d: Difficulty): Session {
         val used = HashSet<String>()
-        val qs = synchronized(rng) { List(QuizRules.config(d).rounds) { round(d, it, used) } }
+        val qs = com.puresudoku.platform.locked(rng) { List(QuizRules.config(d).rounds) { round(d, it, used) } }
         return QuizSession(kind, d, qs)
     }
 

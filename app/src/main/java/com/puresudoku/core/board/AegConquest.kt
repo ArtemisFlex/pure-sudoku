@@ -100,7 +100,7 @@ class AegConquest(override val map: RealmGrid, override val diff: Int) : AegLand
         private val NB_Q = intArrayOf(1, 1, 0, -1, -1, 0)
         private val NB_R = intArrayOf(0, -1, -1, 0, 1, 1)
         private val gridCache = HashMap<Int, RealmGrid>()
-        fun grid(radius: Int): RealmGrid = synchronized(gridCache) {
+        fun grid(radius: Int): RealmGrid = com.puresudoku.platform.locked(gridCache) {
             gridCache.getOrPut(radius) {
                 val qs = ArrayList<Int>(); val rs = ArrayList<Int>()
                 for (q in -radius..radius) for (r in -radius..radius) if (abs(q + r) <= radius) { qs += q; rs += r }

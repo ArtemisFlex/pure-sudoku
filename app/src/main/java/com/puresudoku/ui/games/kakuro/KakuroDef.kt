@@ -58,7 +58,7 @@ object KakuroDef : GameDef {
     private fun session(d: Difficulty, p: KakuroPuzzle, game: DigitGame? = null) =
         KakuroSession(d, p, game ?: DigitGame(KakuroRules.spec(p, d), p.givens, p.solution))
 
-    override fun generate(d: Difficulty): Session = session(d, synchronized(generator) { generator.generate(d) })
+    override fun generate(d: Difficulty): Session = session(d, com.puresudoku.platform.locked(generator) { generator.generate(d) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))

@@ -75,7 +75,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.max
@@ -148,7 +147,7 @@ class WordSearchSession(
     }
 
     override fun saveState(): JSONObject = JSONObject()
-        .put("size", n).put("letters", String(puzzle.letters)).put("theme", puzzle.theme)
+        .put("size", n).put("letters", puzzle.letters.concatToString()).put("theme", puzzle.theme)
         .put("words", JSONArray().also { a -> puzzle.words.forEach { a.put(JSONObject().put("w", it.word).put("r", it.row).put("c", it.col).put("dr", it.dr).put("dc", it.dc)) } })
         .put("found", JSONArray().also { a -> foundAt.forEach { a.put(it?.toJson() ?: JSONArray()) } })
 }
@@ -156,9 +155,9 @@ class WordSearchSession(
 object WordSearchDef : GameDef {
     override val kind = GameKind.WORD_SEARCH
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_word_search
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
-    override fun generate(d: Difficulty): Session = WordSearchSession(d, synchronized(rng) { WordSearchRules.generate(d, rng) })
+    override fun generate(d: Difficulty): Session = WordSearchSession(d, com.puresudoku.platform.locked(rng) { WordSearchRules.generate(d, rng) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))
@@ -332,7 +331,7 @@ private fun SearchGrid(s: WordSearchSession, side: Dp, targets: DemoTargets?) {
                         // snap the finger to the nearest of the 8 straight directions
                         val d = ch.position - center(start)
                         val len = (max(abs(d.x), abs(d.y)) / cellPx).roundToInt()
-                        val ang = Math.round(atan2(d.y.toDouble(), d.x.toDouble()) / (Math.PI / 4)).toInt()
+                        val ang = kotlin.math.round(atan2(d.y.toDouble(), d.x.toDouble()) / (kotlin.math.PI / 4)).toInt()
                         val dirs = listOf(0 to 1, 1 to 1, 1 to 0, 1 to -1, 0 to -1, -1 to -1, -1 to 0, -1 to 1)
                         val (dr, dc) = dirs[((ang % 8) + 8) % 8]
                         var k = len

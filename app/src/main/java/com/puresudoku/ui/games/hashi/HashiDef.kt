@@ -165,7 +165,7 @@ object HashiDef : GameDef {
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_hashi
     private val generator = HashiGenerator()
 
-    override fun generate(d: Difficulty): Session = HashiSession(d, synchronized(generator) { generator.generate(d) })
+    override fun generate(d: Difficulty): Session = HashiSession(d, com.puresudoku.platform.locked(generator) { generator.generate(d) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))

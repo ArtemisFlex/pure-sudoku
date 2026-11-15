@@ -114,16 +114,16 @@ object LumenRules {
     fun minimumPresses(n: Int, p: Pattern, lights: BooleanArray): Int? {
         val m = n * n
         // rows: equations per cell; cols: press variables + rhs
-        val rows = Array(m) { cell -> java.util.BitSet(m + 1).also { bs ->
-            for (v in 0 until m) if (cell in affected(n, p, v)) bs.set(v)
-            if (lights[cell]) bs.set(m)
+        val rows = Array(m) { cell -> BooleanArray(m + 1).also { bs ->
+            for (v in 0 until m) if (cell in affected(n, p, v)) bs[v] = true
+            if (lights[cell]) bs[m] = true
         } }
         val pivotOfCol = IntArray(m) { -1 }
         var r = 0
         for (col in 0 until m) {
             val piv = (r until m).firstOrNull { rows[it][col] } ?: continue
             val t = rows[r]; rows[r] = rows[piv]; rows[piv] = t
-            for (k in 0 until m) if (k != r && rows[k][col]) rows[k].xor(rows[r])
+            for (k in 0 until m) if (k != r && rows[k][col]) { val a = rows[k]; val b = rows[r]; for (i in a.indices) a[i] = a[i] xor b[i] }
             pivotOfCol[col] = r
             r++
         }
@@ -254,7 +254,7 @@ object SlidingRules {
             for (nb in intArrayOf(g - 3, g + 3, if (g % 3 > 0) g - 1 else -1, if (g % 3 < 2) g + 1 else -1)) {
                 if (nb !in 0..8) continue
                 val c = s.toCharArray(); c[g] = c[nb]; c[nb] = '0'
-                val ns = String(c)
+                val ns = c.concatToString()
                 if (ns in dist) continue
                 dist[ns] = d + 1
                 if (ns == start) return d + 1

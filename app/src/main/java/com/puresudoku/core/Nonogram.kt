@@ -1,6 +1,5 @@
 package com.puresudoku.core
 
-import java.security.SecureRandom
 import kotlin.random.Random
 
 class NonogramPuzzle(val width: Int, val height: Int, val solution: BooleanArray) {
@@ -145,7 +144,7 @@ object NonogramRules {
  * mirrored, so it reads like a picture), then adjusted until it can be solved
  * with line logic alone — no guessing ever needed, and so only one answer.
  */
-class NonogramGenerator(seed: Long = SecureRandom().nextLong() xor System.nanoTime()) {
+class NonogramGenerator(seed: Long = kotlin.random.Random.nextLong()) {
     private val rng = Random(seed)
 
     fun generate(d: Difficulty): NonogramPuzzle {

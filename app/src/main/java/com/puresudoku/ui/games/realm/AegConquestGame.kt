@@ -208,7 +208,7 @@ object AegConquestDef : GameDef {
     override val hasHeader: Boolean get() = true
     @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = RealmHeader(session, actions, "Conquest · ")
 
-    override fun generate(d: Difficulty): Session = AegConquestSession(d, AegConquest.newGame(d, Random(System.nanoTime())))
+    override fun generate(d: Difficulty): Session = AegConquestSession(d, AegConquest.newGame(d, Random(kotlin.random.Random.nextLong())))
     override fun restore(o: JSONObject): Session = AegConquestSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Aegwaspell where you place every worker and soldier yourself. Each tile is held by the power standing on it, your port trades 4 for 1, and from Hard up the rivals conquer each other, and you."
     override fun background(session: Session) = com.puresudoku.R.drawable.bg_realm_ocean
@@ -309,7 +309,7 @@ private fun DrawScope.aegTile(g: AegConquest, h: Int, c: Offset, u: Float, art: 
 
 private fun hexAt(c: Offset, u: Float, k: Float = 1f) = androidx.compose.ui.graphics.Path().apply {
     for (i in 0..5) {
-        val a = Math.toRadians(60.0 * i - 90.0)
+        val a = ((60.0 * i - 90.0) * kotlin.math.PI / 180.0)
         val p = c + Offset((kotlin.math.cos(a) * u * k).toFloat(), (kotlin.math.sin(a) * u * k).toFloat())
         if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
     }

@@ -43,7 +43,7 @@ object SudokuDef : GameDef {
     )
 
     override fun generate(d: Difficulty): Session {
-        val p = synchronized(generator) { generator.generate(d) }
+        val p = com.puresudoku.platform.locked(generator) { generator.generate(d) }
         return SudokuSession(d, DigitGame(spec(d), p.puzzle.copyOf(), p.solution.copyOf()))
     }
 

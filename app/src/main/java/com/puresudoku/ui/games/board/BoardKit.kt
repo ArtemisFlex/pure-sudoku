@@ -1,7 +1,5 @@
 package com.puresudoku.ui.games.board
 
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -46,26 +44,8 @@ import com.puresudoku.ui.session.BonusLine
 import com.puresudoku.ui.session.MiddleStat
 import com.puresudoku.ui.session.Outcome
 import com.puresudoku.ui.session.Session
-import java.util.concurrent.Executors
 import kotlin.random.Random
 
-/** One background thread for every computer opponent; results come back on the main thread. */
-object AiWorker {
-    private val pool = Executors.newSingleThreadExecutor { r -> Thread(r, "board-ai").apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 } }
-    private val main = Handler(Looper.getMainLooper())
-
-    /** Runs [work] off the main thread, then hands its result to [done] no sooner than [minMs] after starting. */
-    fun <T> run(minMs: Long = 450, work: () -> T, done: (T) -> Unit) {
-        val start = System.currentTimeMillis()
-        pool.execute {
-            val r = runCatching(work)
-            val wait = (minMs - (System.currentTimeMillis() - start)).coerceAtLeast(0)
-            main.postDelayed({ r.onSuccess(done) }, wait)
-        }
-    }
-
-    fun later(ms: Long, block: () -> Unit) { main.postDelayed(block, ms) }
-}
 
 /**
  * Shared bits of every two-player board game: the computer's turn, scoring, draws and results.
@@ -75,7 +55,7 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     var version by mutableIntStateOf(0); private set
     var thinking by mutableStateOf(false); protected set
     var message by mutableStateOf("")
-    protected var rng = Random(System.nanoTime())
+    protected var rng = Random(kotlin.random.Random.nextLong())
     protected val rules = ScoreRules(difficulty.basePoints * 20, difficulty.parSeconds)
     /** Bumped whenever the session is replaced, so stale AI replies are dropped. */
     private var generation = 0

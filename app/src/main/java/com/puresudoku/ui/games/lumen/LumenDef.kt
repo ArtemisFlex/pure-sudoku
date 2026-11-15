@@ -65,7 +65,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import kotlinx.coroutines.delay
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.random.Random
@@ -132,11 +131,11 @@ class LumenSession(
 object LumenDef : GameDef {
     override val kind = GameKind.LUMEN
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_lumen
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
     override fun generate(d: Difficulty): Session {
         val cfg = LumenRules.config(d)
-        val (lights, par) = synchronized(rng) { LumenRules.generate(cfg, rng) }
+        val (lights, par) = com.puresudoku.platform.locked(rng) { LumenRules.generate(cfg, rng) }
         return LumenSession(d, cfg, lights, par)
     }
 
@@ -330,7 +329,7 @@ private fun LumenTile(s: LumenSession, i: Int, modifier: Modifier, targets: Demo
             .graphicsLayer {
                 rotationY = flip.value * 180f
                 cameraDistance = 12f * density
-                val k = (if (pressed) 0.92f else 1f) - 0.06f * kotlin.math.sin(flip.value * Math.PI).toFloat()
+                val k = (if (pressed) 0.92f else 1f) - 0.06f * kotlin.math.sin(flip.value * kotlin.math.PI).toFloat()
                 scaleX = k; scaleY = k
             }
             .clip(RoundedCornerShape(14.dp))

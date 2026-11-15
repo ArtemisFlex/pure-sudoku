@@ -1,7 +1,5 @@
 package com.puresudoku.core.words
 
-import java.io.BufferedReader
-import java.io.Reader
 
 /** One dictionary word with what the word games need to know about it. */
 class Lex(
@@ -22,14 +20,14 @@ class Lex(
  * and wordfreq). Loaded lazily from the app's assets on first use.
  */
 object WordData {
-    @Volatile private var opener: ((String) -> Reader)? = null
+    private var opener: ((String) -> String)? = null
 
-    /** Call once at startup with a way to open files from assets/words/. */
-    fun init(open: (String) -> Reader) { if (opener == null) opener = open }
+    /** Call once at startup with a way to read the text of files in assets/words/. */
+    fun init(open: (String) -> String) { if (opener == null) opener = open }
 
     private fun lines(name: String): Sequence<String> {
-        val r = (opener ?: error("WordData.init not called"))(name)
-        return BufferedReader(r).readLines().asSequence().filter { it.isNotBlank() }
+        val text = (opener ?: error("WordData.init not called"))(name)
+        return text.lineSequence().filter { it.isNotBlank() }
     }
 
     val lexicon: Map<String, Lex> by lazy {

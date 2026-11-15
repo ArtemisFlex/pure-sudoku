@@ -71,7 +71,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.random.Random
 
 data class TileFx(val id: Long, val word: String)
@@ -178,11 +177,11 @@ class HaikuSession(
 object HaikuDef : GameDef {
     override val kind = GameKind.HAIKU
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_haiku
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
     override fun generate(d: Difficulty): Session {
         val used = HashSet<String>()
-        val prompts = synchronized(rng) { List(HaikuRules.config(d).poems) { HaikuRules.prompt(d, rng, used).also { p -> used += p.season } } }
+        val prompts = com.puresudoku.platform.locked(rng) { List(HaikuRules.config(d).poems) { HaikuRules.prompt(d, rng, used).also { p -> used += p.season } } }
         return HaikuSession(d, prompts)
     }
 

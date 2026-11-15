@@ -81,7 +81,6 @@ import com.puresudoku.ui.tutorial.demoTarget
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.random.Random
 
 /** Fixed, distinct colours for code symbols 1–9 (white numbers on top). */
@@ -154,9 +153,9 @@ class CodeSession(
 object CodeDef : GameDef {
     override val kind = GameKind.CODE_BREAKER
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_code_breaker
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
-    override fun generate(d: Difficulty): Session = CodeSession(d, synchronized(rng) { CodeRules.secret(CodeRules.config(d), rng) })
+    override fun generate(d: Difficulty): Session = CodeSession(d, com.puresudoku.platform.locked(rng) { CodeRules.secret(CodeRules.config(d), rng) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))

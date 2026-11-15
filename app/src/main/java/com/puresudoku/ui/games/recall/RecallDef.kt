@@ -82,7 +82,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import kotlinx.coroutines.delay
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.random.Random
@@ -98,7 +97,7 @@ class RecallSession(
     found: BooleanArray? = null,
     private var streak: Int = 0,
 ) : Session(GameKind.GRID_RECALL, difficulty) {
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
     private val rules = ScoreRules(cfg.basePoints, cfg.parSeconds)
 
     var round by mutableIntStateOf(round); private set

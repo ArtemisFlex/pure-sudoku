@@ -77,7 +77,7 @@ object SudokuSolver {
             var bestCount = 10
             for (i in 0 until 81) {
                 if (g[i] != 0) continue
-                val c = Integer.bitCount(mask(i))
+                val c = (mask(i)).countOneBits()
                 if (c == 0) return -2
                 if (c < bestCount) {
                     best = i; bestCount = c
@@ -96,7 +96,7 @@ object SudokuSolver {
             while (m != 0) {
                 val bit = m and -m
                 m = m xor bit
-                val v = Integer.numberOfTrailingZeros(bit)
+                val v = (bit).countTrailingZeroBits()
                 set(i, v)
                 total += count(limit - total)
                 clear(i, v)

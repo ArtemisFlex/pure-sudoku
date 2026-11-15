@@ -73,7 +73,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import kotlinx.coroutines.delay
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.random.Random
@@ -140,11 +139,11 @@ class SlidingSession(
 object SlidingDef : GameDef {
     override val kind = GameKind.SLIDING_TILES
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_sliding_tiles
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
     override fun generate(d: Difficulty): Session {
         val cfg = SlidingRules.config(d)
-        val t = synchronized(rng) { SlidingRules.generate(cfg, rng) }
+        val t = com.puresudoku.platform.locked(rng) { SlidingRules.generate(cfg, rng) }
         return SlidingSession(d, cfg, t, SlidingRules.par(t, cfg.n))
     }
 

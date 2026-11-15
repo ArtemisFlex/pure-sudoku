@@ -81,7 +81,6 @@ import com.puresudoku.ui.tutorial.demoTarget
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.random.Random
@@ -193,8 +192,8 @@ class CrosswordSession(
 
     override fun saveState(): JSONObject = JSONObject()
         .put("w", puzzle.width).put("h", puzzle.height)
-        .put("solution", String(puzzle.solution))
-        .put("filled", String(filled))
+        .put("solution", puzzle.solution.concatToString())
+        .put("filled", filled.concatToString())
         .put("streak", streak)
         .put("entries", JSONArray().also { a ->
             puzzle.entries.forEach { e -> a.put(JSONObject().put("n", e.number).put("r", e.row).put("c", e.col).put("a", e.across).put("w", e.answer).put("q", e.clue)) }
@@ -204,9 +203,9 @@ class CrosswordSession(
 object CrosswordDef : GameDef {
     override val kind = GameKind.CROSSWORD
     override fun background(session: com.puresudoku.ui.session.Session) = com.puresudoku.R.drawable.vbg_crossword
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
-    override fun generate(d: Difficulty): Session = CrosswordSession(d, synchronized(rng) { CrosswordRules.generate(d, rng) })
+    override fun generate(d: Difficulty): Session = CrosswordSession(d, com.puresudoku.platform.locked(rng) { CrosswordRules.generate(d, rng) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))

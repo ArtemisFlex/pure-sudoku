@@ -42,7 +42,7 @@ class AlphaBeta<M>(private val g: Searchable<M>, private val level: AiLevel, pri
         if (root.isEmpty()) return null
         if (root.size == 1) return root[0]
         if (level.blunder > 0 && rng.nextDouble() < level.blunder) return root[rng.nextInt(root.size)]
-        deadline = System.currentTimeMillis() + level.timeMs
+        deadline = com.puresudoku.platform.nowMillis() + level.timeMs
         var order = root.sortedByDescending { g.orderKey(it) }
         var bestMove = order[0]
         for (d in 1..level.depth) {
@@ -64,13 +64,13 @@ class AlphaBeta<M>(private val g: Searchable<M>, private val level: AiLevel, pri
             if (aborted) break
             if (scored.maxOf { it.second } >= WIN - 1000) break
             order = scored.sortedByDescending { it.second }.map { it.first } + order.filter { o -> scored.none { it.first == o } }
-            if (System.currentTimeMillis() > deadline) break
+            if (com.puresudoku.platform.nowMillis() > deadline) break
         }
         return bestMove
     }
 
     private fun negamax(depth: Int, a0: Int, beta: Int, ply: Int): Int {
-        if ((++nodes and 1023L) == 0L && System.currentTimeMillis() > deadline) aborted = true
+        if ((++nodes and 1023L) == 0L && com.puresudoku.platform.nowMillis() > deadline) aborted = true
         if (aborted) return 0
         g.terminal()?.let { return if (it <= -WIN + 1000 || it >= WIN - 1000) (if (it < 0) it + ply else it - ply) else it }
         if (depth <= 0) return if (level.quiescence) quiesce(a0, beta, 0) else g.evaluate()
@@ -91,7 +91,7 @@ class AlphaBeta<M>(private val g: Searchable<M>, private val level: AiLevel, pri
     }
 
     private fun quiesce(a0: Int, beta: Int, qd: Int): Int {
-        if ((++nodes and 1023L) == 0L && System.currentTimeMillis() > deadline) aborted = true
+        if ((++nodes and 1023L) == 0L && com.puresudoku.platform.nowMillis() > deadline) aborted = true
         if (aborted) return 0
         g.terminal()?.let { return it }
         val stand = g.evaluate()

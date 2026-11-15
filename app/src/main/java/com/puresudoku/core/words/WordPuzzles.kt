@@ -230,7 +230,7 @@ object LadderRules {
             for (ch in 'a'..'z') {
                 if (ch == orig) continue
                 c[i] = ch
-                val s = String(c)
+                val s = c.concatToString()
                 if (s in dict) out += s
             }
             c[i] = orig

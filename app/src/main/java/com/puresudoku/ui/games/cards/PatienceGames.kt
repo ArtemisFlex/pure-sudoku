@@ -66,7 +66,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.random.Random
 
 // =====================================================================
@@ -202,8 +201,8 @@ object SolitaireDef : GameDef {
     override fun lesson() = com.puresudoku.ui.training.CardScripts.solitaire()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_solitaire
     override val kind = GameKind.SOLITAIRE
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = SolitaireSession(d, synchronized(rng) { Klondike.deal(d, rng) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = SolitaireSession(d, com.puresudoku.platform.locked(rng) { Klondike.deal(d, rng) })
     override fun restore(o: JSONObject): Session = SolitaireSession.restore(o)
     override fun hint(d: Difficulty) = "Build the four suits up from Ace to King. In the columns, stack down in alternating colours. Tap a card to move it."
     override fun levelInfo(d: Difficulty) = Klondike.config(d).let { "Draw ${it.draw} · " + if (it.redeals < 0) "unlimited passes" else "${it.redeals + 1} pass${if (it.redeals == 0) "" else "es"}" }
@@ -374,7 +373,7 @@ class PyramidSession(
     val deal get() = floors[floor]
     override val usesStrikes get() = false
     override val middleStat get() = MiddleStat.Counter("Floor", "${floor + 1}/${cfg.floors}")
-    override val progress: Float get() = (floor + java.lang.Long.bitCount(removed) / 28f) / cfg.floors
+    override val progress: Float get() = (floor + (removed).countOneBits() / 28f) / cfg.floors
     override val wonTitle get() = "Treasure claimed!"
     override val lostTitle get() = "Torches out"
     override val lostMessage get() = "Your last torch burned out on floor ${floor + 1}. This game's save slot has been cleared."
@@ -446,7 +445,7 @@ class PyramidSession(
         }
         floor++; removed = 0; stockGone = 0; pos = 0; pass = 0
         message = "Floor cleared! You descend to floor ${floor + 1}"
-        floorFx = System.nanoTime()
+        floorFx = com.puresudoku.platform.nowMillis()
         version++
     }
 
@@ -478,11 +477,11 @@ object PyramidDef : GameDef {
         }
     }
     override val kind = GameKind.PYRAMID
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
 
     override fun generate(d: Difficulty): Session {
         val cfg = PyramidRules.config(d)
-        val floors = synchronized(rng) { List(cfg.floors) { PyramidRules.solvableDeal(cfg.passes, rng) } }
+        val floors = com.puresudoku.platform.locked(rng) { List(cfg.floors) { PyramidRules.solvableDeal(cfg.passes, rng) } }
         return PyramidSession(d, floors)
     }
 

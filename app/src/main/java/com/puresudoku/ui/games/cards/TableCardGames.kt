@@ -71,7 +71,6 @@ import com.puresudoku.ui.tutorial.TutorialStep
 import com.puresudoku.ui.tutorial.demoTarget
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import kotlin.random.Random
 
 private fun JSONArray.intList(): MutableList<Int> = MutableList(length()) { getInt(it) }
@@ -181,7 +180,7 @@ class BlackjackSession(difficulty: Difficulty, val t: BlackjackTable, chips0: In
     companion object {
         fun restore(o: JSONObject): BlackjackSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state")
-            val t = BlackjackTable(BlackjackRules.config(d), st.getJSONArray("shoe").intList(), Random(SecureRandom().nextLong()))
+            val t = BlackjackTable(BlackjackRules.config(d), st.getJSONArray("shoe").intList(), Random(kotlin.random.Random.nextLong()))
             t.dealer += st.getJSONArray("dealer").intList()
             val hs = st.getJSONArray("hands"); for (k in 0 until hs.length()) t.hands += hs.getJSONArray(k).intList()
             t.bets += st.getJSONArray("bets").intList()
@@ -199,10 +198,10 @@ object BlackjackDef : GameDef {
     override fun lesson() = com.puresudoku.ui.training.CardScripts.blackjack()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_blackjack
     override val kind = GameKind.BLACKJACK
-    private val rng = Random(SecureRandom().nextLong())
+    private val rng = Random(kotlin.random.Random.nextLong())
     override fun generate(d: Difficulty): Session {
         val cfg = BlackjackRules.config(d)
-        val r = Random(synchronized(rng) { rng.nextLong() })
+        val r = Random(com.puresudoku.platform.locked(rng) { rng.nextLong() })
         return BlackjackSession(d, BlackjackTable(cfg, BlackjackTable.shoe(cfg.decks, r), r), cfg.start, 0)
     }
     override fun restore(o: JSONObject): Session = BlackjackSession.restore(o)
@@ -437,7 +436,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.g
     companion object {
         fun restore(o: JSONObject): GoFishSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state"); val cfg = GoFish.config(d)
-            val g = GoFish(cfg.opponents + 1, cfg.memory, Random(SecureRandom().nextLong()))
+            val g = GoFish(cfg.opponents + 1, cfg.memory, Random(kotlin.random.Random.nextLong()))
             g.deck += st.getJSONArray("deck").intList(); g.turn = st.getInt("turn")
             val hs = st.getJSONArray("hands"); for (p in 0 until g.players) g.hands[p] += hs.getJSONArray(p).intList()
             val bs = st.getJSONArray("books"); for (p in 0 until g.players) g.books[p] += bs.getJSONArray(p).intList()
@@ -454,8 +453,8 @@ object GoFishDef : GameDef {
     override fun lesson() = com.puresudoku.ui.training.CardScripts.goFish()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_gofish
     override val kind = GameKind.GO_FISH
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = GoFishSession(d, synchronized(rng) { GoFish.newGame(d, Random(rng.nextLong())) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = GoFishSession(d, com.puresudoku.platform.locked(rng) { GoFish.newGame(d, Random(rng.nextLong())) })
     override fun restore(o: JSONObject): Session = GoFishSession.restore(o)
     override fun hint(d: Difficulty) = "Ask for ranks you hold. Collect all four of a rank to make a book. Most books wins."
     override fun levelInfo(d: Difficulty) = GoFish.config(d).let { "${it.opponents} opponent${if (it.opponents > 1) "s" else ""} · memory ${it.memory}%" }
@@ -723,7 +722,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : com.puresudoku.ui.g
     companion object {
         fun restore(o: JSONObject): CuttleSession {
             val d = Difficulty.valueOf(o.getString("difficulty")); val st = o.getJSONObject("state")
-            val g = Cuttle(Random(SecureRandom().nextLong()))
+            val g = Cuttle(Random(kotlin.random.Random.nextLong()))
             g.deck += st.getJSONArray("deck").intList(); g.scrap += st.getJSONArray("scrap").intList()
             for (p in 0..1) {
                 g.hands[p] += st.getJSONArray("hands").getJSONArray(p).intList()
@@ -762,8 +761,8 @@ object CuttleDef : GameDef {
     override fun lesson() = com.puresudoku.ui.training.CardScripts.cuttle()
     override fun background(session: Session) = com.puresudoku.R.drawable.vbg_cuttle
     override val kind = GameKind.CUTTLE
-    private val rng = Random(SecureRandom().nextLong())
-    override fun generate(d: Difficulty): Session = CuttleSession(d, synchronized(rng) { Cuttle.newGame(Random(rng.nextLong())) })
+    private val rng = Random(kotlin.random.Random.nextLong())
+    override fun generate(d: Difficulty): Session = CuttleSession(d, com.puresudoku.platform.locked(rng) { Cuttle.newGame(Random(rng.nextLong())) })
     override fun restore(o: JSONObject): Session = CuttleSession.restore(o)
     override fun hint(d: Difficulty) = "Reach 21 points before your opponent. Numbers are points or one-off effects; royals stay on the table. Kings lower your goal."
     override fun levelInfo(d: Difficulty) = "Opponent skill ${(CuttleRules.config(d).skill * 100).toInt()}%"

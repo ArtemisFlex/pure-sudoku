@@ -1,6 +1,5 @@
 package com.puresudoku.core
 
-import java.security.SecureRandom
 import kotlin.random.Random
 
 /**
@@ -93,7 +92,7 @@ class KakuroSolver(private val w: Int, private val h: Int, private val white: Bo
     private val filled = IntArray(runs.size)
     val solutions = ArrayList<IntArray>()
     private var nodes = 0L
-    private class Budget : RuntimeException(null, null, false, false)
+    private class Budget : com.puresudoku.platform.FastException()
 
     /** Returns the solution count (up to [limit]), or -1 if the search ran over [budget] steps. */
     fun count(givens: IntArray, limit: Int = 2, budget: Long = 400_000): Int {
@@ -136,7 +135,7 @@ class KakuroSolver(private val w: Int, private val h: Int, private val white: Bo
             if (!white[i] || grid[i] != 0) continue
             var m = 0
             for (d in 1..9) if (placeOk(i, d)) m = m or (1 shl d)
-            val c = Integer.bitCount(m)
+            val c = (m).countOneBits()
             if (c == 0) return 0
             if (c < bestCount) { best = i; bestMask = m; bestCount = c; if (c == 1) break }
         }
@@ -145,7 +144,7 @@ class KakuroSolver(private val w: Int, private val h: Int, private val white: Bo
         var m = bestMask
         while (m != 0) {
             val bit = m and -m; m = m xor bit
-            val d = Integer.numberOfTrailingZeros(bit)
+            val d = (bit).countTrailingZeroBits()
             set(best, d)
             total += search(limit - total)
             unset(best, d)
@@ -164,7 +163,7 @@ class KakuroSolver(private val w: Int, private val h: Int, private val white: Bo
  *  3. solver check; if more than one answer exists, try a new fill, and as a
  *     last resort reveal a cell where the answers differ.
  */
-class KakuroGenerator(seed: Long = SecureRandom().nextLong() xor System.nanoTime()) {
+class KakuroGenerator(seed: Long = kotlin.random.Random.nextLong()) {
     private val rng = Random(seed)
 
     fun generate(d: Difficulty): KakuroPuzzle {

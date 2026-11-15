@@ -9,7 +9,6 @@ import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameKind
 import com.puresudoku.core.MAX_STRIKES
 import org.json.JSONObject
-import java.util.concurrent.atomic.AtomicLong
 
 enum class Outcome { PLAYING, WON, LOST, DRAW }
 
@@ -26,8 +25,8 @@ data class Nudge(val id: Long, val text: String)
 
 /** Unique ids for one-shot animation triggers, shared by every game. */
 object FxIds {
-    private val next = AtomicLong(1)
-    fun next() = next.getAndIncrement()
+    private var next = 1L
+    fun next() = com.puresudoku.platform.locked(this) { next++ }
 }
 
 /**
@@ -41,7 +40,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     var strikes by mutableIntStateOf(0); protected set
     var outcome by mutableStateOf(Outcome.PLAYING); private set
     var bonusLines by mutableStateOf<List<BonusLine>>(emptyList()); private set
-    var startedAt: Long = System.currentTimeMillis(); private set
+    var startedAt: Long = com.puresudoku.platform.nowMillis(); private set
     /** Training-wheels game: fixed start, gentler opponent, never recorded. */
     open var training = false
 
@@ -79,7 +78,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
         herald = h
         if (h == null) { val f = afterHeralds; afterHeralds = null; f?.invoke(); return }
         val tok = ++heraldToken
-        heraldHandler.postDelayed({ if (tok == heraldToken) nextHerald() }, h.ms)
+        com.puresudoku.platform.onMainLater(h.ms) { if (tok == heraldToken) nextHerald() }
     }
 
     /** A tap on the card: move straight on. */
@@ -159,7 +158,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
         elapsedMs = o.optLong("elapsedMs", 0)
         score = o.optInt("score", 0)
         strikes = o.optInt("strikes", 0)
-        startedAt = o.optLong("startedAt", System.currentTimeMillis())
+        startedAt = o.optLong("startedAt", com.puresudoku.platform.nowMillis())
         return this
     }
 }
@@ -171,4 +170,3 @@ class LessonStep(val text: String, val done: ((Session) -> Boolean)? = null)
 /** One computer action shown to the player. */
 class Herald(val id: Int, val title: String, val detail: String, val ms: Long, val mine: Boolean, val art: Any?)
 
-private val heraldHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }

@@ -60,7 +60,7 @@ object CageMathDef : GameDef {
     private fun session(d: Difficulty, p: CagePuzzle, game: DigitGame? = null) =
         CageMathSession(d, p, game ?: DigitGame(CageMathRules.spec(p.n, d), p.givens, p.solution))
 
-    override fun generate(d: Difficulty): Session = session(d, synchronized(generator) { generator.generate(d) })
+    override fun generate(d: Difficulty): Session = session(d, com.puresudoku.platform.locked(generator) { generator.generate(d) })
 
     override fun restore(o: JSONObject): Session {
         val d = Difficulty.valueOf(o.getString("difficulty"))
