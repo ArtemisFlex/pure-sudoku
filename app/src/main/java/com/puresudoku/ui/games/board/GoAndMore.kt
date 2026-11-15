@@ -113,9 +113,14 @@ class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO
         if (g.over) score() else { if (localTwoPlayer) message = if (g.turn == 1) "Player 2 passed. Player 1: Black, your turn" else "Player 1 passed. Player 2: White, your turn"; changed(); if (!localTwoPlayer) reply() }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = g.copy(); val lvl = GoGame.level(aiDifficulty)
+        return { copy.aiMove(lvl, Random(seed)).toString() }
+    }
+
     private fun reply() {
-        val copy = g.copy(); val lvl = GoGame.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 500, think = { copy.aiMove(lvl, Random(seed)) }) { m ->
+        computerSearch(minMs = 500, valid = { t -> t.toIntOrNull()?.let { it < 0 || g.copy().play(it) != null } == true }) { text ->
+            val m = text.toInt()
             val caps = g.play(m) ?: g.play(-1)!!
             moves++
             announce(when { m < 0 -> "Computer passes"; caps.isNotEmpty() -> "Computer captures ${caps.size} stone${if (caps.size > 1) "s" else ""}"; else -> "Computer places a stone" },
@@ -363,14 +368,30 @@ class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession
         if (localTwoPlayer) { message = "Player ${g.turn + 1}: roll"; bump(); changed() } else { changed(); computerTurn() }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val snap = Backgammon(); snap.load(g.state()); val lvl = Backgammon.level(aiDifficulty)
+        return { snap.aiSequence(lvl, Random(seed)).joinToString(";") { "${it.from},${it.to},${it.die},${if (it.hit) 1 else 0}" } }
+    }
+
+    private fun bgSequence(t: String): List<Backgammon.Step>? = runCatching {
+        if (t.isEmpty()) emptyList() else t.split(';').map { s -> s.split(',').let { Backgammon.Step(it[0].toInt(), it[1].toInt(), it[2].toInt(), it[3] == "1") } }
+    }.getOrNull()
+
+    /** True when [seq] can be played in order from the current position (a move worked out elsewhere matches the board). */
+    private fun seqFits(seq: List<Backgammon.Step>): Boolean {
+        val c = Backgammon(); c.load(g.state())
+        val all = c.sequences(dedupe = false)
+        return seq in all || (seq.isEmpty() && all.all { it.isEmpty() })
+    }
+
     private fun computerTurn() {
         val fixed = cpuDice; cpuDice = null
         if (fixed != null) { g.rolled = intArrayOf(fixed[0], fixed[1]); g.dice.clear(); g.dice += fixed[0]; g.dice += fixed[1] } else g.roll(rng)
         rollId++
         message = "Computer rolled ${g.rolled.joinToString(" and ")}"
         bump()
-        val snap = Backgammon(); snap.load(g.state()); val lvl = Backgammon.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 700, think = { snap.aiSequence(lvl, Random(seed)) }) { seq ->
+        computerSearch(minMs = 700, valid = { t -> bgSequence(t)?.let { seqFits(it) } == true }) { text ->
+            val seq = bgSequence(text) ?: emptyList()
             fun name(p: Int) = when (p) { Backgammon.BAR -> "the bar"; Backgammon.OFF -> "off"; else -> "${p + 1}" }
             announce("Computer rolls ${g.rolled.joinToString(" and ")}",
                 if (seq.isEmpty()) "It has no legal move." else "It moves " + seq.joinToString(", ") { "${name(it.from)} → ${name(it.to)}" + if (it.hit) " (hit!)" else "" } + ".", 2200)

@@ -182,7 +182,6 @@ private fun Leaderboard(vm: AppViewModel, kind: GameKind) {
     val history = remember(kind, vm.stats) { vm.history(kind) }
     var tab by remember { mutableIntStateOf(0) }
     var shown by remember { mutableIntStateOf(20) }
-    val fmt = remember { java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()) }
     Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
         Text("Your leaderboard", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
@@ -211,7 +210,7 @@ private fun Leaderboard(vm: AppViewModel, kind: GameKind) {
                     Dot(e.difficulty.accent(), 8); HSpace(4)
                     Text(e.difficulty.label, Modifier.width(64.dp), fontSize = 13.sp)
                     Text(formatTime(e.timeMs), Modifier.width(56.dp), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                    Text(fmt.format(java.util.Date(e.date)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.puresudoku.platform.formatDate(e.date, "MMM d"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
@@ -234,7 +233,7 @@ private fun Leaderboard(vm: AppViewModel, kind: GameKind) {
                     Dot(e.difficulty.accent(), 8); HSpace(4)
                     Text(e.difficulty.label, Modifier.width(60.dp), fontSize = 13.sp)
                     Text(formatTime(e.timeMs), Modifier.width(54.dp), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                    Text(fmt.format(java.util.Date(e.date)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.puresudoku.platform.formatDate(e.date, "MMM d"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (history.size > shown) TextButton(onClick = { shown += 30 }, Modifier.fillMaxWidth()) { Text("Show more") }

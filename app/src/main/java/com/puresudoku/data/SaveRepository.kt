@@ -1,6 +1,5 @@
 package com.puresudoku.data
 
-import android.content.Context
 import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameKind
 import org.json.JSONObject
@@ -49,8 +48,7 @@ data class SlotSummary(
 )
 
 /** Local-only persistence: 3 save slots per game, per-game records, settings. */
-class SaveRepository(context: Context) {
-    private val prefs = context.getSharedPreferences("pure_sudoku", Context.MODE_PRIVATE)
+class SaveRepository(private val prefs: KeyValueStore) {
 
     init { migrateV1() }
 
@@ -121,7 +119,7 @@ class SaveRepository(context: Context) {
     // ---------------- personal leaderboard ----------------
 
     fun leaderboard(kind: GameKind): List<LeaderEntry> = runCatching {
-        val a = org.json.JSONArray(prefs.getString("board_${kind.name}", "[]"))
+        val a = org.json.JSONArray(prefs.getString("board_${kind.name}", "[]") ?: "[]")
         List(a.length()) { k ->
             val o = a.getJSONObject(k)
             LeaderEntry(o.getInt("s"), Difficulty.valueOf(o.getString("d")), o.getLong("t"), o.getLong("at"))
@@ -146,7 +144,7 @@ class SaveRepository(context: Context) {
     // ---------------- full history ----------------
 
     fun history(kind: GameKind): List<GameResult> = runCatching {
-        val a = org.json.JSONArray(prefs.getString("hist_${kind.name}", "[]"))
+        val a = org.json.JSONArray(prefs.getString("hist_${kind.name}", "[]") ?: "[]")
         List(a.length()) { k ->
             val o = a.getJSONObject(k)
             GameResult(GameResult.Result.valueOf(o.getString("r")), o.getInt("s"), Difficulty.valueOf(o.getString("d")), o.getLong("t"), o.getLong("at"))
@@ -206,7 +204,7 @@ class SaveRepository(context: Context) {
             } ?: continue
             items.put(k, o)
         }
-        return JSONObject().put("app", "PureGames").put("version", 1).put("savedAt", System.currentTimeMillis()).put("items", items).toString()
+        return JSONObject().put("app", "PureGames").put("version", 1).put("savedAt", com.puresudoku.platform.nowMillis()).put("items", items).toString()
     }
 
     /** Replaces all local data with a backup. Returns false if the file isn't a PureGames backup. */
@@ -231,7 +229,7 @@ class SaveRepository(context: Context) {
     // ---------------- keepsakes ----------------
 
     fun keepsakes(kind: GameKind): List<String> = runCatching {
-        val a = org.json.JSONArray(prefs.getString("keep_${kind.name}", "[]"))
+        val a = org.json.JSONArray(prefs.getString("keep_${kind.name}", "[]") ?: "[]")
         List(a.length()) { a.getString(it) }
     }.getOrDefault(emptyList())
 
@@ -279,7 +277,7 @@ class SaveRepository(context: Context) {
                     .put("elapsedMs", o.optLong("elapsedMs"))
                     .put("score", o.optInt("score"))
                     .put("strikes", o.optInt("strikes"))
-                    .put("startedAt", o.optLong("startedAt", System.currentTimeMillis()))
+                    .put("startedAt", o.optLong("startedAt", com.puresudoku.platform.nowMillis()))
                     .put("progress", if (open == 0) 1.0 else done.toDouble() / open)
                     .put("usesStrikes", true)
                     .put("state", state)

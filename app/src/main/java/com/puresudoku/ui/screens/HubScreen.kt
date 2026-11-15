@@ -102,11 +102,12 @@ private fun BackupNudge(vm: AppViewModel, openSettings: () -> Unit) {
         Column(Modifier.padding(16.dp)) {
             Text("Keep your records safe", fontWeight = FontWeight.SemiBold)
             Text(
-                "Your stats and leaderboards live only in the app. Choose a backup folder on your phone and they'll be kept there, even if you uninstall.",
+                if (vm.backupsUseFolder) "Your stats and leaderboards live only in the app. Choose a backup folder on your phone and they'll be kept there, even if you uninstall."
+                else "Your saves and records live in this browser. Download a backup file now and then, so clearing site data or switching devices doesn't lose them.",
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row {
-                TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text("Choose folder") }
+                TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text(if (vm.backupsUseFolder) "Choose folder" else "Download backup") }
                 TextButton(onClick = { vm.pickBackupFile?.invoke() }) { Text("Restore a backup") }
             }
         }
@@ -115,7 +116,6 @@ private fun BackupNudge(vm: AppViewModel, openSettings: () -> Unit) {
 
 @Composable
 fun SettingsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
-    val fmt = remember { java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Settings") },
@@ -135,12 +135,13 @@ fun SettingsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(14.dp))
                 Text("Backup", fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (vm.backupFolderName == null) "Not set up. Saves, stats and leaderboards are deleted if you uninstall."
-                    else "Saved automatically to “${vm.backupFolderName}”" + if (vm.lastBackupAt > 0) "\nLast backup ${fmt.format(java.util.Date(vm.lastBackupAt))}" else "",
+                    if (!vm.backupsUseFolder) "Saves, stats and leaderboards are kept in this browser. Download a backup file to keep a copy or move to another device."
+                    else if (vm.backupFolderName == null) "Not set up. Saves, stats and leaderboards are deleted if you uninstall."
+                    else "Saved automatically to “${vm.backupFolderName}”" + if (vm.lastBackupAt > 0) "\nLast backup ${com.puresudoku.platform.formatDate(vm.lastBackupAt, "MMM d, h:mm a")}" else "",
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row {
-                    TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text(if (vm.backupFolderName == null) "Choose folder" else "Change folder") }
+                    TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text(if (!vm.backupsUseFolder) "Download backup" else if (vm.backupFolderName == null) "Choose folder" else "Change folder") }
                     if (vm.backupFolderName != null) TextButton(onClick = vm::backupNow) { Text("Back up now") }
                 }
                 TextButton(onClick = { vm.pickBackupFile?.invoke() }) { Text("Restore from a backup file") }

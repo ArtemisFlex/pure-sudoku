@@ -103,9 +103,14 @@ class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(G
         }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = TicTacToe(g.cells.copyOf(), g.turn); val lvl = TicTacToe.level(aiDifficulty)
+        return { AlphaBeta(copy, lvl, Random(seed)).best()?.toString() ?: "" }
+    }
+
     private fun reply() {
-        val copy = TicTacToe(g.cells.copyOf(), g.turn); val lvl = TicTacToe.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 500, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
+        computerSearch(minMs = 500, valid = { t -> t.toIntOrNull()?.let { it in g.legalMoves() } ?: true }) { text ->
+            val m = text.toIntOrNull()
             if (m != null) {
                 g.make(m); moves++; placedAt[m] = moves
                 val where = when (m) { 4 -> "the centre"; 0, 2, 6, 8 -> "a corner"; else -> "an edge" }
@@ -311,10 +316,15 @@ class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKin
         changed(); return false
     }
 
-    private fun reply() {
+    override fun aiSearch(seed: Long): (() -> String)? {
         val copy = Gomoku(g.n); for (m in g.moves) copy.play(m)
-        val lvl = Gomoku.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 500, think = { copy.aiMove(lvl, Random(seed)) }) { m ->
+        val lvl = Gomoku.level(aiDifficulty)
+        return { copy.aiMove(lvl, Random(seed)).toString() }
+    }
+
+    private fun reply() {
+        computerSearch(minMs = 500, valid = { t -> t.toIntOrNull()?.let { it in 0 until g.n * g.n && g.cells[it] == 0 } == true }) { text ->
+            val m = text.toInt()
             g.play(m); moves++; message = "Your move"
             announce("Computer places a stone", "Row ${m / g.n + 1}, column ${m % g.n + 1}. Check its lines of three and four.")
             end()
@@ -500,10 +510,16 @@ class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKin
         }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = Morris(); copy.loadState(g.copyState()); val lvl = Morris.level(aiDifficulty)
+        return { AlphaBeta(copy, lvl, Random(seed)).best()?.let { "${it.from},${it.to},${it.remove}" } ?: "" }
+    }
+
+    private fun morrisMove(t: String): Morris.Move? = t.split(',').takeIf { it.size == 3 }?.let { Morris.Move(it[0].toInt(), it[1].toInt(), it[2].toInt()) }
+
     private fun reply() {
-        val copy = Morris(); copy.loadState(g.copyState()); val lvl = Morris.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
-            if (m == null) return@computer
+        computerSearch(valid = { t -> t.isEmpty() || morrisMove(t) in g.legalMoves() }) { text ->
+            val m = morrisMove(text) ?: return@computerSearch
             announce(if (m.from < 0) "Computer places a man" else "Computer moves a man",
                 if (m.remove >= 0) "It formed a mill and takes one of your men!" else "Look for mills it's building: three in a line.")
             apply(m)
@@ -678,10 +694,14 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
         if (!localTwoPlayer && g.turn == 1) AiWorker.later(60) { whenQuiet { if (outcome == Outcome.PLAYING && g.turn == 1) reply() } }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = Mancala(g.pits.copyOf(), g.turn); val lvl = Mancala.level(aiDifficulty)
+        return { AlphaBeta(copy, lvl, Random(seed)).best()?.toString() ?: "" }
+    }
+
     private fun reply() {
-        val copy = Mancala(g.pits.copyOf(), g.turn); val lvl = Mancala.level(aiDifficulty); val seed = rng.nextLong()
-        computer(minMs = 700, think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
-            if (m == null) return@computer
+        computerSearch(minMs = 700, valid = { t -> t.toIntOrNull()?.let { it in g.legalMoves() } ?: true }) { text ->
+            val m = text.toIntOrNull() ?: return@computerSearch
             val n = g.pits[m]
             sow(m)
             announce("Computer sows $n seed${if (n == 1) "" else "s"}", message.takeIf { it.isNotEmpty() && it != "Your turn" } ?: "Counting round its side, then yours.")
@@ -873,10 +893,21 @@ class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(Gam
         }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = Checkers(); copy.load(g.state()); val lvl = Checkers.level(aiDifficulty)
+        return { AlphaBeta(copy, lvl, Random(seed)).best()?.let { it.path.joinToString("-") + "|" + it.captured.joinToString("-") } ?: "" }
+    }
+
+    private fun checkersMove(t: String): Checkers.Move? {
+        if (t.isEmpty()) return null
+        val (p, c) = t.split('|')
+        fun ints(s: String) = if (s.isEmpty()) emptyList() else s.split('-').map { it.toInt() }
+        return Checkers.Move(ints(p), ints(c))
+    }
+
     private fun reply() {
-        val copy = Checkers(); copy.load(g.state()); val lvl = Checkers.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
-            if (m == null) return@computer
+        computerSearch(valid = { t -> t.isEmpty() || checkersMove(t) in g.legalMoves() }) { text ->
+            val m = checkersMove(text) ?: return@computerSearch
             val wasMan = abs(g.b[m.from]) == 1
             apply(m)
             val crowned = wasMan && abs(g.b[m.to]) == 2

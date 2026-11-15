@@ -16,6 +16,8 @@ val gatherArt by tasks.registering(Sync::class) {
     from(appRes.resolve("drawable-nodpi")) { into("drawable") }
     from(appRes.resolve("drawable")) { into("drawable") }
     from(appRes.resolve("font")) { into("font") }
+    // fallback fonts for symbols, arrows, Chinese/Japanese piece names and an emoji (subsets of Noto, SIL OFL)
+    from(file("fonts")) { into("font"); include("*.ttf") }
     into(layout.buildDirectory.dir("appArt"))
 }
 
@@ -74,9 +76,7 @@ kotlin {
             resources.srcDir("../app/src/main/assets")
             kotlin.exclude(
                 "com/puresudoku/MainActivity.kt",
-                "com/puresudoku/data/**",
-                "com/puresudoku/ui/AppViewModel.kt",
-                "com/puresudoku/ui/screens/**",
+                "com/puresudoku/data/BackupStore.kt",
                 // Android versions of the platform layer; the browser versions live in web/src
                 "com/puresudoku/platform/**",
             )

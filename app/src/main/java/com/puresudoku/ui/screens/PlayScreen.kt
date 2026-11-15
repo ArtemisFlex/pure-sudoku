@@ -109,10 +109,9 @@ fun PlayScreen(vm: AppViewModel) {
             }
         }
         if (def.fullBleed) Box(Modifier.fillMaxSize()) { def.Play(session) }
-        val ctx = androidx.compose.ui.platform.LocalContext.current
-        val cfg = androidx.compose.ui.platform.LocalConfiguration.current
-        val aspect = cfg.screenWidthDp.toFloat() / cfg.screenHeightDp.coerceAtLeast(1)
-        com.puresudoku.ui.components.ShadowedText(backdrop, aspect, { res, w, h -> renderBackdrop(ctx, res, w, h) }) {
+        // The readable-text check measures the backdrop once its art is ready to draw.
+        val render = if (backdrop != 0) com.puresudoku.platform.rememberBackdropRenderer(backdrop) else null
+        com.puresudoku.ui.components.ShadowedText(if (render != null) backdrop else 0, com.puresudoku.platform.screenAspect(), render ?: { _, _, _ -> null }) {
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -160,7 +159,8 @@ fun PlayScreen(vm: AppViewModel) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 if (!def.fullBleed) def.Play(session)
                 NudgePill(session, Modifier.align(Alignment.TopCenter))
-                if (session !is com.puresudoku.ui.games.realm.RealmSession) com.puresudoku.ui.components.HeraldOverlay(session, def, Modifier.align(Alignment.TopCenter))
+                // Full-screen strategy games show their own news cards; others get the shared overlay.
+                if (!def.fullBleed) com.puresudoku.ui.components.HeraldOverlay(session, def, Modifier.align(Alignment.TopCenter))
                 if (session.training) com.puresudoku.ui.training.CoachPanel(
                     session, coachOpen, onToggle = { coachOpen = !coachOpen }, modifier = Modifier.align(Alignment.BottomCenter),
                 )
@@ -323,10 +323,7 @@ private fun Badge(text: String) {
 /** Pixel-art backdrops (PNG) stay crisp with nearest-neighbour scaling; vector backdrops scale smoothly. */
 @Composable
 private fun Backdrop(res: Int) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val isBitmap = remember(res) {
-        val v = android.util.TypedValue(); ctx.resources.getValue(res, v, true); v.string?.endsWith(".png") == true
-    }
+    val isBitmap = com.puresudoku.platform.isBitmapDrawable(res)
     if (isBitmap) {
         androidx.compose.foundation.Image(
             androidx.compose.ui.graphics.ImageBitmap.imageResource(res), null, Modifier.fillMaxSize(),
@@ -338,21 +335,4 @@ private fun Backdrop(res: Int) {
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
         )
     }
-}
-
-
-/** Draws backdrop [res] cropped to cover a [w] x [h] bitmap (as ContentScale.Crop does on screen) and returns its pixels. */
-private fun renderBackdrop(ctx: android.content.Context, res: Int, w: Int, h: Int): IntArray? {
-    val d = androidx.core.content.ContextCompat.getDrawable(ctx, res) ?: return null
-    val iw = d.intrinsicWidth.takeIf { it > 0 } ?: w
-    val ih = d.intrinsicHeight.takeIf { it > 0 } ?: h
-    val s = maxOf(w.toFloat() / iw, h.toFloat() / ih)
-    val dw = (iw * s).toInt(); val dh = (ih * s).toInt()
-    val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-    d.setBounds((w - dw) / 2, (h - dh) / 2, (w - dw) / 2 + dw, (h - dh) / 2 + dh)
-    d.draw(android.graphics.Canvas(bmp))
-    val px = IntArray(w * h)
-    bmp.getPixels(px, 0, w, 0, 0, w, h)
-    bmp.recycle()
-    return px
 }

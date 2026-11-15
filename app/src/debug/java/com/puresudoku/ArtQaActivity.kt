@@ -58,7 +58,7 @@ class ArtQaActivity : ComponentActivity() {
         when (intent.getStringExtra("mode")) {
             "local-slot-cancel-check" -> {
                 val result = runCatching {
-                    val vm = com.puresudoku.ui.AppViewModel(application)
+                    val vm = com.puresudoku.platform.AndroidAppViewModel(application).vm
                     val kind = GameKind.GO_FISH
                     vm.openGame(kind)
                     val field = com.puresudoku.ui.AppViewModel::class.java.getDeclaredField("slots\$delegate")

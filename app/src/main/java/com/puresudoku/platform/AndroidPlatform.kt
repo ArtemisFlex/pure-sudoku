@@ -17,5 +17,15 @@ private val main by lazy { Handler(Looper.getMainLooper()) }
 /** Runs [block] on the main thread after [ms] milliseconds. */
 fun onMainLater(ms: Long, block: () -> Unit) { main.postDelayed(block, ms) }
 
+/** A clock for measuring durations that never jumps when the wall clock is changed. */
+fun monotonicMillis(): Long = android.os.SystemClock.elapsedRealtime()
+
+/** Dispatcher for file and storage work. */
+val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher get() = kotlinx.coroutines.Dispatchers.IO
+
+/** [ms] since 1970 as local date text, e.g. pattern "MMM d, h:mm a". */
+fun formatDate(ms: Long, pattern: String): String =
+    java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(java.util.Date(ms))
+
 /** An exception for control flow: no stack trace is captured, so throwing it is cheap. */
 open class FastException : RuntimeException(null, null, false, false)

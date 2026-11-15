@@ -20,5 +20,10 @@ object AiWorker {
         }
     }
 
+    /** A search job: on Android it simply runs on the AI thread (the browser can move it to a Web Worker). */
+    @Suppress("UNUSED_PARAMETER")
+    fun search(minMs: Long, kind: String, state: () -> String, seed: Long, job: () -> String, valid: (String) -> Boolean, done: (String) -> Unit) =
+        run(minMs, job, done)
+
     fun later(ms: Long, block: () -> Unit) { main.postDelayed(block, ms) }
 }

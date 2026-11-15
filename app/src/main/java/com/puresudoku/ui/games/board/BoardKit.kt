@@ -155,6 +155,32 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
         }
     }
 
+    /**
+     * The computer's search as a self-contained job: snapshot the position now and return the work,
+     * which yields the chosen move as text. Because it depends only on the saved game and [seed],
+     * the browser can rerun it in a Web Worker from this session's save data.
+     */
+    open fun aiSearch(seed: Long): (() -> String)? = null
+
+    /**
+     * Runs [aiSearch] off the main thread (a background thread on Android, a Web Worker in the
+     * browser), then [apply] gets its move text on the main thread. [valid] checks a move worked
+     * out elsewhere still fits the board; if not, the move is worked out here instead.
+     */
+    protected fun computerSearch(minMs: Long = 450, valid: (String) -> Boolean = { true }, apply: (String) -> Unit) {
+        if (outcome != Outcome.PLAYING) return
+        val seed = rng.nextLong()
+        val job = aiSearch(seed) ?: return
+        thinking = true; bump()
+        val gen = generation
+        AiWorker.search(minMs, kind.name, { toJson().toString() }, seed, job, valid) { r ->
+            if (gen != generation || outcome != Outcome.PLAYING) return@search
+            thinking = false
+            apply(r)
+            bump()
+        }
+    }
+
     /** The computer thinks in the background, then [apply] runs on the main thread. */
     protected fun <T> computer(minMs: Long = 450, think: () -> T, apply: (T) -> Unit) {
         if (outcome != Outcome.PLAYING) return

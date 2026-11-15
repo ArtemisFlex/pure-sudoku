@@ -1,12 +1,8 @@
 package com.puresudoku.ui
 
-import android.app.Application
-import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.puresudoku.core.Difficulty
 import com.puresudoku.core.GameKind
 import com.puresudoku.core.GameCategory
@@ -40,9 +36,10 @@ sealed interface Screen {
 
 data class WinSummary(val timeMs: Long, val score: Int, val bonus: List<BonusLine>, val record: SolveRecord, val rank: Int = 0)
 
-class AppViewModel(app: Application) : AndroidViewModel(app) {
-    private val repo = SaveRepository(app)
-    private val backupStore = com.puresudoku.data.BackupStore(app)
+/** The app's state and navigation, shared by Android and the browser; each supplies its storage and backups. */
+class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups: com.puresudoku.data.BackupHost) {
+    private val repo = SaveRepository(store)
+    private val viewModelScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main)
 
     var screen by mutableStateOf<Screen>(Screen.Hub); private set
     var themeMode by mutableStateOf(repo.themeMode()); private set
@@ -73,41 +70,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var pickBackupFolder: (() -> Unit)? = null
     var pickBackupFile: (() -> Unit)? = null
 
-    var backupFolderName by mutableStateOf(backupStore.folderName()); private set
-    var lastBackupAt by mutableStateOf(backupStore.lastBackupAt); private set
+    var backupFolderName by mutableStateOf(backups.folderName()); private set
+    var lastBackupAt by mutableStateOf(backups.lastBackupAt); private set
     /** A backup waiting for the player to confirm restoring it: (json, savedAt). */
     var pendingRestore by mutableStateOf<Pair<String, Long>?>(null); private set
     var backupMessage by mutableStateOf<String?>(null)
 
     private fun autoBackup() {
-        if (backupStore.folder == null) return
+        if (!backups.hasFolder) return
         val json = repo.exportAll()
-        viewModelScope.launch(Dispatchers.IO) {
-            val ok = backupStore.write(json)
+        viewModelScope.launch(com.puresudoku.platform.ioDispatcher) {
+            val ok = backups.write(json)
             withContext(Dispatchers.Main) {
-                lastBackupAt = backupStore.lastBackupAt
+                lastBackupAt = backups.lastBackupAt
                 if (!ok) backupMessage = "Couldn't write to your backup folder. Choose it again in Settings."
             }
         }
     }
 
     fun backupNow() {
-        if (backupStore.folder == null) { pickBackupFolder?.invoke(); return }
+        if (!backups.hasFolder) { pickBackupFolder?.invoke(); return }
         autoBackup()
         backupMessage = "Backed up to ${backupFolderName}"
     }
 
-    fun onBackupFolderPicked(uri: android.net.Uri) {
-        backupStore.folder = uri
-        backupFolderName = backupStore.folderName()
-        val found = backupStore.readFromFolder(uri)
+    /** True where backups go to a folder automatically (Android); false where the player downloads a file (web). */
+    val backupsUseFolder: Boolean get() = backups.usesFolder
+
+    /** Everything, as one backup document (for the browser's download). */
+    fun exportBackup(): String = repo.exportAll()
+
+    fun onBackupFolderPicked(id: String) {
+        val found = backups.useFolder(id)
+        backupFolderName = backups.folderName()
         val savedAt = found?.let { runCatching { org.json.JSONObject(it).getLong("savedAt") }.getOrNull() }
         if (found != null && savedAt != null) pendingRestore = found to savedAt
         else { autoBackup(); backupMessage = "Backups will be saved to $backupFolderName" }
     }
 
-    fun onBackupFilePicked(uri: android.net.Uri) {
-        val text = backupStore.read(uri)
+    fun onBackupFilePicked(id: String) = onBackupText(backups.readFile(id))
+
+    /** A backup file's text, read by the platform; null if it couldn't be read. */
+    fun onBackupText(text: String?) {
         val savedAt = text?.let { runCatching { org.json.JSONObject(it).takeIf { o -> o.optString("app") in com.puresudoku.data.SaveRepository.BACKUP_IDS }?.getLong("savedAt") }.getOrNull() }
         if (text == null || savedAt == null) backupMessage = "That file isn't a PureGames backup"
         else pendingRestore = text to savedAt
@@ -193,7 +197,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         screen = Screen.Generating(kind, d)
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
-            val started = SystemClock.elapsedRealtime()
+            val started = com.puresudoku.platform.monotonicMillis()
             val scripted = if (d == Difficulty.EASY) withContext(Dispatchers.Default) { runCatching { Games.of(kind).lesson() }.getOrNull() } else null
             val s = scripted?.first ?: withContext(Dispatchers.Default) {
                 val def = Games.of(kind)
@@ -204,7 +208,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             (s as? com.puresudoku.ui.games.board.DuelSession)?.cancelThinking()
             s.training = true
             if (d == Difficulty.EASY) com.puresudoku.core.board.BoardScripts.of(kind)?.let { steps -> (s as? com.puresudoku.ui.games.board.DuelSession)?.startGuide(steps) }
-            val wait = 700 - (SystemClock.elapsedRealtime() - started)
+            val wait = 700 - (com.puresudoku.platform.monotonicMillis() - started)
             if (wait > 0) delay(wait)
             attach(s, -1)
             (s as? com.puresudoku.ui.games.board.DuelSession)?.resume()
@@ -218,14 +222,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         screen = Screen.Generating(kind, d)
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
-            val started = SystemClock.elapsedRealtime()
+            val started = com.puresudoku.platform.monotonicMillis()
             val s = withContext(Dispatchers.Default) { Games.of(kind).generate(d) }
             if (local) (s as? com.puresudoku.ui.games.board.DuelSession)?.let { duel ->
                 duel.localTwoPlayer = true
                 duel.message = when (kind) { GameKind.TIC_TAC_TOE -> "Player 1: X, your turn"; GameKind.CHESS -> "Player 1: White, your turn"; GameKind.SHOGI -> "Player 1: Sente, your turn"; GameKind.MANCALA -> "Player 1: bottom row, your turn"; GameKind.MORRIS -> "Player 1: White, your turn"; GameKind.BACKGAMMON -> "Player 1: roll"; GameKind.CHECKERS, GameKind.XIANGQI -> "Player 1: Red, your turn"; GameKind.GO, GameKind.GOMOKU -> "Player 1: Black, your turn"; else -> "Player 1, your turn" }
             }
             // Let the build animation play for a moment, even when generation is instant.
-            val wait = 900 - (SystemClock.elapsedRealtime() - started)
+            val wait = 900 - (com.puresudoku.platform.monotonicMillis() - started)
             if (wait > 0) delay(wait)
             attach(s, slot)
             persist()
@@ -250,7 +254,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun recordAbandon(kind: GameKind, slot: Int) {
         if (repo.loadJson(kind, slot)?.optJSONObject("state")?.optBoolean("localTwoPlayer", false) == true) return
         val sum = repo.summaries(kind).getOrNull(slot) ?: return
-        repo.addHistory(kind, com.puresudoku.data.GameResult(com.puresudoku.data.GameResult.Result.ABANDONED, sum.score, sum.difficulty, sum.elapsedMs, System.currentTimeMillis()))
+        repo.addHistory(kind, com.puresudoku.data.GameResult(com.puresudoku.data.GameResult.Result.ABANDONED, sum.score, sum.difficulty, sum.elapsedMs, com.puresudoku.platform.nowMillis()))
     }
 
     /** A session we leave must not report back (e.g. a computer move landing later). */
@@ -303,7 +307,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (outcome == Outcome.WON) {
             repo.addKeepsakes(s.kind, s.keepsakes)
             val record = repo.recordSolve(s.kind, s.difficulty, s.score, s.elapsedMs)
-            val rank = repo.addToLeaderboard(s.kind, LeaderEntry(s.score, s.difficulty, s.elapsedMs, System.currentTimeMillis()))
+            val rank = repo.addToLeaderboard(s.kind, LeaderEntry(s.score, s.difficulty, s.elapsedMs, com.puresudoku.platform.nowMillis()))
             winSummary = WinSummary(s.elapsedMs, s.score, s.bonusLines, record, rank)
         }
         repo.addHistory(s.kind, com.puresudoku.data.GameResult(
@@ -312,7 +316,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 Outcome.DRAW -> com.puresudoku.data.GameResult.Result.DRAW
                 else -> com.puresudoku.data.GameResult.Result.LOST
             },
-            s.score, s.difficulty, s.elapsedMs, System.currentTimeMillis(),
+            s.score, s.difficulty, s.elapsedMs, com.puresudoku.platform.nowMillis(),
         ))
         refreshMeta()
         autoBackup()
@@ -346,11 +350,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun startTimer() {
         if (timerJob?.isActive == true) return
         timerJob = viewModelScope.launch {
-            var last = SystemClock.elapsedRealtime()
+            var last = com.puresudoku.platform.monotonicMillis()
             var sinceSave = 0L
             while (isActive) {
                 delay(100)
-                val now = SystemClock.elapsedRealtime()
+                val now = com.puresudoku.platform.monotonicMillis()
                 val s = session ?: break
                 if (s.outcome != Outcome.PLAYING) break
                 val dt = now - last
@@ -386,8 +390,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun loadStats(): Map<GameKind, Map<Difficulty, DifficultyStats>> =
         GameKind.entries.associateWith { k -> Difficulty.entries.associateWith { repo.stats(k, it) } }
 
-    override fun onCleared() {
+    /** The app is closing: save, and stop background work. */
+    fun close() {
         persist()
-        super.onCleared()
+        viewModelScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 }

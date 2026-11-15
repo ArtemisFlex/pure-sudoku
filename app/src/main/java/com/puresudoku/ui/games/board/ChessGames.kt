@@ -149,10 +149,14 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
         }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = g.copyGame(); val lvl = Chess.level(aiDifficulty)
+        return { AlphaBeta(copy.searchable(), lvl, Random(seed)).best()?.toString() ?: "" }
+    }
+
     private fun reply() {
-        val copy = g.copyGame(); val lvl = Chess.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { val m = AlphaBeta(copy.searchable(), lvl, Random(seed)).best(); m?.let { it to copy.san(it) } }) { r ->
-            if (r == null) return@computer
+        computerSearch(valid = { t -> t.toIntOrNull()?.let { it in g.legalMoves() } ?: true }) { text ->
+            val r = text.toIntOrNull()?.let { it to g.copyGame().san(it) } ?: return@computerSearch
             message = "Computer played ${r.second}"
             val names = listOf("", "pawn", "knight", "bishop", "rook", "queen", "king")
             fun sq(i: Int) = "${'a' + i % 8}${8 - i / 8}"
@@ -393,10 +397,14 @@ class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameK
         }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = Xiangqi(); copy.load(g.state()); val lvl = Xiangqi.level(aiDifficulty)
+        return { AlphaBeta(copy, lvl, Random(seed)).best()?.toString() ?: "" }
+    }
+
     private fun reply() {
-        val copy = Xiangqi(); copy.load(g.state()); val lvl = Xiangqi.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
-            if (m == null) return@computer
+        computerSearch(valid = { t -> t.toIntOrNull()?.let { it in g.legalMoves() } ?: true }) { text ->
+            val m = text.toIntOrNull() ?: return@computerSearch
             val roles = listOf("", "General", "Advisor", "Elephant", "Horse", "Chariot", "Cannon", "Soldier")
             val f = Xiangqi.src(m); val t = Xiangqi.dst(m); val p = abs(g.b[f]); val v = abs(g.b[t])
             announce("Computer moves its ${roles[p]} ${Xiangqi.BLACK_NAMES[p]}", moveWords(t / 9 - f / 9, t % 9 - f % 9).replaceFirstChar { it.uppercase() } +
@@ -612,10 +620,14 @@ class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.
         }
     }
 
+    override fun aiSearch(seed: Long): (() -> String)? {
+        val copy = Shogi(); copy.load(g.state()); val lvl = Shogi.level(aiDifficulty)
+        return { AlphaBeta(copy, lvl, Random(seed)).best()?.toString() ?: "" }
+    }
+
     private fun reply() {
-        val copy = Shogi(); copy.load(g.state()); val lvl = Shogi.level(aiDifficulty); val seed = rng.nextLong()
-        computer(think = { AlphaBeta(copy, lvl, Random(seed)).best() }) { m ->
-            if (m == null) return@computer
+        computerSearch(valid = { t -> t.toIntOrNull()?.let { it in g.legalMoves() } ?: true }) { text ->
+            val m = text.toIntOrNull() ?: return@computerSearch
             val names = listOf("", "Pawn", "Lance", "Knight", "Silver", "Gold", "Bishop", "Rook", "King", "Tokin", "Promoted lance", "Promoted knight", "Promoted silver", "Horse", "Dragon")
             val t = Shogi.dst(m)
             if (Shogi.isDrop(m)) { val p = Shogi.src(m) - Shogi.DROP; announce("Computer drops a ${names[p]} ${Shogi.NAMES[p]}", "From its hand of captured pieces onto the board.") }
