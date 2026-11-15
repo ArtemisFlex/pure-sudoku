@@ -64,6 +64,11 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     var localTwoPlayer by mutableStateOf(false)
     /** Current local seat, or null when a game handles its own private handoff. */
     open val localActor: Int? get() = null
+    /**
+     * The seat (1 or 2) whose turn it is, for table mode: the screen's words and buttons turn round
+     * to face Player 2, while a shared board or map stays put (see [tableUpright]).
+     */
+    open val tableSeat: Int? get() = localActor
     /** The colour each seat plays in pass-and-play (name, colour): shown as the whose-turn bar. */
     open fun localSide(actor: Int): Pair<String, androidx.compose.ui.graphics.Color> =
         if (actor == 1) "Player 1" to androidx.compose.ui.graphics.Color(0xFF2F6FD6) else "Player 2" to androidx.compose.ui.graphics.Color(0xFFD93025)

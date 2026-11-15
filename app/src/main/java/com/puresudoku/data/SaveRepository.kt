@@ -245,6 +245,9 @@ class SaveRepository(private val prefs: KeyValueStore) {
         runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", null) ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM)
 
     fun setThemeMode(m: ThemeMode) { prefs.edit().putString("theme_mode", m.name).apply() }
+    /** Two players at a table, facing each other: the screen turns round for Player 2. */
+    fun tableMode() = prefs.getBoolean("table_mode", false)
+    fun setTableMode(on: Boolean) { prefs.edit().putBoolean("table_mode", on).apply() }
 
     fun tutorialSeen(kind: GameKind) = prefs.getBoolean("tutorial_seen_${kind.name}", false)
     fun markTutorialSeen(kind: GameKind) { prefs.edit().putBoolean("tutorial_seen_${kind.name}", true).apply() }

@@ -43,6 +43,8 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
 
     var screen by mutableStateOf<Screen>(Screen.Hub); private set
     var themeMode by mutableStateOf(repo.themeMode()); private set
+    var tableMode by mutableStateOf(repo.tableMode()); private set
+    fun toggleTableMode() { tableMode = !tableMode; repo.setTableMode(tableMode) }
     var slots by mutableStateOf(loadSlots()); private set
     var stats by mutableStateOf(loadStats()); private set
 

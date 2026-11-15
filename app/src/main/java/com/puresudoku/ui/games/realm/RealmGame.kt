@@ -1,5 +1,6 @@
 package com.puresudoku.ui.games.realm
 
+import com.puresudoku.ui.components.tableUpright
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -137,6 +138,7 @@ internal fun localPublicEvents(lines: List<String>): List<String> = lines.mapNot
 class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelSession(kind, difficulty) {
     var handoffPending by mutableStateOf(true)
     val currentPlayer get() = if (localTwoPlayer) g.actor else 0
+    override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     enum class Mode { NONE, ROAD, VILLAGE, TOWER, FIREBALL }
 
@@ -610,7 +612,11 @@ private fun DrawScope.drawDragon(c: Offset, u: Float, alpha: Float) {
 }
 
 @Composable
-fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modifier, fitTop: Float = 0f, fitBottom: Float = 0f) {
+fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modifier, fitTop0: Float = 0f, fitBottom0: Float = 0f) {
+    // table mode: the map stays put, so keep its clear space on the edges the controls now sit on
+    val tableFlip = com.puresudoku.ui.components.LocalTableFlip.current
+    val fitTop = if (tableFlip) fitBottom0 else fitTop0
+    val fitBottom = if (tableFlip) fitTop0 else fitBottom0
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
@@ -619,7 +625,7 @@ fun RealmBoard(s: RealmSession, targets: DemoTargets?, modifier: Modifier = Modi
     val flow by rememberInfiniteTransition(label = "flow").animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "flow")
     var zoom by remember(s) { mutableFloatStateOf(1f) }
     var pan by remember(s) { mutableStateOf(Offset.Zero) }
-    BoxWithConstraints(modifier.clipToBounds()) {
+    BoxWithConstraints(modifier.tableUpright().clipToBounds()) {
         val wDp = maxWidth; val hDp = maxHeight
         val wPx = with(LocalDensity.current) { wDp.toPx() }; val hPx = with(LocalDensity.current) { hDp.toPx() }
         val fitH = (hPx - fitTop - fitBottom).coerceAtLeast(hPx * 0.35f)

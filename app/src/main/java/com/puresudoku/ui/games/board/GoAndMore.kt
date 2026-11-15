@@ -1,5 +1,6 @@
 package com.puresudoku.ui.games.board
 
+import com.puresudoku.ui.components.tableUpright
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Canvas
@@ -231,7 +232,7 @@ private fun GoUi(s: GoSession, targets: DemoTargets?) {
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val side = min(maxWidth, maxHeight)
             val n = g.n
-            Box(Modifier.size(side)) {
+            Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(8.dp)).pointerInput(s) {
                     detectTapGestures { o -> val c = size.width / n.toFloat(); s.tap((o.y / c).toInt().coerceIn(0, n - 1) * n + (o.x / c).toInt().coerceIn(0, n - 1)) }
                 }) {
@@ -812,7 +813,7 @@ private fun MahjongUi(s: MahjongSession, targets: DemoTargets?) {
             val unitH = unitW * 1.3f
             val depth = unitW * 0.32f
             val boxW = unitW * g.width + depth * (maxZ + 1); val boxH = unitH * g.height + depth * (maxZ + 1)
-            Box(Modifier.size(boxW, boxH)) {
+            Box(Modifier.size(boxW, boxH).tableUpright()) {
                 Canvas(Modifier.size(boxW, boxH).pointerInput(s) {
                     detectTapGestures { o ->
                         val uw = size.width / (g.width + (maxZ + 1) * 0.32f)

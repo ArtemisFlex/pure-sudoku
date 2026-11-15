@@ -1,5 +1,6 @@
 package com.puresudoku.ui.games.realm
 
+import com.puresudoku.ui.components.tableUpright
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -94,6 +95,7 @@ internal val KSPELL_ICONS = listOf(RI.KNIGHT, RI.RELIC, RI.SHIELD, RI.MOON, RI.F
 class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(GameKind.KREASHUN, difficulty) {
     var handoffPending by mutableStateOf(true)
     val currentPlayer get() = if (localTwoPlayer) g.actor else 0
+    override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     enum class Mode { NONE, WALL, VILLAGE, TOWER, STRIKE, RALLY, SIEGE }
 
@@ -368,7 +370,11 @@ private fun DrawScope.kCastle(p: Offset, u: Float, color: Color) {
 }
 
 @Composable
-fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier = Modifier, fitTop: Float = 0f, fitBottom: Float = 0f) {
+fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier = Modifier, fitTop0: Float = 0f, fitBottom0: Float = 0f) {
+    // table mode: the map stays put, so keep its clear space on the edges the controls now sit on
+    val tableFlip = com.puresudoku.ui.components.LocalTableFlip.current
+    val fitTop = if (tableFlip) fitBottom0 else fitTop0
+    val fitBottom = if (tableFlip) fitTop0 else fitBottom0
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
@@ -377,7 +383,7 @@ fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier 
     val vT = s.vertexTargets(); val eT = s.edgeTargets(); val tT = s.tileTargets()
     var zoom by remember(s) { mutableFloatStateOf(1f) }
     var pan by remember(s) { mutableStateOf(Offset.Zero) }
-    BoxWithConstraints(modifier.clipToBounds()) {
+    BoxWithConstraints(modifier.tableUpright().clipToBounds()) {
         val wPx = with(LocalDensity.current) { maxWidth.toPx() }; val hPx = with(LocalDensity.current) { maxHeight.toPx() }
         val fitH = (hPx - fitTop - fitBottom).coerceAtLeast(hPx * 0.35f)
         val home = Offset(wPx / 2, fitTop + fitH / 2)

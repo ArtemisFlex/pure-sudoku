@@ -69,6 +69,7 @@ private val C8_NAMES = listOf("You", "Ava", "Ben", "Cleo")
 class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSession(GameKind.CRAZY_EIGHTS, difficulty) {
     var handoffPending by mutableStateOf(true)
     val currentPlayer get() = if (localTwoPlayer) g.turn else 0
+    override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     var eightAsk by mutableIntStateOf(-1); private set
     var errorFx by mutableStateOf<CardFx?>(null); private set

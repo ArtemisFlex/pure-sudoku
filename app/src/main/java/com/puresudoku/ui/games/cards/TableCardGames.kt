@@ -323,6 +323,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.g
     private val cardRules = ScoreRules(cfg.basePoints, cfg.parSeconds)
     var handoffPending by mutableStateOf(true); private set
     val currentPlayer get() = if (localTwoPlayer) g.turn else 0
+    override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     var rank by mutableIntStateOf(0); private set
     val log = mutableStateListOf("Pick a card, then tap a player to ask for that rank.")
@@ -582,6 +583,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : com.puresudoku.ui.g
     private val cardRules = ScoreRules(cfg.basePoints, cfg.parSeconds)
     var handoffPending by mutableStateOf(true); private set
     val currentPlayer get() = if (localTwoPlayer) actor() else 0
+    override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     var selected by mutableIntStateOf(-1); private set
     val discards = mutableStateListOf<Int>()

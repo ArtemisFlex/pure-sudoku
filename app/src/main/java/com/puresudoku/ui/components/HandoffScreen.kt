@@ -17,12 +17,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+
+/** True while table mode has turned the screen round for Player 2 (dialogs turn with it). */
+val LocalTableFlip = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** How far (degrees) table mode has turned the screen right now; read during drawing only. */
+val LocalTableTurn = androidx.compose.runtime.staticCompositionLocalOf<() -> Float> { { 0f } }
+
+/**
+ * Keeps a shared board or map fixed on the table while table mode turns the rest of the
+ * screen (words, buttons, hands) round to face Player 2.
+ */
+@Composable
+fun Modifier.tableUpright(): Modifier {
+    val turn = LocalTableTurn.current
+    return this.graphicsLayer { rotationZ = -turn() }
+}
 
 /** Each seat's colour in pass-and-play games with hidden hands: Player 1 blue, Player 2 red. */
 fun seatColor(player: Int): Color = if (player == 1) Color(0xFF2E7BD6) else Color(0xFFD93A3F)
@@ -37,8 +54,9 @@ fun HandoffScreen(player: Int, onReady: () -> Unit, color: Color = seatColor(pla
         onDismissRequest = {},
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false),
     ) {
+        val flip = LocalTableFlip.current
         Box(
-            Modifier.fillMaxSize().background(color).clickable(remember { MutableInteractionSource() }, null) {},
+            Modifier.fillMaxSize().background(color).graphicsLayer { rotationZ = if (flip) 180f else 0f }.clickable(remember { MutableInteractionSource() }, null) {},
             contentAlignment = Alignment.Center,
         ) {
             Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {

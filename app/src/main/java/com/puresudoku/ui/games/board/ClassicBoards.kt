@@ -1,5 +1,6 @@
 package com.puresudoku.ui.games.board
 
+import com.puresudoku.ui.components.tableUpright
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -243,7 +244,7 @@ private fun TicTacToeUi(s: TicTacToeSession, targets: DemoTargets?) {
         Spacer(Modifier.height(12.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val side = min(maxWidth, maxHeight) * 0.96f
-            Box(Modifier.size(side)) {
+            Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(18.dp)).pointerInput(s) {
                     detectTapGestures { o -> val c = (o.x / (size.width / 3f)).toInt().coerceIn(0, 2); val r = (o.y / (size.height / 3f)).toInt().coerceIn(0, 2); s.tap(r * 3 + c) }
                 }) {
@@ -401,7 +402,7 @@ private fun GomokuUi(s: GomokuSession, targets: DemoTargets?) {
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val side = min(maxWidth, maxHeight)
             val n = g.n
-            Box(Modifier.size(side)) {
+            Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(8.dp)).pointerInput(s) {
                     detectTapGestures { o -> val c = size.width / n.toFloat(); s.tap((o.y / c).toInt().coerceIn(0, n - 1) * n + (o.x / c).toInt().coerceIn(0, n - 1)) }
                 }) {
@@ -613,7 +614,7 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
                 sel >= 0 -> g.targets(sel, if (s.localTwoPlayer) g.turn else 1).toSet()
                 else -> emptySet()
             }
-            Box(Modifier.size(side)) {
+            Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(16.dp)).pointerInput(s) {
                     detectTapGestures { o ->
                         val u = size.width / 7f
@@ -785,7 +786,7 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
         Spacer(Modifier.height(10.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val w = maxWidth; val h = min(maxHeight, w * 0.55f)
-            Box(Modifier.size(w, h)) {
+            Box(Modifier.size(w, h).tableUpright()) {
                 Canvas(Modifier.size(w, h).pointerInput(s) {
                     detectTapGestures { o ->
                         val u = size.width / 8f
@@ -995,7 +996,7 @@ private fun CheckersUi(s: CheckersSession, targets: DemoTargets?) {
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val side = min(maxWidth, maxHeight)
             val tg = if (s.selected >= 0) g.legalMoves().filter { it.from == s.selected } else emptyList()
-            Box(Modifier.size(side)) {
+            Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(8.dp)).pointerInput(s) {
                     detectTapGestures { o -> val c = size.width / 8f; s.tap((o.y / c).toInt().coerceIn(0, 7) * 8 + (o.x / c).toInt().coerceIn(0, 7)) }
                 }) {

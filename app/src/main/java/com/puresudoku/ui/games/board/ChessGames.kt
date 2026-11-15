@@ -1,5 +1,6 @@
 package com.puresudoku.ui.games.board
 
+import com.puresudoku.ui.components.tableUpright
 import com.puresudoku.ui.components.readable
 import com.puresudoku.ui.components.backdropInk
 import androidx.compose.animation.core.Animatable
@@ -260,7 +261,7 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
             val cell = side / 8
             val legalTargets = if (s.selected >= 0) s.legal.filter { Chess.src(it) == s.selected }.map { Chess.dst(it) }.toSet() else emptySet()
             val checkSq = if (g.inCheck()) g.kingSq(g.turn) else -1
-            Box(Modifier.size(side)) {
+            Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(6.dp)).pointerInput(s) {
                     detectTapGestures { o -> val c = (o.x / (size.width / 8f)).toInt().coerceIn(0, 7); val r = (o.y / (size.height / 8f)).toInt().coerceIn(0, 7); s.tap(r * 8 + c) }
                 }) {
@@ -491,7 +492,7 @@ private fun XiangqiBoardUi(s: XiangqiSession, targets: DemoTargets?) {
             val cw = min(maxWidth / 9.2f, maxHeight / 10.4f)
             val w = cw * 9.2f; val h = cw * 10.4f
             val targetsSet = if (s.selected >= 0) s.legal.filter { Xiangqi.src(it) == s.selected }.map { Xiangqi.dst(it) }.toSet() else emptySet()
-            Box(Modifier.size(w, h)) {
+            Box(Modifier.size(w, h).tableUpright()) {
                 Canvas(Modifier.size(w, h).clip(RoundedCornerShape(10.dp)).pointerInput(s) {
                     detectTapGestures { o ->
                         val c = size.width / 9.2f
@@ -735,7 +736,7 @@ private fun ShogiBoardUi(s: ShogiSession, targets: DemoTargets?) {
     val g = s.g
     val anim = remember(s.moveId) { Animatable(0f) }
     LaunchedEffect(s.moveId) { anim.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
-    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxSize().tableUpright(), horizontalAlignment = Alignment.CenterHorizontally) {
         HandRow(g.hands[1], mine = false, selected = if (s.localTwoPlayer && g.turn == -1 && s.selected >= 100) s.selected - 100 else -1, targets = null, enabled = s.localTwoPlayer && g.turn == -1, label = if (s.localTwoPlayer) "Player 2 hand" else "Computer hand") { s.tapHand(it) }
         Spacer(Modifier.height(4.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {

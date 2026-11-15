@@ -44,6 +44,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,7 +89,12 @@ fun PlayScreen(vm: AppViewModel) {
         duel.localActor
     } else null
     // Open-information board games need no hand-off screen: a coloured bar shows whose move it is.
-    Box(Modifier.fillMaxSize()) {
+    // Table mode: players sit across from each other, so the whole screen turns round for Player 2.
+    val seat = if (duel?.localTwoPlayer == true && playing) { duel.version; duel.tableSeat } else null
+    val flip = vm.tableMode && seat == 2
+    val turn by androidx.compose.animation.core.animateFloatAsState(if (flip) 180f else 0f, tween(450), label = "table")
+    androidx.compose.runtime.CompositionLocalProvider(com.puresudoku.ui.components.LocalTableFlip provides flip, com.puresudoku.ui.components.LocalTableTurn provides { turn }) {
+    Box(Modifier.fillMaxSize().graphicsLayer { rotationZ = turn }) {
         val backdrop = def.background(session)
         if (backdrop != 0) {
             androidx.compose.animation.Crossfade(backdrop, animationSpec = androidx.compose.animation.core.tween(700), label = "backdrop") { res ->
@@ -166,6 +173,10 @@ fun PlayScreen(vm: AppViewModel) {
                                 style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = androidx.compose.ui.graphics.Shadow.None))
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = vm::unpause) { Text("Resume") }
+                            if (duel?.localTwoPlayer == true) {
+                                Spacer(Modifier.height(24.dp))
+                                TableModeToggle(vm.tableMode, vm::toggleTableMode)
+                            }
                         }
                         }
                     }
@@ -191,6 +202,7 @@ fun PlayScreen(vm: AppViewModel) {
             if (session.training) com.puresudoku.ui.training.TrainingEndCard(session, onAgain = vm::playAgain, onLeave = vm::leaveGame)
             else if (outcome == Outcome.WON && summary != null) WinCard(vm, session, def, summary) else LostCard(vm, session)
         }
+    }
     }
 }
 
@@ -337,5 +349,26 @@ private fun Backdrop(res: Int) {
             androidx.compose.ui.res.painterResource(res), null, Modifier.fillMaxSize(),
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
         )
+    }
+}
+
+/** Pause-menu switch between hand-off mode and table mode (the screen turns round for Player 2). */
+@Composable
+private fun TableModeToggle(on: Boolean, toggle: () -> Unit) {
+    androidx.compose.material3.Surface(
+        Modifier.padding(horizontal = 24.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).clickable(onClick = toggle),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        androidx.compose.foundation.layout.Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f, fill = false)) {
+                Text(if (on) "Table mode" else "Hand-off mode", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                Text(
+                    if (on) "Lay the device flat between you. Words and buttons turn to face whoever's turn it is; the board stays put." else "Pass the device to each player in turn.",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            androidx.compose.material3.Switch(checked = on, onCheckedChange = { toggle() })
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.puresudoku.ui.games.realm
 
+import com.puresudoku.ui.components.tableUpright
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -98,6 +99,7 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
     /** Each local player privately chooses their starting Crown after both lands are placed. */
     var startingCrownPlayer by mutableIntStateOf(-1); private set
     val currentPlayer get() = if (!localTwoPlayer) 0 else if (g.phase == Veilguard.SETUP) g.actor else if (startingCrownPlayer >= 0) startingCrownPlayer else planningPlayer
+    override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     enum class Mode { NONE, MARCH, WALL, RALLY, SIEGE }
 
@@ -410,7 +412,11 @@ private fun orderIcon(o: VOrder) = when (o) {
 }
 
 @Composable
-fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop: Float = 0f, fitBottom: Float = 0f) {
+fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop0: Float = 0f, fitBottom0: Float = 0f) {
+    // table mode: the map stays put, so keep its clear space on the edges the controls now sit on
+    val tableFlip = com.puresudoku.ui.components.LocalTableFlip.current
+    val fitTop = if (tableFlip) fitBottom0 else fitTop0
+    val fitBottom = if (tableFlip) fitTop0 else fitBottom0
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.35f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "glow")
@@ -419,7 +425,7 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop: F
     val lit = s.targets()
     var zoom by remember(s) { mutableFloatStateOf(1f) }
     var pan by remember(s) { mutableStateOf(Offset.Zero) }
-    BoxWithConstraints(modifier.clipToBounds()) {
+    BoxWithConstraints(modifier.tableUpright().clipToBounds()) {
         val wPx = with(LocalDensity.current) { maxWidth.toPx() }; val hPx = with(LocalDensity.current) { maxHeight.toPx() }
         val fitH = (hPx - fitTop - fitBottom).coerceAtLeast(hPx * 0.35f)
         val home = Offset(wPx / 2, fitTop + fitH / 2)
