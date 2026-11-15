@@ -688,7 +688,11 @@ class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameK
             gained > 1 -> if (mover == 0) "Capture! +$gained" else "The computer captured $gained"
             else -> if (mover == 0) "Computer's turn" else "Your turn"
         }
-        if (localTwoPlayer && !g.over) message = "Player ${g.turn + 1}, your turn" + if (g.turn == mover) " · go again" else ""
+        if (localTwoPlayer && !g.over) message = when {
+            g.turn == mover -> "Player ${mover + 1}: last seed in your store, go again"
+            gained > 1 -> "Player ${mover + 1} captured $gained · Player ${g.turn + 1}, your turn"
+            else -> "Player ${g.turn + 1}, your turn"
+        }
         bump()
         if (g.over) {
             val d = g.pits[6] - g.pits[13]
