@@ -116,6 +116,11 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                         Text("Two players · one device", fontSize = 16.sp)
                     }
                 }
+                if (kind in com.puresudoku.online.onlineGames) {
+                    OutlinedButton(onClick = { vm.openOnline(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
+                        Text("Play a friend online", fontSize = 16.sp)
+                    }
+                }
                 TextButton(onClick = { vm.openTutorial(kind) }, Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(18.dp))
                     HSpace(8)

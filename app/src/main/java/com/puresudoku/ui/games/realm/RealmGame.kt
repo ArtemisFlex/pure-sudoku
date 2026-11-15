@@ -140,6 +140,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     val currentPlayer get() = if (localTwoPlayer) g.actor else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
+    override fun skipHandoff() { handoffPending = false; bump() }
     enum class Mode { NONE, ROAD, VILLAGE, TOWER, FIREBALL }
 
     var mode by mutableStateOf(Mode.NONE)
@@ -943,7 +944,7 @@ internal fun PromptRibbon(text: String, busy: Boolean) {
 fun RealmUi(s: RealmSession, targets: DemoTargets?) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
-    if (s.localTwoPlayer && s.handoffPending) {
+    if (s.localTwoPlayer && s.handoffPending && !s.online) {
         com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return
     }

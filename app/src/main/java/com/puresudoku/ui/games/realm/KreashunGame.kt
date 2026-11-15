@@ -97,6 +97,7 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     val currentPlayer get() = if (localTwoPlayer) g.actor else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
+    override fun skipHandoff() { handoffPending = false; bump() }
     enum class Mode { NONE, WALL, VILLAGE, TOWER, STRIKE, RALLY, SIEGE }
 
     var selected by mutableIntStateOf(-1)
@@ -536,7 +537,7 @@ fun KreashunBoard(s: KreashunSession, targets: DemoTargets?, modifier: Modifier 
 fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
-    if (s.localTwoPlayer && s.handoffPending) {
+    if (s.localTwoPlayer && s.handoffPending && !s.online) {
         com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return
     }

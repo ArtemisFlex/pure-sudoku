@@ -62,6 +62,27 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     var moves by mutableIntStateOf(0)
     /** Enabled only by games that implement both human turns. */
     var localTwoPlayer by mutableStateOf(false)
+    /** Online play: this device's seat (1 = host, 2 = guest), or 0 when not online. */
+    var onlineSeat by mutableIntStateOf(0)
+    val online: Boolean get() = onlineSeat != 0
+    /**
+     * Online games run in pass-and-play mode on both devices ([localTwoPlayer]), so an outcome means the
+     * same on each: WON is a win for seat 1, LOST a win for seat 2. These end the game as the other device did.
+     */
+    fun opponentLeft() {
+        if (outcome != Outcome.PLAYING) return
+        message = "Your opponent left the game"
+        if (onlineSeat == 1) win() else lose()
+    }
+    fun remoteEnd(o: Outcome) {
+        if (outcome != Outcome.PLAYING) return
+        when (o) { Outcome.WON -> win(); Outcome.LOST -> lose(); Outcome.DRAW -> draw(); else -> Unit }
+    }
+    /** Online: did this device's player win? */
+    val youWonOnline: Boolean get() = (outcome == Outcome.WON && onlineSeat == 1) || (outcome == Outcome.LOST && onlineSeat == 2)
+    /** Online, the "pass the phone" step isn't needed: games with one clear it here. */
+    open fun skipHandoff() {}
+
     /** Current local seat, or null when a game handles its own private handoff. */
     open val localActor: Int? get() = null
     /**

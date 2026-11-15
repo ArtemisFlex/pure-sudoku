@@ -32,6 +32,8 @@ sealed interface Screen {
     data class Slots(val kind: GameKind, val replaceFor: Difficulty? = null) : Screen
     data class Generating(val kind: GameKind, val difficulty: Difficulty) : Screen
     data object Playing : Screen
+    /** Host or join an online game of [kind] with a room code. */
+    data class Online(val kind: GameKind) : Screen
 }
 
 data class WinSummary(val timeMs: Long, val score: Int, val bonus: List<BonusLine>, val record: SolveRecord, val rank: Int = 0)
@@ -165,6 +167,92 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
     }
     fun openSlots(kind: GameKind) { refreshMeta(); screen = Screen.Slots(kind) }
 
+    // ---------------- online play ----------------
+
+    fun openOnline(kind: GameKind) {
+        com.puresudoku.online.OnlineMatch.leave()
+        com.puresudoku.online.OnlineMatch.onStart = ::startOnline
+        screen = Screen.Online(kind)
+    }
+
+    fun closeOnline(kind: GameKind) { com.puresudoku.online.OnlineMatch.leave(); screen = Screen.Menu(kind) }
+
+    // Online games run as pass-and-play on both devices. After each of your turns the whole game is
+    // sent across and the other device carries on from it, so dice, decks and every rule stay in step.
+    // Online games aren't saved and don't count in stats.
+    private var sentRev = 0
+    private var seenRev = 0
+    /** Whose turn it was at the last sync: only that device sends the next update. */
+    private var syncTurn: Int? = null
+    private var applyingRemote = false
+    private var endedRemotely = false
+
+    /** Both devices are connected: the host deals the game and sends it; the guest waits for it. */
+    private fun startOnline(kind: GameKind, seat: Int) {
+        sentRev = 0; seenRev = 0; syncTurn = null; endedRemotely = false
+        com.puresudoku.online.OnlineMatch.onMessage = ::onlineMessage
+        if (seat != 1) return
+        val s = Games.of(kind).generate(Difficulty.EASY) as? com.puresudoku.ui.games.board.DuelSession ?: return
+        s.localTwoPlayer = true
+        s.message = twoPlayerOpening(kind)
+        attachOnline(s, seat)
+        sendOnline(s)
+    }
+
+    private fun attachOnline(s: com.puresudoku.ui.games.board.DuelSession, seat: Int) {
+        s.localTwoPlayer = true
+        s.onlineSeat = seat
+        attach(s, -1)
+        s.onChanged = { onlineChanged(s) }
+        syncTurn = s.tableSeat
+        if (s.tableSeat == seat) s.skipHandoff()
+    }
+
+    private fun mineToSend(s: com.puresudoku.ui.games.board.DuelSession) = syncTurn == null || syncTurn == s.onlineSeat
+
+    private fun onlineChanged(s: com.puresudoku.ui.games.board.DuelSession) {
+        if (applyingRemote || session !== s) return
+        if (mineToSend(s)) sendOnline(s)
+        syncTurn = s.tableSeat
+        if (s.tableSeat == s.onlineSeat) s.skipHandoff()
+    }
+
+    private fun sendOnline(s: Session) = com.puresudoku.online.OnlineMatch.send("s:${++sentRev}|${s.toJson()}")
+
+    private fun onlineMessage(msg: String) {
+        val cur = session as? com.puresudoku.ui.games.board.DuelSession
+        when {
+            msg == "bye" -> { endedRemotely = true; cur?.opponentLeft() }
+            msg.startsWith("e:") -> {
+                val o = runCatching { Outcome.valueOf(msg.drop(2)) }.getOrNull() ?: return
+                endedRemotely = true; cur?.remoteEnd(o)
+            }
+            msg.startsWith("s:") -> {
+                val bar = msg.indexOf('|')
+                val rev = msg.substring(2, maxOf(2, bar)).toIntOrNull() ?: return
+                if (rev <= seenRev) return
+                seenRev = rev
+                val json = runCatching { org.json.JSONObject(msg.substring(bar + 1)) }.getOrNull() ?: return
+                val kind = GameKind.entries.firstOrNull { it.name == json.optString("kind") } ?: return
+                val s = runCatching { Games.of(kind).restore(json) }.getOrNull() as? com.puresudoku.ui.games.board.DuelSession ?: return
+                detach(cur)
+                applyingRemote = true
+                attachOnline(s, com.puresudoku.online.OnlineMatch.seat)
+                applyingRemote = false
+            }
+        }
+    }
+
+    /** The first message of a pass-and-play game, naming who starts. */
+    private fun twoPlayerOpening(kind: GameKind) = when (kind) {
+        GameKind.TIC_TAC_TOE -> "Player 1: X, your turn"; GameKind.CHESS -> "Player 1: White, your turn"; GameKind.SHOGI -> "Player 1: Sente, your turn"
+        GameKind.MANCALA -> "Player 1: bottom row, your turn"; GameKind.MORRIS -> "Player 1: White, your turn"; GameKind.BACKGAMMON -> "Player 1: roll"
+        GameKind.CHECKERS, GameKind.XIANGQI -> "Player 1: Red, your turn"; GameKind.GO, GameKind.GOMOKU -> "Player 1: Black, your turn"
+        else -> "Player 1, your turn"
+    }
+
+    private val Session.isOnline get() = (this as? com.puresudoku.ui.games.board.DuelSession)?.online == true
+
     fun back() {
         if (tutorialFor != null) { closeTutorial(); return }
         when (val s = screen) {
@@ -172,6 +260,7 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
             is Screen.Category -> screen = Screen.Hub
             is Screen.Menu -> screen = Screen.Category(s.kind.category)
             is Screen.PickLevel -> screen = Screen.Menu(s.kind)
+            is Screen.Online -> closeOnline(s.kind)
             is Screen.Slots -> {
                 val local = pendingLocalTwoPlayer
                 pendingLocalTwoPlayer = false
@@ -184,6 +273,11 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
 
     /** Back to this game's menu, saving progress. */
     fun leaveGame() {
+        if (session?.isOnline == true) {
+            com.puresudoku.online.OnlineMatch.leave()
+            stopTimer(); detach(session); session = null; paused = false
+            screen = Screen.Menu(activeKind); return
+        }
         persist()
         stopTimer()
         detach(session)
@@ -293,7 +387,7 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         paused = false
         winSummary = null
         screen = Screen.Playing
-        if ((s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer != true && !repo.tutorialSeen(s.kind)) {
+        if ((s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer != true && !s.isOnline && !repo.tutorialSeen(s.kind)) {
             repo.markTutorialSeen(s.kind)
             tutorialFor = s.kind
         }
@@ -302,6 +396,7 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
 
     fun playAgain() {
         val s = session ?: return
+        if (s.isOnline) { detach(s); session = null; openOnline(s.kind); return }
         detach(s)
         session = null
         if (s.training) { startTraining(s.kind, s.difficulty); return }
@@ -322,6 +417,13 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         val s = session ?: return
         stopTimer()
         if (s.training) return
+        if (s.isOnline) {
+            // The device that made the last move tells the other how it ended.
+            val d = s as com.puresudoku.ui.games.board.DuelSession
+            if (!endedRemotely && !applyingRemote && mineToSend(d)) { sendOnline(d); com.puresudoku.online.OnlineMatch.send("e:${outcome.name}") }
+            endedRemotely = false
+            return
+        }
         repo.clear(s.kind, activeSlot)
         if ((s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) { refreshMeta(); autoBackup(); return }
         if (outcome == Outcome.WON) {

@@ -86,6 +86,7 @@ fun ManualScreen(kind: GameKind, onClose: () -> Unit) {
                 items(sections) { sec -> Section(sec) }
                 if (!def.singleLevel) item { Levels(kind) }
                 if (kind in com.puresudoku.core.localTwoPlayerGames) item { TwoPlayers() }
+                if (kind in com.puresudoku.online.onlineGames) item { Online() }
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
@@ -139,5 +140,14 @@ private fun TwoPlayers() {
         MB.P("Choose \"Two players · one device\" on the game's menu to play a friend instead of the computer. A coloured bar shows whose turn it is."),
         MB.P("Hand-off mode: pass the device across each turn. Games with hidden cards cover the screen between turns so nobody peeks."),
         MB.P("Table mode: lay the device flat between you. On the second player's turn the words and buttons turn round to face them, while the board stays put. Switch modes in the pause screen."),
+    )))
+}
+
+@Composable
+private fun Online() {
+    Section(ManualSection("Play a friend online", listOf(
+        MB.P("Tap \"Play a friend online\" on the game's menu. One of you taps Host a game and gets a 4-letter code; send it by text or any app. The other types it in and taps Join. The host goes first."),
+        MB.P("The two devices connect directly. On some networks that isn't possible, and moves go through PureGames instead: you'll see a note under the board. Either way, nothing about you is stored, and codes expire after 15 minutes."),
+        MB.P("Leaving an online game hands your opponent the win. Online games aren't saved and don't count in your stats."),
     )))
 }

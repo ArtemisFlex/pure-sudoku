@@ -35,10 +35,14 @@ val LocalTableTurn = androidx.compose.runtime.staticCompositionLocalOf<() -> Flo
  * Keeps a shared board or map fixed on the table while table mode turns the rest of the
  * screen (words, buttons, hands) round to face Player 2.
  */
+/** Online, the guest's board is turned round so their own pieces are at the bottom (plain round pieces only). */
+val LocalBoardTurn = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 @Composable
 fun Modifier.tableUpright(): Modifier {
     val turn = LocalTableTurn.current
-    return this.graphicsLayer { rotationZ = -turn() }
+    val guest = LocalBoardTurn.current
+    return this.graphicsLayer { rotationZ = -turn() + if (guest) 180f else 0f }
 }
 
 /** Each seat's colour in pass-and-play games with hidden hands: Player 1 blue, Player 2 red. */

@@ -101,6 +101,7 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
     val currentPlayer get() = if (!localTwoPlayer) 0 else if (g.phase == Veilguard.SETUP) g.actor else if (startingCrownPlayer >= 0) startingCrownPlayer else planningPlayer
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
+    override fun skipHandoff() { handoffPending = false; bump() }
     enum class Mode { NONE, MARCH, WALL, RALLY, SIEGE }
 
     var selected by mutableIntStateOf(-1)
@@ -585,7 +586,7 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop0: 
 fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
-    if (s.localTwoPlayer && s.handoffPending) {
+    if (s.localTwoPlayer && s.handoffPending && !s.online) {
         com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return
     }

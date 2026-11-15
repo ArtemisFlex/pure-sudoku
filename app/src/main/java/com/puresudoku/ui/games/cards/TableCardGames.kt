@@ -325,6 +325,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.g
     val currentPlayer get() = if (localTwoPlayer) g.turn else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
+    override fun skipHandoff() { handoffPending = false; bump() }
     var rank by mutableIntStateOf(0); private set
     val log = mutableStateListOf("Pick a card, then tap a player to ask for that rank.")
     private var clock = 0L
@@ -513,7 +514,7 @@ object GoFishDef : GameDef {
 @Composable
 private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
     com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.GO_FISH) {
-    if (s.localTwoPlayer && s.handoffPending) {
+    if (s.localTwoPlayer && s.handoffPending && !s.online) {
         com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return@ProvideCardTheme
     }
@@ -585,6 +586,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : com.puresudoku.ui.g
     val currentPlayer get() = if (localTwoPlayer) actor() else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
+    override fun skipHandoff() { handoffPending = false; bump() }
     var selected by mutableIntStateOf(-1); private set
     val discards = mutableStateListOf<Int>()
     private var clock = 0L
@@ -832,7 +834,7 @@ private fun Field(points: List<PointCard>, royals: List<Int>, w: Dp) {
 @Composable
 private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
     com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.CUTTLE) {
-    if (s.localTwoPlayer && s.handoffPending) {
+    if (s.localTwoPlayer && s.handoffPending && !s.online) {
         com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return@ProvideCardTheme
     }

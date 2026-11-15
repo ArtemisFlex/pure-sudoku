@@ -50,6 +50,7 @@ fun PureGamesApp(vm: AppViewModel, dark: Boolean) {
                     is Screen.Menu -> GameMenuScreen(vm, s.kind)
                     is Screen.PickLevel -> LevelScreen(vm, s.kind)
                     is Screen.Slots -> SlotsScreen(vm, s.kind, s.replaceFor)
+                    is Screen.Online -> com.puresudoku.ui.screens.OnlineScreen(vm, s.kind)
                     is Screen.Generating -> GeneratingScreen(s.kind, s.difficulty)
                     Screen.Playing -> PlayScreen(vm)
                 }

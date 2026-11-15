@@ -91,9 +91,11 @@ fun PlayScreen(vm: AppViewModel) {
     // Open-information board games need no hand-off screen: a coloured bar shows whose move it is.
     // Table mode: players sit across from each other, so the whole screen turns round for Player 2.
     val seat = if (duel?.localTwoPlayer == true && playing) { duel.version; duel.tableSeat } else null
-    val flip = vm.tableMode && seat == 2
+    val flip = vm.tableMode && seat == 2 && duel?.online != true
+    // Online, the guest sees boards with plain round pieces turned round, so their own side is at the bottom.
+    val guestView = duel?.online == true && duel.onlineSeat == 2 && session.kind in com.puresudoku.online.turnForGuest
     val turn by androidx.compose.animation.core.animateFloatAsState(if (flip) 180f else 0f, tween(450), label = "table")
-    androidx.compose.runtime.CompositionLocalProvider(com.puresudoku.ui.components.LocalTableFlip provides flip, com.puresudoku.ui.components.LocalTableTurn provides { turn }) {
+    androidx.compose.runtime.CompositionLocalProvider(com.puresudoku.ui.components.LocalTableFlip provides flip, com.puresudoku.ui.components.LocalTableTurn provides { turn }, com.puresudoku.ui.components.LocalBoardTurn provides guestView) {
     var showManual by remember(session) { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().graphicsLayer { rotationZ = turn }) {
         val backdrop = def.background(session)
@@ -127,7 +129,7 @@ fun PlayScreen(vm: AppViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(session.difficulty.accent(), 8)
                         HSpace(6)
-                        Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players" else (if (session.training) "Training wheels · " else "") + if (def.singleLevel) "Endless career" else session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (duel?.online == true) "Online · you play ${duel.localSide(duel.onlineSeat).first}" else if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players" else (if (session.training) "Training wheels · " else "") + if (def.singleLevel) "Endless career" else session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 IconButton(onClick = { vm.openTutorial(session.kind) }) {
@@ -140,9 +142,9 @@ fun PlayScreen(vm: AppViewModel) {
             }
             if (!def.fullBleed) {
                 StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
-                if (actor != null && duel != null) TurnBar(duel.localSide(actor), actor, Modifier.padding(horizontal = 6.dp, vertical = 8.dp))
+                if (actor != null && duel != null) TurnBar(duel.localSide(actor), actor, Modifier.padding(horizontal = 6.dp, vertical = 8.dp), onlineSeat = duel.onlineSeat)
                 else Text(
-                    if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Take turns and pass the phone to the next player." else def.hint(session.difficulty),
+                    if (duel?.online == true) "Playing a friend online. Leaving the game hands them the win." else if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Take turns and pass the phone to the next player." else def.hint(session.difficulty),
                     fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -153,6 +155,9 @@ fun PlayScreen(vm: AppViewModel) {
             var coachOpen by remember(session) { mutableStateOf(session.training) }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 if (!def.fullBleed) def.Play(session)
+                // Online: only the player whose turn it is can act. Games with hidden cards are covered meanwhile.
+                val waiting = duel != null && duel.online && playing && duel.tableSeat.let { it != null && it != duel.onlineSeat }
+                if (waiting) OpponentsTurn(duel!!, session.kind in com.puresudoku.online.hiddenInfoGames, Modifier.matchParentSize())
                 NudgePill(session, Modifier.align(Alignment.TopCenter))
                 // Full-screen strategy games show their own news cards; others get the shared overlay.
                 if (!def.fullBleed) com.puresudoku.ui.components.HeraldOverlay(session, def, Modifier.align(Alignment.TopCenter))
@@ -189,7 +194,7 @@ fun PlayScreen(vm: AppViewModel) {
         }
 
         // End-of-game overlays
-        if (outcome == Outcome.WON) Confetti()
+        if (if (duel?.online == true) duel.youWonOnline else outcome == Outcome.WON) Confetti()
         AnimatedVisibility(!playing, enter = fadeIn(tween(400, delayMillis = 650)), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
         }
@@ -213,7 +218,7 @@ fun PlayScreen(vm: AppViewModel) {
 /** Shows why a move did nothing, with a short buzz. Strikes buzz too. */
 /** Whose move it is in pass-and-play: the side's own colour, edge to edge. */
 @Composable
-private fun TurnBar(side: Pair<String, androidx.compose.ui.graphics.Color>, actor: Int, modifier: Modifier = Modifier) {
+private fun TurnBar(side: Pair<String, androidx.compose.ui.graphics.Color>, actor: Int, modifier: Modifier = Modifier, onlineSeat: Int = 0) {
     androidx.compose.animation.AnimatedContent(side, modifier.fillMaxWidth(), label = "turn") { (n, c) ->
         val ink = if (c.luminance() > 0.5f) androidx.compose.ui.graphics.Color(0xFF1B1B1F) else androidx.compose.ui.graphics.Color.White
         Box(
@@ -222,7 +227,8 @@ private fun TurnBar(side: Pair<String, androidx.compose.ui.graphics.Color>, acto
                 .padding(vertical = 9.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(if (n.startsWith("Player")) "$n to move" else "$n to move · Player $actor", color = ink, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 15.sp)
+            Text(if (onlineSeat != 0) (if (actor == onlineSeat) "Your move" else "Opponent's move") + if (n.startsWith("Player")) "" else " · $n"
+                else if (n.startsWith("Player")) "$n to move" else "$n to move · Player $actor", color = ink, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 15.sp)
         }
     }
 }
@@ -299,13 +305,34 @@ private fun WinCard(vm: AppViewModel, session: Session, def: GameDef, s: WinSumm
 private fun LostCard(vm: AppViewModel, session: Session) {
     EndCard {
         val draw = session.outcome == Outcome.DRAW
-        val local = (session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true
-        Text(if (draw) session.drawTitle else if (local && session.outcome == Outcome.WON) session.wonTitle else session.lostTitle, style = MaterialTheme.typography.headlineMedium)
+        val duel = session as? com.puresudoku.ui.games.board.DuelSession
+        val local = duel?.localTwoPlayer == true
+        val online = duel?.online == true
+        val won = session.outcome == Outcome.WON
+        // Online games keep pass-and-play results (won = seat 1 won), so "you" depends on your seat.
+        val youWon = online && duel!!.youWonOnline
+        Text(
+            when {
+                online -> if (draw) "It's a draw" else if (youWon) "You win!" else "Your opponent wins"
+                draw -> session.drawTitle
+                local && won -> session.wonTitle
+                else -> session.lostTitle
+            },
+            style = MaterialTheme.typography.headlineMedium,
+        )
         Spacer(Modifier.height(6.dp))
-        Text(if (local) "Pass-and-play match complete." else if (draw) session.drawMessage else session.lostMessage, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            when {
+                online -> if (draw) "A draw: ${duel!!.message.substringBefore(" ·")}." else duel!!.message.substringBefore(" ·").let { if (it.endsWith(".") || it.endsWith("!")) it else "$it." }
+                local -> "Pass-and-play match complete."
+                draw -> session.drawMessage
+                else -> session.lostMessage
+            },
+            textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(16.dp))
         StatLine("Time played", formatTime(session.elapsedMs))
-        if (!local) StatLine("Score", session.score.toString(), bold = true)
+        if (!local && !online) StatLine("Score", session.score.toString(), bold = true)
         Spacer(Modifier.height(20.dp))
         EndButtons(vm, session)
     }
@@ -315,7 +342,8 @@ private fun LostCard(vm: AppViewModel, session: Session) {
 private fun EndButtons(vm: AppViewModel, session: Session) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(onClick = vm::leaveGame) { Text("Menu") }
-        Button(onClick = vm::playAgain) { Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Play again" else "New ${session.difficulty.label}") }
+        val duel = session as? com.puresudoku.ui.games.board.DuelSession
+        Button(onClick = vm::playAgain) { Text(if (duel?.online == true) "New online game" else if (duel?.localTwoPlayer == true) "Play again" else "New ${session.difficulty.label}") }
     }
 }
 
@@ -373,6 +401,31 @@ private fun TableModeToggle(on: Boolean, toggle: () -> Unit) {
             }
             Spacer(Modifier.width(12.dp))
             androidx.compose.material3.Switch(checked = on, onCheckedChange = { toggle() })
+        }
+    }
+}
+
+/**
+ * Shown online while the other player takes their turn. Boards stay visible (taps are held back);
+ * games with hidden cards are covered so your hand isn't on show while you wait.
+ */
+@Composable
+private fun OpponentsTurn(duel: com.puresudoku.ui.games.board.DuelSession, cover: Boolean, modifier: Modifier) {
+    val other = 3 - duel.onlineSeat
+    if (!cover) {
+        Box(modifier.clickable(remember { MutableInteractionSource() }, null) { duel.nudge("It's your opponent's turn") })
+        return
+    }
+    Box(
+        modifier.background(com.puresudoku.ui.components.seatColor(other)).clickable(remember { MutableInteractionSource() }, null) {},
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+            androidx.compose.material3.CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
+            Spacer(Modifier.height(20.dp))
+            Text("Opponent's turn", color = Color.White, fontSize = 30.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text(duel.message.ifEmpty { "Waiting for their move…" }, color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center)
         }
     }
 }

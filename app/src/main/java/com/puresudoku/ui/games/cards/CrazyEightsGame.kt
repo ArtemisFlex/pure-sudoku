@@ -71,6 +71,7 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
     val currentPlayer get() = if (localTwoPlayer) g.turn else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
+    override fun skipHandoff() { handoffPending = false; bump() }
     var eightAsk by mutableIntStateOf(-1); private set
     var errorFx by mutableStateOf<CardFx?>(null); private set
     var lastPlayer by mutableIntStateOf(-1); private set
@@ -256,7 +257,7 @@ object CrazyEightsDef : GameDef {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = ProvideCardTheme(CardThemes.CRAZY_EIGHTS) {
-    if (s.localTwoPlayer && s.handoffPending) {
+    if (s.localTwoPlayer && s.handoffPending && !s.online) {
         com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return@ProvideCardTheme
     }

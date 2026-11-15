@@ -112,7 +112,7 @@ tasks.named("wasmJsBrowserDistribution") {
         val files = dist.walkTopDown()
             .filter { it.isFile && !it.relativeTo(dist).invariantSeparatorsPath.split("/").any { p -> p.startsWith(".") } }
             .map { it.relativeTo(dist).invariantSeparatorsPath }
-            .filter { it !in skip && !it.endsWith(".map") && !it.endsWith(".LICENSE.txt") && it != "index.html" }
+            .filter { it !in skip && !it.startsWith("api/") && !it.endsWith(".map") && !it.endsWith(".LICENSE.txt") && it != "index.html" }
             .sorted().toList()
         val digest = MessageDigest.getInstance("SHA-256")
         (files + "index.html").forEach { digest.update(it.toByteArray()); digest.update(dist.resolve(it).readBytes()) }

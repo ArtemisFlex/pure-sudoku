@@ -98,6 +98,9 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
     var promoChoices by mutableStateOf<List<Int>?>(null); private set
     private var legalCache: List<Int> = emptyList(); private var legalAt = -1
 
+    /** The side this device plays: 1 White, -1 Black (online guests play Black). */
+    val mySide: Int get() = if (onlineSeat == 2) -1 else 1
+
     val legal: List<Int> get() { if (legalAt != version) { legalCache = if (localTwoPlayer || g.turn == 1) g.legalMoves() else emptyList(); legalAt = version }; return legalCache }
 
     init { message = "Your move: you are White" }
@@ -147,7 +150,7 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
             "fifty" -> { message = "Fifty moves without a capture"; draw() }
             "repetition" -> { message = "Threefold repetition"; draw() }
             "material" -> { message = "Not enough pieces to mate"; draw() }
-            else -> { if (g.inCheck()) message += if (g.turn == 1) " · You're in check!" else " · Check!"; changed() }
+            else -> { if (g.inCheck()) message += if (g.turn == mySide) " · You're in check!" else " · Check!"; changed() }
         }
     }
 
@@ -169,10 +172,10 @@ class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.
         }
     }
 
-    override fun resume() { if (!localTwoPlayer && g.turn == -1 && outcome == Outcome.PLAYING) reply() }
+    override fun resume() { if (!localTwoPlayer && !online && g.turn == -1 && outcome == Outcome.PLAYING) reply() }
 
     override fun coachWork(): (() -> Triple<String, Int, Int>?)? {
-        if (localTwoPlayer || g.turn != 1) return null
+        if (localTwoPlayer || online || g.turn != 1) return null
         val copy = g.copyGame()
         return {
             AlphaBeta(copy.searchable(), com.puresudoku.core.board.AiLevel(4, 1500, quiescence = true), Random(7)).best()?.let { m ->
@@ -253,8 +256,11 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
     val g = s.g
     val anim = remember(s.moveId) { Animatable(0f) }
     LaunchedEffect(s.moveId) { anim.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
+    // Online, the guest plays Black and sees the board from Black's side.
+    val flip = s.mySide == -1
+    fun v(i: Int) = if (flip) 63 - i else i
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        CapturedRow(g, white = true, twoPlayer = s.localTwoPlayer)
+        CapturedRow(g, white = !flip, twoPlayer = s.localTwoPlayer, online = s.online, mine = false)
         Spacer(Modifier.height(6.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val side = min(maxWidth, maxHeight)
@@ -263,11 +269,11 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
             val checkSq = if (g.inCheck()) g.kingSq(g.turn) else -1
             Box(Modifier.size(side).tableUpright()) {
                 Canvas(Modifier.size(side).clip(RoundedCornerShape(6.dp)).pointerInput(s) {
-                    detectTapGestures { o -> val c = (o.x / (size.width / 8f)).toInt().coerceIn(0, 7); val r = (o.y / (size.height / 8f)).toInt().coerceIn(0, 7); s.tap(r * 8 + c) }
+                    detectTapGestures { o -> val c = (o.x / (size.width / 8f)).toInt().coerceIn(0, 7); val r = (o.y / (size.height / 8f)).toInt().coerceIn(0, 7); s.tap(v(r * 8 + c)) }
                 }) {
                     val cs = size.width / 8f
                     for (r in 0..7) for (c in 0..7) {
-                        val i = r * 8 + c
+                        val i = v(r * 8 + c)
                         drawRect(if ((r + c) % 2 == 0) CHESS_LIGHT else CHESS_DARK, Offset(c * cs, r * cs), Size(cs, cs))
                         if (i == s.lastFrom || i == s.lastTo) drawRect(Color(0x66F6E05A), Offset(c * cs, r * cs), Size(cs, cs))
                         if (i == s.selected) drawRect(Color(0x8854A0F0), Offset(c * cs, r * cs), Size(cs, cs))
@@ -275,24 +281,27 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
                     }
                     // coordinates
                     for (k in 0..7) {
-                        glyph("${'a' + k}", Offset(k * cs + cs * 0.88f, 8 * cs - cs * 0.12f), cs * 0.18f, if (k % 2 == 1) CHESS_DARK else CHESS_LIGHT)
-                        glyph("${8 - k}", Offset(cs * 0.1f, k * cs + cs * 0.14f), cs * 0.18f, if (k % 2 == 1) CHESS_DARK else CHESS_LIGHT)
+                        glyph("${'a' + (if (flip) 7 - k else k)}", Offset(k * cs + cs * 0.88f, 8 * cs - cs * 0.12f), cs * 0.18f, if (k % 2 == 1) CHESS_DARK else CHESS_LIGHT)
+                        glyph("${if (flip) k + 1 else 8 - k}", Offset(cs * 0.1f, k * cs + cs * 0.14f), cs * 0.18f, if (k % 2 == 1) CHESS_DARK else CHESS_LIGHT)
                     }
                     for (i in 0..63) {
                         val p = g.b[i]; if (p == 0) continue
-                        var x = (i % 8) * cs; var y = (i / 8) * cs
+                        val vi = v(i)
+                        var x = (vi % 8) * cs; var y = (vi / 8) * cs
                         if (i == s.lastTo && s.lastFrom >= 0 && anim.value < 1f) {
-                            x = ((s.lastFrom % 8) + ((i % 8) - (s.lastFrom % 8)) * anim.value) * cs
-                            y = ((s.lastFrom / 8) + ((i / 8) - (s.lastFrom / 8)) * anim.value) * cs
+                            val vf = v(s.lastFrom)
+                            x = ((vf % 8) + ((vi % 8) - (vf % 8)) * anim.value) * cs
+                            y = ((vf / 8) + ((vi / 8) - (vf / 8)) * anim.value) * cs
                         }
                         drawChessPiece(abs(p), p > 0, Rect(x + cs * 0.06f, y + cs * 0.04f, x + cs * 0.94f, y + cs * 0.92f))
                     }
                     for (t in legalTargets) {
-                        val c = Offset((t % 8) * cs + cs / 2, (t / 8) * cs + cs / 2)
+                        val vt = v(t)
+                        val c = Offset((vt % 8) * cs + cs / 2, (vt / 8) * cs + cs / 2)
                         if (g.b[t] != 0) drawCircle(Color(0x99000000), cs * 0.46f, c, style = Stroke(cs * 0.08f))
                         else drawCircle(Color(0x55000000), cs * 0.15f, c)
                     }
-                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { Offset((it % 8) * cs + cs / 2, (it / 8) * cs + cs / 2) }, cs * 0.48f)
+                    coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { v(it) }.map { Offset((it % 8) * cs + cs / 2, (it / 8) * cs + cs / 2) }, cs * 0.48f)
                 }
                 val d = androidx.compose.ui.platform.LocalDensity.current
                 val cpx = with(d) { cell.toPx() }
@@ -300,9 +309,10 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        CapturedRow(g, white = false, twoPlayer = s.localTwoPlayer)
+        CapturedRow(g, white = flip, twoPlayer = s.localTwoPlayer, online = s.online, mine = true)
         Spacer(Modifier.height(8.dp))
         TurnBanner(if (s.thinking) "Computer is thinking…" else s.message.ifEmpty { "Your move" }, s.thinking)
+        if (s.online) OnlineStatus()
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))
     }
     s.promoChoices?.let { choices ->
@@ -325,13 +335,13 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
 
 /** Pieces captured from one side, smallest first. */
 @Composable
-private fun CapturedRow(g: Chess, white: Boolean, twoPlayer: Boolean = false) {
+private fun CapturedRow(g: Chess, white: Boolean, twoPlayer: Boolean = false, online: Boolean = false, mine: Boolean = false) {
     val start = intArrayOf(0, 8, 2, 2, 2, 1, 1)
     val sign = if (white) 1 else -1
     val lost = (1..5).flatMap { t -> List((start[t] - g.b.count { it == t * sign }).coerceAtLeast(0)) { t } }
     val diff = (1..5).sumOf { t -> (g.b.count { it == t } - g.b.count { it == -t }) * Chess.VALUE[t] } / 100
     Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(if (twoPlayer) (if (white) "Black took" else "White took") else if (white) "Computer took" else "You took", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
+        Text(if (online) (if (mine) "You took" else "Opponent took") else if (twoPlayer) (if (white) "Black took" else "White took") else if (white) "Computer took" else "You took", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
         Spacer(Modifier.size(6.dp))
         Canvas(Modifier.weight(1f).height(22.dp)) {
             lost.forEachIndexed { k, t -> drawChessPiece(t, white, Rect(k * size.height * 0.62f, 0f, k * size.height * 0.62f + size.height, size.height)) }
@@ -809,4 +819,14 @@ private fun HandRow(hand: IntArray, mine: Boolean, selected: Int, targets: DemoT
             }
         }
     }
+}
+
+/** A small line under an online game: how the two devices are connected. */
+@Composable
+private fun OnlineStatus() {
+    val relay = com.puresudoku.online.OnlineMatch.viaService
+    Text(
+        if (relay) "Online · moves go through PureGames (a direct link wasn't possible)" else "Online · connected directly",
+        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+    )
 }

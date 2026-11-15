@@ -31,6 +31,8 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   const url = new URL(req.url);
+  // Online play talks to the room-code service live: never cache it.
+  if (url.pathname.startsWith('/api/')) return;
   // The page itself: this build's copy (so code and page always match), the network if not cached.
   const key = req.mode === 'navigate' ? './' : url.pathname.replace(/^\//, '') || './';
   event.respondWith(
