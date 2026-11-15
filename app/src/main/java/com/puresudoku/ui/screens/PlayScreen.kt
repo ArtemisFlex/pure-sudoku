@@ -94,6 +94,7 @@ fun PlayScreen(vm: AppViewModel) {
     val flip = vm.tableMode && seat == 2
     val turn by androidx.compose.animation.core.animateFloatAsState(if (flip) 180f else 0f, tween(450), label = "table")
     androidx.compose.runtime.CompositionLocalProvider(com.puresudoku.ui.components.LocalTableFlip provides flip, com.puresudoku.ui.components.LocalTableTurn provides { turn }) {
+    var showManual by remember(session) { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().graphicsLayer { rotationZ = turn }) {
         val backdrop = def.background(session)
         if (backdrop != 0) {
@@ -173,6 +174,8 @@ fun PlayScreen(vm: AppViewModel) {
                                 style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = androidx.compose.ui.graphics.Shadow.None))
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = vm::unpause) { Text("Resume") }
+                            Spacer(Modifier.height(10.dp))
+                            androidx.compose.material3.OutlinedButton(onClick = { showManual = true }) { Text("Manual") }
                             if (duel?.localTwoPlayer == true) {
                                 Spacer(Modifier.height(24.dp))
                                 TableModeToggle(vm.tableMode, vm::toggleTableMode)
@@ -202,6 +205,7 @@ fun PlayScreen(vm: AppViewModel) {
             if (session.training) com.puresudoku.ui.training.TrainingEndCard(session, onAgain = vm::playAgain, onLeave = vm::leaveGame)
             else if (outcome == Outcome.WON && summary != null) WinCard(vm, session, def, summary) else LostCard(vm, session)
         }
+        if (showManual) com.puresudoku.ui.manual.GameManual(session.kind, onClose = { showManual = false })
     }
     }
 }

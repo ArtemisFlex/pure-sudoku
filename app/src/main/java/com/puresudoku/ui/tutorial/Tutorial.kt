@@ -69,7 +69,7 @@ fun TutorialOverlay(kind: GameKind, steps: List<TutorialStep>, onClose: () -> Un
     val pager = rememberPagerState(pageCount = { steps.size })
     val scope = rememberCoroutineScope()
     val last = pager.currentPage == steps.lastIndex
-    val hasBook = com.puresudoku.ui.games.realm.Rulebooks.has(kind)
+    val hasBook = true   // every game has a manual; strategy games open their illustrated rulebook
     var showBook by remember(kind) { mutableStateOf(false) }
 
     Box(
@@ -93,7 +93,7 @@ fun TutorialOverlay(kind: GameKind, steps: List<TutorialStep>, onClose: () -> Un
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.AutoStories, contentDescription = null, tint = Color(0xFFF6E3A1), modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Rulebook", color = Color(0xFFF6E3A1), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text(if (com.puresudoku.ui.games.realm.Rulebooks.has(kind)) "Rulebook" else "Manual", color = Color(0xFFF6E3A1), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         }
                     }
                 }
@@ -147,7 +147,7 @@ fun TutorialOverlay(kind: GameKind, steps: List<TutorialStep>, onClose: () -> Un
                 ) { Text(if (last) "Play" else "Next") }
             }
         }
-        if (showBook) com.puresudoku.ui.games.realm.RulebookScreen(kind, onClose = { showBook = false })
+        if (showBook) com.puresudoku.ui.manual.GameManual(kind, onClose = { showBook = false })
     }
 }
 
