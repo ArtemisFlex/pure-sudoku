@@ -46,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -157,6 +158,8 @@ fun PlayScreen(vm: AppViewModel) {
                 if (!def.fullBleed) def.Play(session)
                 // Online: only the player whose turn it is can act. Games with hidden cards are covered meanwhile.
                 val waiting = duel != null && duel.online && playing && duel.tableSeat.let { it != null && it != duel.onlineSeat }
+                // Card and strategy games stay fully viewable from your own side (they only let you act on your turn);
+                // shared boards just hold back taps.
                 if (waiting) OpponentsTurn(duel!!, session.kind in com.puresudoku.online.hiddenInfoGames, Modifier.matchParentSize())
                 NudgePill(session, Modifier.align(Alignment.TopCenter))
                 // Full-screen strategy games show their own news cards; others get the shared overlay.
@@ -410,22 +413,24 @@ private fun TableModeToggle(on: Boolean, toggle: () -> Unit) {
  * games with hidden cards are covered so your hand isn't on show while you wait.
  */
 @Composable
-private fun OpponentsTurn(duel: com.puresudoku.ui.games.board.DuelSession, cover: Boolean, modifier: Modifier) {
-    val other = 3 - duel.onlineSeat
-    if (!cover) {
+private fun OpponentsTurn(duel: com.puresudoku.ui.games.board.DuelSession, viewOnly: Boolean, modifier: Modifier) {
+    if (!viewOnly) {
         Box(modifier.clickable(remember { MutableInteractionSource() }, null) { duel.nudge("It's your opponent's turn") })
         return
     }
-    Box(
-        modifier.background(com.puresudoku.ui.components.seatColor(other)).clickable(remember { MutableInteractionSource() }, null) {},
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-            androidx.compose.material3.CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
-            Spacer(Modifier.height(20.dp))
-            Text("Opponent's turn", color = Color.White, fontSize = 30.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(8.dp))
-            Text(duel.message.ifEmpty { "Waiting for their move…" }, color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center)
+    // A small note at the bottom; the game underneath stays visible and scrollable.
+    Box(modifier, contentAlignment = Alignment.BottomCenter) {
+        androidx.compose.material3.Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+            color = com.puresudoku.ui.components.seatColor(3 - duel.onlineSeat),
+            shadowElevation = 4.dp,
+            modifier = Modifier.padding(bottom = 18.dp),
+        ) {
+            androidx.compose.foundation.layout.Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("Opponent's turn", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            }
         }
     }
 }

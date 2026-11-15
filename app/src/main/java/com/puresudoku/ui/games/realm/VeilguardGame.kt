@@ -100,6 +100,8 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
     var startingCrownPlayer by mutableIntStateOf(-1); private set
     val currentPlayer get() = if (!localTwoPlayer) 0 else if (g.phase == Veilguard.SETUP) g.actor else if (startingCrownPlayer >= 0) startingCrownPlayer else planningPlayer
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
+    /** Whose side the screen shows: your own seat online, the player to move otherwise. */
+    val viewer: Int get() = if (online) onlineSeat - 1 else currentPlayer
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
     enum class Mode { NONE, MARCH, WALL, RALLY, SIEGE }
@@ -121,7 +123,7 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
     } + "This game's save slot has been cleared."
 
     val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != Veilguard.OVER &&
-        (g.phase == Veilguard.PLAN || localTwoPlayer || g.actor == 0) && (!localTwoPlayer || (!handoffPending && startingCrownPlayer < 0))
+        (g.phase == Veilguard.PLAN || localTwoPlayer || g.actor == 0) && (!localTwoPlayer || (!handoffPending && startingCrownPlayer < 0)) && myOnlineTurn
 
     private fun flush() { if (g.log.isNotEmpty()) { events = (events + if (localTwoPlayer) localPublicEvents(g.log) else g.log).takeLast(6); g.log.clear() } }
 
@@ -512,20 +514,20 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop0: 
                 val n = g.banners(h)
                 if (n > 0) {
                     val label = when {
-                        o == s.currentPlayer -> "${g.knights[h]}+${g.decoys[h]}"
-                        g.seenRound[s.currentPlayer][h] == g.round - 1 && g.seenRound[s.currentPlayer][h] >= 0 -> "${g.seenKnights[s.currentPlayer][h]}+${g.seenDecoys[s.currentPlayer][h]}"
+                        o == s.viewer -> "${g.knights[h]}+${g.decoys[h]}"
+                        g.seenRound[s.viewer][h] == g.round - 1 && g.seenRound[s.viewer][h] >= 0 -> "${g.seenKnights[s.viewer][h]}+${g.seenDecoys[s.viewer][h]}"
                         else -> "$n"
                     }
                     bannerStack(c + Offset(-u * 0.42f, u * 0.62f), u, col, label)
                 }
                 // your Crown, and where you last saw the rival's
-                val crownHere = (o == s.currentPlayer && g.crown[s.currentPlayer] == h) || (o != s.currentPlayer && g.seenCrown[s.currentPlayer] == h)
+                val crownHere = (o == s.viewer && g.crown[s.viewer] == h) || (o != s.viewer && g.seenCrown[s.viewer] == h)
                 if (crownHere) {
                     val p = c + Offset(u * 0.42f, u * 0.3f)
                     drawCircle(Color(0xFF1B1430).copy(alpha = 0.85f), u * 0.2f, p)
                     drawCircle(Color(0xFFF6E3A1), u * 0.2f, p, style = Stroke(u * 0.03f))
                     actionIcon(RI.CROWN, p, u * 0.3f)
-                    if (o != s.currentPlayer) glyph("?", p + Offset(u * 0.16f, -u * 0.14f), u * 0.18f, Color(0xFFFF8A80))
+                    if (o != s.viewer) glyph("?", p + Offset(u * 0.16f, -u * 0.14f), u * 0.18f, Color(0xFFFF8A80))
                 }
             }
             // walls
@@ -536,7 +538,7 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop0: 
                 drawLine(if (o == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
             }
             // your secret orders
-            for (o in g.orders[s.currentPlayer]) when (o) {
+            for (o in g.orders[s.viewer]) when (o) {
                 is VOrder.March -> {
                     flowArrow(geo.hex(o.from), geo.hex(o.to), u, Color(0xFFFFD54F), flow, 0.65f)
                 }
@@ -544,7 +546,7 @@ fun VeilguardBoard(s: VeilguardSession, modifier: Modifier = Modifier, fitTop0: 
                 else -> {
                     val h = when (o) { is VOrder.Muster -> o.h; is VOrder.Build -> o.h; is VOrder.Fortify -> o.h; is VOrder.Claim -> o.h; is VOrder.Scout -> o.h; is VOrder.Crown -> o.h; else -> -1 }
                     if (h >= 0) {
-                        val same = g.orders[s.currentPlayer].filter { x -> x !is VOrder.March && x !is VOrder.Wall }.let { l -> l.indexOf(o) to l }
+                        val same = g.orders[s.viewer].filter { x -> x !is VOrder.March && x !is VOrder.Wall }.let { l -> l.indexOf(o) to l }
                         orderToken(geo.hex(h) + Offset(u * (-0.4f + 0.42f * (same.first % 3)), -u * 0.05f), u, orderIcon(o))
                     }
                 }
@@ -605,13 +607,13 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.currentPlayer == 0)}", YOU, g.phase == Veilguard.PLAN, (if (g.thiefOwner == 0) "Dagger · " else "") + "${g.tiles(0)} lands", Modifier.weight(1f))
+                PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.viewer == 0)}", YOU, g.phase == Veilguard.PLAN, (if (g.thiefOwner == 0) "Dagger · " else "") + "${g.tiles(0)} lands", Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RIconOf(RI.CROWN, 22.dp)
                     Text("vs", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
                 }
-                PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.currentPlayer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, s.thinking, (if (g.thiefOwner == 1) "Dagger · " else "") + "${g.tiles(1)} lands · ${g.total(1)} cards", Modifier.weight(1f))
+                PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.viewer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, s.thinking, (if (g.thiefOwner == 1) "Dagger · " else "") + "${g.tiles(1)} lands · ${g.total(1)} cards", Modifier.weight(1f))
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.parchment(RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -638,16 +640,16 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (r in 0..4) ResChip(r, g.res[s.currentPlayer][r], Modifier.weight(1f))
+                for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.currentPlayer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy)
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy)
             Spacer(Modifier.height(5.dp))
             if (s.myMove && g.phase == Veilguard.PLAN) {
                 // the orders you've given, face down to the rival
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     for (i in 0 until Veilguard.MAX_ORDERS) {
-                        val o = g.orders[s.currentPlayer].getOrNull(i)
+                        val o = g.orders[s.viewer].getOrNull(i)
                         Row(
                             Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
                                 .then(if (o != null) Modifier.parchment(RoundedCornerShape(10.dp), Color(0xFFC9972F), 1.5.dp).clickable { s.cancel(i) }
@@ -666,7 +668,7 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
                         Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).parchment(RoundedCornerShape(10.dp), Color(0xFF7B4FB0), 1.5.dp)
                             .clickable { s.uncast() }.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                    ) { RIconOf(VSPELL_ICONS[g.cast[s.currentPlayer][0]], 18.dp); Spacer(Modifier.width(6.dp)); InkText("Spell: $txt", 11, bold = true); Spacer(Modifier.width(6.dp)); InkText("✕", 12, color = INK_SOFT) }
+                    ) { RIconOf(VSPELL_ICONS[g.cast[s.viewer][0]], 18.dp); Spacer(Modifier.width(6.dp)); InkText("Spell: $txt", 11, bold = true); Spacer(Modifier.width(6.dp)); InkText("✕", 12, color = INK_SOFT) }
                 }
                 Spacer(Modifier.height(5.dp))
                 FlowRow(
@@ -674,21 +676,21 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
                     horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     val h = s.selected
-                    val room = g.orders[s.currentPlayer].size < Veilguard.MAX_ORDERS
-                    if (h >= 0 && g.owner[h] == s.currentPlayer) {
-                        BuildButton("March", RI.KNIGHT, null, s.mode == VeilguardSession.Mode.MARCH, room && g.banners(h) > 0 && g.orders[s.currentPlayer].none { it is VOrder.March && it.from == h }) { s.toggleMode(VeilguardSession.Mode.MARCH) }
-                        BuildButton("Knight", RI.KNIGHT, Veilguard.COST_KNIGHT, false, g.canOrder(s.currentPlayer, VOrder.Muster(h, false))) { s.order(VOrder.Muster(h, false)) }
-                        BuildButton("Decoy", RI.SHIELD, Veilguard.COST_DECOY, false, g.canOrder(s.currentPlayer, VOrder.Muster(h, true))) { s.order(VOrder.Muster(h, true)) }
-                        if (g.level[h] < 3) BuildButton(if (g.level[h] == 1) "Tower" else "Castle", RI.TOWER, g.upgradeCost(h), false, g.canOrder(s.currentPlayer, VOrder.Build(h))) { s.order(VOrder.Build(h)) }
-                        BuildButton("Wall", RI.SHIELD, Veilguard.COST_WALL, s.mode == VeilguardSession.Mode.WALL, room && g.can(s.currentPlayer, Veilguard.COST_WALL)) { s.toggleMode(VeilguardSession.Mode.WALL) }
-                        BuildButton("Fortify", RI.SHIELD, Veilguard.COST_FORTIFY, false, g.canOrder(s.currentPlayer, VOrder.Fortify(h))) { s.order(VOrder.Fortify(h)) }
-                        if (g.crown[s.currentPlayer] != h && g.crown[s.currentPlayer] >= 0 && h in g.map.hexNbrs[g.crown[s.currentPlayer]]) BuildButton("Crown here", RI.CROWN, null, false, g.canOrder(s.currentPlayer, VOrder.Crown(h))) { s.order(VOrder.Crown(h)) }
+                    val room = g.orders[s.viewer].size < Veilguard.MAX_ORDERS
+                    if (h >= 0 && g.owner[h] == s.viewer) {
+                        BuildButton("March", RI.KNIGHT, null, s.mode == VeilguardSession.Mode.MARCH, room && g.banners(h) > 0 && g.orders[s.viewer].none { it is VOrder.March && it.from == h }) { s.toggleMode(VeilguardSession.Mode.MARCH) }
+                        BuildButton("Knight", RI.KNIGHT, Veilguard.COST_KNIGHT, false, g.canOrder(s.viewer, VOrder.Muster(h, false))) { s.order(VOrder.Muster(h, false)) }
+                        BuildButton("Decoy", RI.SHIELD, Veilguard.COST_DECOY, false, g.canOrder(s.viewer, VOrder.Muster(h, true))) { s.order(VOrder.Muster(h, true)) }
+                        if (g.level[h] < 3) BuildButton(if (g.level[h] == 1) "Tower" else "Castle", RI.TOWER, g.upgradeCost(h), false, g.canOrder(s.viewer, VOrder.Build(h))) { s.order(VOrder.Build(h)) }
+                        BuildButton("Wall", RI.SHIELD, Veilguard.COST_WALL, s.mode == VeilguardSession.Mode.WALL, room && g.can(s.viewer, Veilguard.COST_WALL)) { s.toggleMode(VeilguardSession.Mode.WALL) }
+                        BuildButton("Fortify", RI.SHIELD, Veilguard.COST_FORTIFY, false, g.canOrder(s.viewer, VOrder.Fortify(h))) { s.order(VOrder.Fortify(h)) }
+                        if (g.crown[s.viewer] != h && g.crown[s.viewer] >= 0 && h in g.map.hexNbrs[g.crown[s.viewer]]) BuildButton("Crown here", RI.CROWN, null, false, g.canOrder(s.viewer, VOrder.Crown(h))) { s.order(VOrder.Crown(h)) }
                     }
-                    if (h >= 0 && g.owner[h] < 0 && g.ownable(h) && g.map.hexNbrs[h].any { g.owner[it] == s.currentPlayer })
-                        BuildButton("Claim", RI.VILLAGE, g.claimCost(s.currentPlayer, h), false, g.canOrder(s.currentPlayer, VOrder.Claim(h))) { s.order(VOrder.Claim(h)) }
-                    if (h >= 0 && g.owner[h] == 1 - s.currentPlayer) BuildButton("Scout", RI.LEY, Veilguard.COST_SCOUT, false, g.canOrder(s.currentPlayer, VOrder.Scout(h))) { s.order(VOrder.Scout(h)) }
-                    BuildButton("Spell", RI.SCROLL, Veilguard.COST_SPELL, false, g.can(s.currentPlayer, Veilguard.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
-                    BuildButton("Spells ${g.spells[s.currentPlayer].sum()}", RI.BOOK, null, false, g.spells[s.currentPlayer].sum() > 0) { showSpells = true }
+                    if (h >= 0 && g.owner[h] < 0 && g.ownable(h) && g.map.hexNbrs[h].any { g.owner[it] == s.viewer })
+                        BuildButton("Claim", RI.VILLAGE, g.claimCost(s.viewer, h), false, g.canOrder(s.viewer, VOrder.Claim(h))) { s.order(VOrder.Claim(h)) }
+                    if (h >= 0 && g.owner[h] == 1 - s.viewer) BuildButton("Scout", RI.LEY, Veilguard.COST_SCOUT, false, g.canOrder(s.viewer, VOrder.Scout(h))) { s.order(VOrder.Scout(h)) }
+                    BuildButton("Spell", RI.SCROLL, Veilguard.COST_SPELL, false, g.can(s.viewer, Veilguard.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
+                    BuildButton("Spells ${g.spells[s.viewer].sum()}", RI.BOOK, null, false, g.spells[s.viewer].sum() > 0) { showSpells = true }
                     BuildButton("Trade", RI.TRADE, null, false, true) { showTrade = true }
                     BuildButton("Reveal orders", RI.END, null, false, true) { s.reveal() }
                 }
@@ -697,9 +699,9 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
         }
     }
     if (showTrade) VTradeDialog(s) { showTrade = false }
-    if (showSpells) SpellbookDialog(Veilguard.SPELLS, Veilguard.SPELL_TEXT, VSPELL_ICONS, g.spells[s.currentPlayer], g.fresh[s.currentPlayer],
-        if (g.cast[s.currentPlayer][0] >= 0) "You're already casting a spell this round." else "One spell a round, cast when the orders are revealed.", Veilguard.RELIC, Veilguard.HARVEST,
-        { g.canCast(s.currentPlayer, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
+    if (showSpells) SpellbookDialog(Veilguard.SPELLS, Veilguard.SPELL_TEXT, VSPELL_ICONS, g.spells[s.viewer], g.fresh[s.viewer],
+        if (g.cast[s.viewer][0] >= 0) "You're already casting a spell this round." else "One spell a round, cast when the orders are revealed.", Veilguard.RELIC, Veilguard.HARVEST,
+        { g.canCast(s.viewer, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
 }
 
 @Composable
@@ -714,13 +716,13 @@ private fun VTradeDialog(s: VeilguardSession, onDismiss: () -> Unit) {
         text = {
             Column {
                 InkText("You give 4", 13, bold = true); Spacer(Modifier.height(4.dp))
-                ResPicker(give, { r -> "${g.res[s.currentPlayer][r]}" }, { r -> g.res[s.currentPlayer][r] >= 4 }) { give = it; if (get == it) get = -1 }
+                ResPicker(give, { r -> "${g.res[s.viewer][r]}" }, { r -> g.res[s.viewer][r] >= 4 }) { give = it; if (get == it) get = -1 }
                 Spacer(Modifier.height(10.dp))
                 InkText("You get 1", 13, bold = true); Spacer(Modifier.height(4.dp))
                 ResPicker(get, { null }, { r -> r != give }) { get = it }
             }
         },
-        confirmButton = { WoodButton("Trade 4 for 1", null, enabled = give >= 0 && get >= 0 && g.res[s.currentPlayer][give] >= 4) { s.trade(give, get); if (g.res[s.currentPlayer][give] < 4) give = -1 } },
+        confirmButton = { WoodButton("Trade 4 for 1", null, enabled = give >= 0 && get >= 0 && g.res[s.viewer][give] >= 4) { s.trade(give, get); if (g.res[s.viewer][give] < 4) give = -1 } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Done", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
     )
 }

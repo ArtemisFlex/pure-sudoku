@@ -78,6 +78,8 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
         if (outcome != Outcome.PLAYING) return
         when (o) { Outcome.WON -> win(); Outcome.LOST -> lose(); Outcome.DRAW -> draw(); else -> Unit }
     }
+    /** Online, only the player whose turn it is may act; offline this is always true. */
+    val myOnlineTurn: Boolean get() = !online || tableSeat == null || tableSeat == onlineSeat
     /** Online: did this device's player win? */
     val youWonOnline: Boolean get() = (outcome == Outcome.WON && onlineSeat == 1) || (outcome == Outcome.LOST && onlineSeat == 2)
     /** Online, the "pass the phone" step isn't needed: games with one clear it here. */

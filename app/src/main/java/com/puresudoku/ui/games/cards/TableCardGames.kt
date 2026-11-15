@@ -324,6 +324,8 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.g
     var handoffPending by mutableStateOf(true); private set
     val currentPlayer get() = if (localTwoPlayer) g.turn else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
+    /** Whose side the screen shows: your own seat online, the player to move otherwise. */
+    val viewer: Int get() = if (online) onlineSeat - 1 else currentPlayer
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
     var rank by mutableIntStateOf(0); private set
@@ -363,13 +365,13 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.g
     }
 
     fun pick(c: Int) {
-        if (outcome != Outcome.PLAYING || (localTwoPlayer && handoffPending)) return
+        if (outcome != Outcome.PLAYING || (localTwoPlayer && handoffPending) || !myOnlineTurn) return
         rank = if (rank == Cards.rank(c)) 0 else Cards.rank(c); bump()
     }
 
     fun ask(to: Int) {
         if (outcome != Outcome.PLAYING) return
-        if ((!localTwoPlayer && g.turn != 0) || (localTwoPlayer && handoffPending)) { nudge("Wait for your turn"); return }
+        if ((!localTwoPlayer && g.turn != 0) || (localTwoPlayer && handoffPending) || !myOnlineTurn) { nudge("Wait for your turn"); return }
         if (rank == 0) { nudge("First pick a card from your hand"); return }
         if (to == currentPlayer || g.hands[to].isEmpty()) { nudge("That player has no cards"); return }
         val previous = currentPlayer
@@ -381,7 +383,7 @@ class GoFishSession(difficulty: Difficulty, val g: GoFish) : com.puresudoku.ui.g
 
     /** Draw when nobody else holds cards. */
     fun lonelyDraw() {
-        if (outcome != Outcome.PLAYING || (localTwoPlayer && handoffPending)) return
+        if (outcome != Outcome.PLAYING || (localTwoPlayer && handoffPending) || !myOnlineTurn) return
         val p = g.turn
         val ev = mutableListOf<FishEvent>()
         if (g.deck.isNotEmpty()) {
@@ -520,7 +522,7 @@ private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
     }
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
-    val me = s.currentPlayer
+    val me = s.viewer
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
@@ -585,6 +587,8 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : com.puresudoku.ui.g
     var handoffPending by mutableStateOf(true); private set
     val currentPlayer get() = if (localTwoPlayer) actor() else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
+    /** Whose side the screen shows: your own seat online, the player to move otherwise. */
+    val viewer: Int get() = if (online) onlineSeat - 1 else currentPlayer
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
     var selected by mutableIntStateOf(-1); private set
@@ -606,7 +610,7 @@ class CuttleSession(difficulty: Difficulty, val g: Cuttle) : com.puresudoku.ui.g
         is CWait.Seven -> w.who
     }
 
-    val myTurn get() = outcome == Outcome.PLAYING && !g.over && (localTwoPlayer || actor() == 0) && (!localTwoPlayer || !handoffPending)
+    val myTurn get() = outcome == Outcome.PLAYING && !g.over && (localTwoPlayer || actor() == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn
 
     /** The moves offered for the selected card (or the 7's revealed card). */
     val options: List<CMove>
@@ -840,7 +844,7 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
     }
     @Suppress("UNUSED_VARIABLE") val v = s.version
     val g = s.g
-    val me = s.currentPlayer
+    val me = s.viewer
     val them = 1 - me
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {

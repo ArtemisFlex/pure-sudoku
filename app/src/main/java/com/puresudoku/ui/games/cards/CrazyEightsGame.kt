@@ -70,6 +70,8 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
     var handoffPending by mutableStateOf(true)
     val currentPlayer get() = if (localTwoPlayer) g.turn else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
+    /** Whose side the screen shows: your own seat online, the player to move otherwise. */
+    val viewer: Int get() = if (online) onlineSeat - 1 else currentPlayer
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
     var eightAsk by mutableIntStateOf(-1); private set
@@ -83,7 +85,7 @@ class CrazyEightsSession(difficulty: Difficulty, val g: CrazyEights) : DuelSessi
     override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "${C8_NAMES[g.winner.coerceAtLeast(1)]} went out first"
     override val lostMessage get() = "You still held ${g.hands[0].size} card${if (g.hands[0].size == 1) "" else "s"}. This game's save slot has been cleared."
 
-    private val myTurn get() = outcome == Outcome.PLAYING && (localTwoPlayer || g.turn == 0) && (!localTwoPlayer || !handoffPending) && !thinking
+    private val myTurn get() = outcome == Outcome.PLAYING && (localTwoPlayer || g.turn == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && !thinking
 
     fun tapCard(c: Int) {
         if (!myTurn) { nudge("Wait for your turn"); return }
@@ -266,7 +268,7 @@ private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = Pro
     val th = LocalCardTheme.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-            for (p in (0 until g.players).filter { it != s.currentPlayer }) {
+            for (p in (0 until g.players).filter { it != s.viewer }) {
                 val active = g.turn == p && s.outcome == Outcome.PLAYING
                 Column(
                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (active) th.back.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface).padding(8.dp),
@@ -297,7 +299,7 @@ private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = Pro
         TurnBanner(if (s.thinking) s.message.ifEmpty { "Opponents are playing…" } else s.message, s.thinking)
         Spacer(Modifier.height(14.dp))
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((-10).dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (c in g.hands[s.currentPlayer].sortedBy { Cards.suit(it) * 13 + Cards.rank(it) }) {
+            for (c in g.hands[s.viewer].sortedBy { Cards.suit(it) * 13 + Cards.rank(it) }) {
                 PopCard(c, true, 62.dp, Modifier.demoTarget(targets, "h-$c"), fx = s.errorFx) { s.tapCard(c) }
             }
         }

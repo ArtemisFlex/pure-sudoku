@@ -98,6 +98,8 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(if 
     var handoffPending by mutableStateOf(true)
     val currentPlayer get() = if (localTwoPlayer) g.actor else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
+    /** Whose side the screen shows: your own seat online, the player to move otherwise. */
+    val viewer: Int get() = if (online) onlineSeat - 1 else currentPlayer
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
     enum class Mode { NONE, STRIKE, MARCH, WALL, RALLY, SIEGE, QUENCH, RIFT }
@@ -127,7 +129,7 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(if 
         else -> "The rival reached ${g.vp(1)} points."
     } + " This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && g.phase != Wisteria.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && g.phase != Wisteria.OVER
 
     private fun flush() { if (g.log.isNotEmpty()) { events = (events + if (localTwoPlayer) localPublicEvents(g.log) else g.log).takeLast(4); g.log.clear() } }
 
@@ -522,7 +524,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
             detectTapGestures { o ->
                 val geo = wGeo(g, size.width.toFloat(), size.height.toFloat(), zoom, pan, fitTop, fitBottom)
                 if (s.mode == WisteriaSession.Mode.SIEGE) {
-                    nearest(o, g.siegeTargets(s.currentPlayer), geo::edgeMid, geo.unit * 0.6f)?.let { s.tapEdge(it) }
+                    nearest(o, g.siegeTargets(s.viewer), geo::edgeMid, geo.unit * 0.6f)?.let { s.tapEdge(it) }
                     return@detectTapGestures
                 }
                 nearest(o, (0 until g.H).filter { g.kind[it] != Wisteria.SEA }, geo::hex, geo.unit * 0.95f)?.let { s.tapTile(it) }
@@ -669,7 +671,7 @@ fun WisteriaBoard(s: WisteriaSession, targets: DemoTargets?, modifier: Modifier 
                 strategyWall(art, a + d, b - d, u, if (o == 0) YOU else RIVAL)
                 drawLine(if (o == 0) YOU else RIVAL, a + d, b - d, u * 0.05f, StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(u * 0.08f, u * 0.06f)))
             }
-            if (s.mode == WisteriaSession.Mode.SIEGE) for (e in g.siegeTargets(s.currentPlayer)) drawCircle(Color(0xFFFF7043).copy(alpha = pulse), u * 0.22f, geo.edgeMid(e), style = Stroke(u * 0.06f))
+            if (s.mode == WisteriaSession.Mode.SIEGE) for (e in g.siegeTargets(s.viewer)) drawCircle(Color(0xFFFF7043).copy(alpha = pulse), u * 0.22f, geo.edgeMid(e), style = Stroke(u * 0.06f))
             // selected tile, on top of everything
             if (s.selected >= 0) drawPath(hexPath(geo, s.selected, 0.94f), Color(0xFFFFD54F), style = Stroke(u * 0.09f))
         }
@@ -706,14 +708,14 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.currentPlayer == 0)}", YOU, g.turn == 0 && g.phase != Wisteria.SETUP,
+                PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.viewer == 0)}", YOU, g.turn == 0 && g.phase != Wisteria.SETUP,
                     (if (g.slayer == 0) "Dragon Scale · " else "") + "${g.tiles(0)} lands · ${g.spells[0].sum()} spells", Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RIconOf(RI.CROWN, 22.dp)
                     Text("${g.target}", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
                         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
                 }
-                PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.currentPlayer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Wisteria.SETUP,
+                PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.viewer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Wisteria.SETUP,
                     (if (g.slayer == 1) "Dragon Scale · " else "") + "${g.tiles(1)} lands · ${g.total(1)} cards", Modifier.weight(1f))
             }
             Spacer(Modifier.height(4.dp))
@@ -752,15 +754,15 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (r in 0..4) ResChip(r, g.res[s.currentPlayer][r], Modifier.weight(1f))
+                for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.currentPlayer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
             Spacer(Modifier.height(5.dp))
             when {
                 s.myMove && g.phase == Wisteria.CHOICE -> Column(Modifier.padding(horizontal = 12.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     InkText("Your knights took ${g.tileName(g.pending)}. Claim it?", 14, bold = true)
-                    Spacer(Modifier.height(4.dp)); CostIcons(g.claimCost(s.currentPlayer, g.pending), 18.dp); Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp)); CostIcons(g.claimCost(s.viewer, g.pending), 18.dp); Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         WoodButton("Leave it", null) { s.skip() }
                         WoodButton("Claim", RI.VILLAGE) { s.claim(g.pending) }
@@ -777,23 +779,23 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                         WoodButton(if (s.plan.isEmpty()) "Send" else "Send · ${s.plan.size} turn${if (s.plan.size > 1) "s" else ""}", RI.KNIGHT, enabled = s.planValid) { s.sendMarch() }
                         return@FlowRow
                     }
-                    if (h >= 0 && g.owner[h] < 0 && h in g.claimable(s.currentPlayer)) BuildButton("Claim", RI.VILLAGE, g.claimCost(s.currentPlayer, h), false, g.can(s.currentPlayer, g.claimCost(s.currentPlayer, h))) { s.claim(h) }
-                    if (h >= 0 && g.owner[h] == s.currentPlayer) {
-                        if (g.level[h] < 3) BuildButton(if (g.level[h] == 1) "Tower" else "Castle", RI.TOWER, g.upgradeCost(h), false, g.canUpgrade(s.currentPlayer, h)) { s.upgrade(h) }
-                        BuildButton("Knight ${g.knights[h]}/${Wisteria.CAPACITY[g.level[h]]}", RI.KNIGHT, Wisteria.COST_KNIGHT, false, g.canHire(s.currentPlayer, h)) { s.hire(h) }
-                        if (g.level[h] == 1) BuildButton("Strike", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE && !s.withBlack, g.strikeTargets(s.currentPlayer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE) }
-                        else BuildButton("March", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && !s.withBlack, g.marchTargets(s.currentPlayer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH) }
-                        if (g.slayer == s.currentPlayer) {
-                            BuildButton("Dark Strike", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE && s.withBlack, g.blackStrikeTargets(s.currentPlayer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE, black = true) }
+                    if (h >= 0 && g.owner[h] < 0 && h in g.claimable(s.viewer)) BuildButton("Claim", RI.VILLAGE, g.claimCost(s.viewer, h), false, g.can(s.viewer, g.claimCost(s.viewer, h))) { s.claim(h) }
+                    if (h >= 0 && g.owner[h] == s.viewer) {
+                        if (g.level[h] < 3) BuildButton(if (g.level[h] == 1) "Tower" else "Castle", RI.TOWER, g.upgradeCost(h), false, g.canUpgrade(s.viewer, h)) { s.upgrade(h) }
+                        BuildButton("Knight ${g.knights[h]}/${Wisteria.CAPACITY[g.level[h]]}", RI.KNIGHT, Wisteria.COST_KNIGHT, false, g.canHire(s.viewer, h)) { s.hire(h) }
+                        if (g.level[h] == 1) BuildButton("Strike", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE && !s.withBlack, g.strikeTargets(s.viewer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE) }
+                        else BuildButton("March", RI.KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && !s.withBlack, g.marchTargets(s.viewer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH) }
+                        if (g.slayer == s.viewer) {
+                            BuildButton("Dark Strike", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.STRIKE && s.withBlack, g.blackStrikeTargets(s.viewer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.STRIKE, black = true) }
                             val esc = g.escort(h)
-                            BuildButton(if (esc > 0) "Dark March +$esc" else "Dark March", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && s.withBlack, g.blackMarchTargets(s.currentPlayer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH, black = true) }
+                            BuildButton(if (esc > 0) "Dark March +$esc" else "Dark March", RI.BLACK_KNIGHT, null, s.mode == WisteriaSession.Mode.MARCH && s.withBlack, g.blackMarchTargets(s.viewer, h).isNotEmpty()) { s.toggleMode(WisteriaSession.Mode.MARCH, black = true) }
                         }
                         BuildButton("Wall", RI.SHIELD, if (g.freeWalls > 0) null else g.wallCost, s.mode == WisteriaSession.Mode.WALL,
-                            g.wallSpots(s.currentPlayer).any { it.first == h } && (g.freeWalls > 0 || g.can(s.currentPlayer, g.wallCost))) { s.toggleMode(WisteriaSession.Mode.WALL) }
+                            g.wallSpots(s.viewer).any { it.first == h } && (g.freeWalls > 0 || g.can(s.viewer, g.wallCost))) { s.toggleMode(WisteriaSession.Mode.WALL) }
                     }
-                    BuildButton("Spell", RI.SCROLL, Wisteria.COST_SPELL, false, g.can(s.currentPlayer, Wisteria.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
+                    BuildButton("Spell", RI.SCROLL, Wisteria.COST_SPELL, false, g.can(s.viewer, Wisteria.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
                     BuildButton("Trade", RI.TRADE, null, false, true) { showTrade = true }
-                    BuildButton("Spells ${g.spells[s.currentPlayer].sum()}", RI.BOOK, null, false, g.spells[s.currentPlayer].sum() > 0) { showSpells = true }
+                    BuildButton("Spells ${g.spells[s.viewer].sum()}", RI.BOOK, null, false, g.spells[s.viewer].sum() > 0) { showSpells = true }
                     BuildButton("End turn", RI.END, null, false, g.freeWalls == 0) { s.endTurn() }
                 }
                 else -> Spacer(Modifier.height(44.dp))
@@ -803,9 +805,9 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
     }
     if (showTrade) WTradeDialog(s) { showTrade = false }
     if (showSpells) {
-        if (g.ashfall) SpellbookDialog(g.spellNames, g.spellText, ASPELL_ICONS, g.spells[s.currentPlayer], g.fresh,
+        if (g.ashfall) SpellbookDialog(g.spellNames, g.spellText, ASPELL_ICONS, g.spells[s.viewer], g.fresh,
             if (g.spellPlayed) "You've already cast a spell this turn." else null, Wisteria.RELIC, Wisteria.HARVEST,
-            { g.canPlay(s.currentPlayer, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
+            { g.canPlay(s.viewer, it) }, { k, a, b -> s.cast(k, a, b) }) { showSpells = false }
         else WSpellsDialog(s) { showSpells = false }
     }
 }
@@ -822,13 +824,13 @@ private fun WTradeDialog(s: WisteriaSession, onDismiss: () -> Unit) {
         text = {
             Column {
                 InkText("You give 4", 13, bold = true); Spacer(Modifier.height(4.dp))
-                ResPicker(give, { r -> "${g.res[s.currentPlayer][r]}" }, { r -> g.res[s.currentPlayer][r] >= 4 }) { give = it; if (get == it) get = -1 }
+                ResPicker(give, { r -> "${g.res[s.viewer][r]}" }, { r -> g.res[s.viewer][r] >= 4 }) { give = it; if (get == it) get = -1 }
                 Spacer(Modifier.height(10.dp))
                 InkText("You get 1", 13, bold = true); Spacer(Modifier.height(4.dp))
                 ResPicker(get, { null }, { r -> r != give }) { get = it }
             }
         },
-        confirmButton = { WoodButton("Trade 4 for 1", null, enabled = give >= 0 && get >= 0 && g.res[s.currentPlayer][give] >= 4) { s.trade(give, get); if (g.res[s.currentPlayer][give] < 4) give = -1 } },
+        confirmButton = { WoodButton("Trade 4 for 1", null, enabled = give >= 0 && get >= 0 && g.res[s.viewer][give] >= 4) { s.trade(give, get); if (g.res[s.viewer][give] < 4) give = -1 } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Done", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
     )
 }
@@ -846,15 +848,15 @@ private fun WSpellsDialog(s: WisteriaSession, onDismiss: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (g.spellPlayed) InkText("You've already cast a spell this turn.", 12, color = INK_SOFT)
                 for (k in 0..4) {
-                    val n = g.spells[s.currentPlayer][k]; if (n == 0) continue
+                    val n = g.spells[s.viewer][k]; if (n == 0) continue
                     Column(Modifier.padding(vertical = 4.dp).fillMaxWidth().parchment(PANEL).padding(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RIconOf(icons[k], 30.dp); Spacer(Modifier.width(8.dp))
                             InkText("${Wisteria.SPELLS[k]} ×$n", 15, bold = true, modifier = Modifier.weight(1f))
-                            if (k != Wisteria.RELIC && k != Wisteria.HARVEST) WoodButton("Cast", null, enabled = g.canPlay(s.currentPlayer, k)) { s.cast(k); onDismiss() }
+                            if (k != Wisteria.RELIC && k != Wisteria.HARVEST) WoodButton("Cast", null, enabled = g.canPlay(s.viewer, k)) { s.cast(k); onDismiss() }
                         }
                         InkText(Wisteria.SPELL_TEXT[k], 12, color = INK_SOFT)
-                        if (k == Wisteria.HARVEST && g.canPlay(s.currentPlayer, k)) {
+                        if (k == Wisteria.HARVEST && g.canPlay(s.viewer, k)) {
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 for (r in 0..4) {
@@ -870,7 +872,7 @@ private fun WSpellsDialog(s: WisteriaSession, onDismiss: () -> Unit) {
                         }
                     }
                 }
-                if (g.spells[s.currentPlayer].sum() == 0) InkText("No spells yet. Buy one with ore, grain and beasts.", 13)
+                if (g.spells[s.viewer].sum() == 0) InkText("No spells yet. Buy one with ore, grain and beasts.", 13)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },

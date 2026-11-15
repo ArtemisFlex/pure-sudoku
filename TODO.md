@@ -8,6 +8,7 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Done
 
+- 2026-11-15 Online card and strategy games: no colour cover on the opponent's turn; you keep seeing the game from your own side (your hand, the table/map, opponent hidden) with an "Opponent's turn" pill, and can only act on your turn.
 - 2026-11-15 Home screen: Two Players collection card (all 21 two-player games, one device or online), first among the collections.
 - 2026-11-15 Mancala two-player: captures and extra turns are now announced ("Player 2 captured 6") instead of being overwritten by the turn message. Tests confirm both players capture.
 - 2026-11-15 Online play with room codes for every two-player game: host gets a 4-letter code, friend types it in, devices connect directly (WebRTC) with a fallback through puregames.app/api/room (Upstash Redis free tier). Whole game synced after each turn; hidden hands covered on the opponent's turn. Android now has the INTERNET permission for this.

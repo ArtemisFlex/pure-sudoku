@@ -139,6 +139,8 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     var handoffPending by mutableStateOf(true)
     val currentPlayer get() = if (localTwoPlayer) g.actor else 0
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
+    /** Whose side the screen shows: your own seat online, the player to move otherwise. */
+    val viewer: Int get() = if (online) onlineSeat - 1 else currentPlayer
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
     enum class Mode { NONE, ROAD, VILLAGE, TOWER, FIREBALL }
@@ -189,7 +191,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Your rival rules the realm"
     override val lostMessage get() = "The rival reached ${g.vp(1)} points. This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && offer == null && g.phase != Realm.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && offer == null && g.phase != Realm.OVER
 
     fun vertexTargets(): List<Int> = when {
         !myMove -> emptyList()
@@ -910,13 +912,13 @@ private fun ScoreBar(s: RealmSession) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         val titles0 = listOfNotNull("Great Road".takeIf { g.roadHolder == 0 }, "Host".takeIf { g.hostHolder == 0 }).joinToString(" · ").ifEmpty { "${g.spells[0].sum()} spells" }
         val titles1 = listOfNotNull("Great Road".takeIf { g.roadHolder == 1 }, "Host".takeIf { g.hostHolder == 1 }).joinToString(" · ").ifEmpty { "${g.total(1)} cards · ${g.spells[1].sum()} spells" }
-        PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.currentPlayer == 0)}", YOU, g.turn == 0 && g.phase != Realm.SETUP, titles0, Modifier.weight(1f))
+        PlayerBanner(if (s.localTwoPlayer) "Player 1" else "You", "${g.vp(0, !s.localTwoPlayer || s.viewer == 0)}", YOU, g.turn == 0 && g.phase != Realm.SETUP, titles0, Modifier.weight(1f))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             RIconOf(RI.CROWN, 22.dp)
             Text("${g.target}", fontFamily = SERIF, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
                 style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, Offset(0f, 1f), 4f)))
         }
-        PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.currentPlayer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Realm.SETUP, titles1, Modifier.weight(1f))
+        PlayerBanner(if (s.localTwoPlayer) "Player 2" else "Rival", "${g.vp(1, s.localTwoPlayer && s.viewer == 1)}" + if (g.spells[1].sum() > 0) "+" else "", RIVAL, g.turn == 1 && g.phase != Realm.SETUP, titles1, Modifier.weight(1f))
     }
 }
 
@@ -992,10 +994,10 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
             }
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (r in 0..4) ResChip(r, g.res[s.currentPlayer][r], Modifier.weight(1f))
+                for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.currentPlayer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
             Spacer(Modifier.height(5.dp))
             val offer = s.offer
             when {
@@ -1014,7 +1016,7 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
                 }
                 s.myMove && g.phase == Realm.DISCARD -> DiscardPanel(s)
                 s.myMove && g.phase == Realm.ROLL -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (g.canPlay(s.currentPlayer, Realm.KNIGHT)) BuildButton("Knight first", RI.KNIGHT, null, false, true) { s.playSpell(Realm.KNIGHT) }
+                    if (g.canPlay(s.viewer, Realm.KNIGHT)) BuildButton("Knight first", RI.KNIGHT, null, false, true) { s.playSpell(Realm.KNIGHT) }
                     WoodButton("Roll", RI.DICE, Modifier.demoTarget(targets, "roll")) { s.roll() }
                 }
                 s.myMove && g.phase == Realm.MAIN -> FlowRow(
@@ -1022,12 +1024,12 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
                     horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     val free = g.freeRoads > 0
-                    BuildButton("Road", RI.ROAD, Realm.COST_ROAD, s.mode == RealmSession.Mode.ROAD || free, !free && g.can(s.currentPlayer, Realm.COST_ROAD)) { s.toggleMode(RealmSession.Mode.ROAD) }
-                    BuildButton("Village", RI.VILLAGE, Realm.COST_VILLAGE, s.mode == RealmSession.Mode.VILLAGE, !free && g.can(s.currentPlayer, Realm.COST_VILLAGE)) { s.toggleMode(RealmSession.Mode.VILLAGE) }
-                    BuildButton("Tower", RI.TOWER, Realm.COST_TOWER, s.mode == RealmSession.Mode.TOWER, !free && g.can(s.currentPlayer, Realm.COST_TOWER)) { s.toggleMode(RealmSession.Mode.TOWER) }
-                    BuildButton("Spell", RI.SCROLL, Realm.COST_SPELL, false, !free && g.can(s.currentPlayer, Realm.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
+                    BuildButton("Road", RI.ROAD, Realm.COST_ROAD, s.mode == RealmSession.Mode.ROAD || free, !free && g.can(s.viewer, Realm.COST_ROAD)) { s.toggleMode(RealmSession.Mode.ROAD) }
+                    BuildButton("Village", RI.VILLAGE, Realm.COST_VILLAGE, s.mode == RealmSession.Mode.VILLAGE, !free && g.can(s.viewer, Realm.COST_VILLAGE)) { s.toggleMode(RealmSession.Mode.VILLAGE) }
+                    BuildButton("Tower", RI.TOWER, Realm.COST_TOWER, s.mode == RealmSession.Mode.TOWER, !free && g.can(s.viewer, Realm.COST_TOWER)) { s.toggleMode(RealmSession.Mode.TOWER) }
+                    BuildButton("Spell", RI.SCROLL, Realm.COST_SPELL, false, !free && g.can(s.viewer, Realm.COST_SPELL) && g.deck.isNotEmpty()) { s.buySpell() }
                     BuildButton("Trade", RI.TRADE, null, false, !free) { showTrade = true }
-                    BuildButton("Spells ${g.spells[s.currentPlayer].sum()}", RI.BOOK, null, s.mode == RealmSession.Mode.FIREBALL, g.spells[s.currentPlayer].sum() > 0) { showSpells = true }
+                    BuildButton("Spells ${g.spells[s.viewer].sum()}", RI.BOOK, null, s.mode == RealmSession.Mode.FIREBALL, g.spells[s.viewer].sum() > 0) { showSpells = true }
                     BuildButton("End turn", RI.END, null, false, !free) { s.endTurn() }
                 }
                 else -> Spacer(Modifier.height(44.dp))
@@ -1041,8 +1043,8 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
 @Composable
 private fun DiscardPanel(s: RealmSession) {
     val g = s.g
-    val need = g.discardNeed[s.currentPlayer]
-    var pick by remember(g.lastRoll, s.rollId, s.currentPlayer) { mutableStateOf(IntArray(5)) }
+    val need = g.discardNeed[s.viewer]
+    var pick by remember(g.lastRoll, s.rollId, s.viewer) { mutableStateOf(IntArray(5)) }
     Column(Modifier.padding(horizontal = 10.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             RIconOf(RI.DRAGON, 20.dp)
@@ -1053,10 +1055,10 @@ private fun DiscardPanel(s: RealmSession) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (r in 0..4) {
                 Column(Modifier.clip(RoundedCornerShape(10.dp)).background(RES_COLOR[r].copy(alpha = 0.15f))
-                    .clickable { if (pick[r] < g.res[s.currentPlayer][r] && pick.sum() < need) pick = pick.copyOf().also { it[r]++ } }.padding(6.dp),
+                    .clickable { if (pick[r] < g.res[s.viewer][r] && pick.sum() < need) pick = pick.copyOf().also { it[r]++ } }.padding(6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     ShieldImg(r, 34.dp)
-                    InkText("${g.res[s.currentPlayer][r] - pick[r]}", 15, bold = true)
+                    InkText("${g.res[s.viewer][r] - pick[r]}", 15, bold = true)
                     InkText(if (pick[r] > 0) "−${pick[r]}" else " ", 12, bold = true, color = RIVAL, modifier = Modifier.clickable(enabled = pick[r] > 0) { pick = pick.copyOf().also { it[r]-- } })
                 }
             }
@@ -1099,7 +1101,7 @@ private fun TradeDialog(s: RealmSession, onDismiss: () -> Unit) {
             Column {
                 InkText("You give", 13, bold = true)
                 Spacer(Modifier.height(4.dp))
-                ResPicker(give, { r -> "${g.portRate(s.currentPlayer, r)} : 1 (${g.res[s.currentPlayer][r]})" }, { r -> g.res[s.currentPlayer][r] >= g.portRate(s.currentPlayer, r) }) { give = it; if (get == it) get = -1 }
+                ResPicker(give, { r -> "${g.portRate(s.viewer, r)} : 1 (${g.res[s.viewer][r]})" }, { r -> g.res[s.viewer][r] >= g.portRate(s.viewer, r) }) { give = it; if (get == it) get = -1 }
                 Spacer(Modifier.height(10.dp))
                 InkText("You get 1", 13, bold = true)
                 Spacer(Modifier.height(4.dp))
@@ -1109,8 +1111,8 @@ private fun TradeDialog(s: RealmSession, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            WoodButton(if (give >= 0) "Trade ${g.portRate(s.currentPlayer, give)} for 1" else "Trade", null, enabled = give >= 0 && get >= 0 && give != get && g.res[s.currentPlayer][give] >= g.portRate(s.currentPlayer, give)) {
-                s.trade(give, get); if (g.res[s.currentPlayer][give] < g.portRate(s.currentPlayer, give)) give = -1
+            WoodButton(if (give >= 0) "Trade ${g.portRate(s.viewer, give)} for 1" else "Trade", null, enabled = give >= 0 && get >= 0 && give != get && g.res[s.viewer][give] >= g.portRate(s.viewer, give)) {
+                s.trade(give, get); if (g.res[s.viewer][give] < g.portRate(s.viewer, give)) give = -1
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Done", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
@@ -1129,16 +1131,16 @@ private fun SpellsDialog(s: RealmSession, onDismiss: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (g.spellPlayed) InkText("You've already cast a spell this turn.", 12, color = INK_SOFT)
                 for (k in 0..4) {
-                    val n = g.spells[s.currentPlayer][k]; if (n == 0) continue
+                    val n = g.spells[s.viewer][k]; if (n == 0) continue
                     Column(Modifier.padding(vertical = 4.dp).fillMaxWidth().parchment(PANEL).padding(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RIconOf(spellIcon(k), 30.dp)
                             Spacer(Modifier.width(8.dp))
                             InkText("${g.spellNames[k]} ×$n", 15, bold = true, modifier = Modifier.weight(1f))
-                            if (k != Realm.RELIC && k != Realm.HARVEST) WoodButton("Cast", null, enabled = g.canPlay(s.currentPlayer, k)) { s.playSpell(k); onDismiss() }
+                            if (k != Realm.RELIC && k != Realm.HARVEST) WoodButton("Cast", null, enabled = g.canPlay(s.viewer, k)) { s.playSpell(k); onDismiss() }
                         }
                         InkText(g.spellText[k], 12, color = INK_SOFT)
-                        if (k == Realm.HARVEST && g.canPlay(s.currentPlayer, k)) {
+                        if (k == Realm.HARVEST && g.canPlay(s.viewer, k)) {
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 for (r in 0..4) {
@@ -1153,10 +1155,10 @@ private fun SpellsDialog(s: RealmSession, onDismiss: () -> Unit) {
                             Spacer(Modifier.height(4.dp))
                             WoodButton("Cast Harvest Moon", RI.MOON, enabled = harvest.size == 2) { s.playSpell(Realm.HARVEST, harvest[0], harvest[1]); onDismiss() }
                         }
-                        if (g.fresh[k] >= n && g.turn == s.currentPlayer) InkText("Learned this turn: castable next turn", 11, bold = true, color = GOLD)
+                        if (g.fresh[k] >= n && g.turn == s.viewer) InkText("Learned this turn: castable next turn", 11, bold = true, color = GOLD)
                     }
                 }
-                if (g.spells[s.currentPlayer].sum() == 0) InkText("No spells yet. Buy one with ore, grain and beasts.", 13)
+                if (g.spells[s.viewer].sum() == 0) InkText("No spells yet. Buy one with ore, grain and beasts.", 13)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = INK, fontFamily = SERIF, fontWeight = FontWeight.Bold) } },
