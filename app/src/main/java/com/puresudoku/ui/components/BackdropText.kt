@@ -36,12 +36,14 @@ fun ShadowedText(backdrop: Int, aspect: Float, render: (res: Int, w: Int, h: Int
 @Composable
 private fun SceneText(backdrop: Int, aspect: Float, render: (Int, Int, Int) -> IntArray?, content: @Composable () -> Unit) {
     val spec = remember(backdrop, aspect) { BackdropInks.of(backdrop, aspect, render) }
-    // A soft halo on the far side of the ink: dark round white text, light round dark text.
-    val opposite = if (spec.ink.luminance() > 0.5f) Color.Black else Color.White
-    val halo = spec.shadow?.let { busyShadow(it) }
-        ?: androidx.compose.ui.graphics.Shadow(opposite.copy(alpha = 0.55f), androidx.compose.ui.geometry.Offset(0f, 1f), 8f)
+    // Plain white or black text does the work; a shadow only where the scene is busy enough to need one.
+    val halo = spec.shadow?.let { busyShadow(it) } ?: androidx.compose.ui.graphics.Shadow.None
     WithShadow(halo, MaterialTheme.colorScheme) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalBackdropInk provides spec) { content() }
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalBackdropInk provides spec,
+            // text that sits straight on the scene, in the default colour, takes the measured ink
+            androidx.compose.material3.LocalContentColor provides spec.ink,
+        ) { content() }
     }
 }
 
@@ -50,7 +52,7 @@ private fun SceneText(backdrop: Int, aspect: Float, render: (Int, Int, Int) -> I
 fun BackdropChrome(enabled: Boolean, content: @Composable () -> Unit) {
     if (!enabled) return content()
     val spec = LocalBackdropInk.current ?: return content()
-    val scheme = MaterialTheme.colorScheme.copy(onBackground = spec.ink, onSurfaceVariant = spec.ink.copy(alpha = 0.85f))
+    val scheme = MaterialTheme.colorScheme.copy(onBackground = spec.ink, onSurfaceVariant = spec.ink)
     WithShadow(spec.shadow?.let { busyShadow(it) } ?: androidx.compose.ui.graphics.Shadow.None, scheme) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides spec.ink) {
             if (spec.scrim <= 0f) content() else {

@@ -22,11 +22,15 @@ import kotlin.math.pow
  */
 data class BackdropInk(val ink: Color, val shadow: Color?, val scene: Float, val scrim: Float = 0f) {
     /**
-     * [c] as is when it already reads on this scene; otherwise the least shift toward [ink]
-     * that reaches [MIN_TEXT_CONTRAST], so accent hues survive where they can.
+     * Grey text becomes the plain [ink] (white or black). A coloured [c] stays as is when it already
+     * reads on this scene; otherwise it takes the least shift toward [ink] that reaches
+     * [MIN_TEXT_CONTRAST], so accent hues survive where they can.
      */
     fun readable(c: Color): Color {
         val solid = c.copy(alpha = 1f)
+        // Greys (no real hue) read badly on a scene and add nothing: use the plain ink, white or black.
+        val chroma = maxOf(solid.red, solid.green, solid.blue) - minOf(solid.red, solid.green, solid.blue)
+        if (chroma < 0.12f) return ink
         // A see-through colour shows partly as the scene behind it.
         val seen = solid.luminance() * c.alpha + scene * (1 - c.alpha)
         if (reads(seen)) return c

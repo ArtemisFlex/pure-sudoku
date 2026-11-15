@@ -145,7 +145,7 @@ fun CardSlot(width: Dp, modifier: Modifier = Modifier, label: String = "", highl
         modifier.size(width, cardHeight(width)).clip(shape)
             .border(if (highlight) 3.dp else 1.5.dp, if (highlight) colors.entered else colors.thinLine, shape),
         contentAlignment = Alignment.Center,
-    ) { if (label.isNotEmpty()) Text(label, fontSize = with(density) { (width * 0.3f).toSp() }, color = colors.note) }
+    ) { if (label.isNotEmpty()) Text(label, fontSize = with(density) { (width * 0.3f).toSp() }, color = colors.note.readable()) }
 }
 
 /**
