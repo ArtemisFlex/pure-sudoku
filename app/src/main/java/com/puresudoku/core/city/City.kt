@@ -23,6 +23,8 @@ class City private constructor() {
         const val BLOCK = 100f          // metres between intersections
         const val STOP_WAIT = 4         // seconds lost at a stop sign
         const val SEED = 20261114L
+        /** Every place in the city: home, landmarks, shops, eateries and regular customers. */
+        const val PLACES = 100
 
         /** The city, built once. */
         val harbor: City by lazy { City().also { it.build(Random(SEED)) } }
@@ -102,11 +104,10 @@ class City private constructor() {
     // ---------------------------------------------------------------- building
 
     private fun build(rng: Random) {
-        // intersections: a grid with a little wobble, major lines kept straighter
+        // intersections: a clean grid, so every street runs straight
         for (y in 0 until N) for (x in 0 until N) {
-            val wob = if (x % 4 == 0 || y % 4 == 0) 4f else 13f
-            nodeX[node(x, y)] = x * BLOCK + (rng.nextFloat() - 0.5f) * 2 * wob
-            nodeY[node(x, y)] = y * BLOCK + (rng.nextFloat() - 0.5f) * 2 * wob
+            nodeX[node(x, y)] = x * BLOCK
+            nodeY[node(x, y)] = y * BLOCK
         }
         // street names: avenues run north-south, streets east-west
         for (x in 0 until N) {
@@ -279,18 +280,19 @@ class City private constructor() {
                 place(n, kind) { ring(it.a) <= maxRing && (!onMajor || streets[it.street].major || rng.nextInt(3) == 0) }
             }
         }
-        nearCentreFirst(restaurants, Kind.RESTAURANT, true)
+        nearCentreFirst(restaurants.take(20), Kind.RESTAURANT, true)
         nearCentreFirst(cafes, Kind.CAFE, true)
-        nearCentreFirst(grocers, Kind.GROCER, true)
-        nearCentreFirst(shops, Kind.SHOP, true)
+        nearCentreFirst(grocers.take(5), Kind.GROCER, true)
+        nearCentreFirst(shops.take(10), Kind.SHOP, true)
         nearCentreFirst(pharmacies, Kind.PHARMACY, true)
         // regular customers: households on quiet streets, in every district
         val names = HashSet<String>()
         var k = 0
-        while (names.size < 120) {
+        // regulars fill the city up to exactly PLACES places, so it can be learned by heart
+        while (places.size < PLACES) {
             val nm = first[k % first.size] + " " + last[(k * 7 + k / first.size) % last.size]; k++
             if (!names.add(nm)) continue
-            val maxRing = 2 + (names.size - 1) * 12 / 120
+            val maxRing = 2 + (names.size - 1) * 12 / 37
             place(nm, Kind.CUSTOMER) { ring(it.a) <= maxRing && !streets[it.street].major }
         }
     }

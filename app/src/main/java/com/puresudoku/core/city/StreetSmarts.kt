@@ -25,8 +25,8 @@ class StreetSmarts(val city: City = City.harbor) {
         ROUTE("Full GPS", "The route is drawn and every turn is announced."),
         TURNS("Turn list", "No route line: a list of turns by street name."),
         ADDRESS("Address", "Just the address. Street names show on the map."),
-        NAME("Name only", "Just the place's name. Street names show near you."),
-        MEMORY("Memory", "Just the name. No street names on the map: read the signs."),
+        NAME("Name only", "Just the place's name, no address."),
+        MEMORY("Memory", "Just the name. Only landmarks are marked on the map."),
     }
 
     /** The least help your experience allows, by deliveries completed. */
@@ -215,18 +215,23 @@ class StreetSmarts(val city: City = City.harbor) {
         val pickups = city.places.filter { it.kind.pickup && unlockedPlace(it) }
         val drops = city.places.filter { (it.kind == Kind.CUSTOMER || it.kind == Kind.LANDMARK) && unlockedPlace(it) }
         val stops = ArrayList<Stop>()
-        val pick = pickups[r.nextInt(pickups.size)]
+        // routes grow from simple (straight there, or one turn) to complex as you level up
+        val (lo, hi) = turnRange()
+        fun fits(from: Int, p: City.Place): Boolean = turnsOn(route(from, p.edge), from) in lo..hi
+        fun pickWithin(pool: List<City.Place>, from: Int): City.Place {
+            val sample = pool.shuffled(r).take(24)
+            return sample.firstOrNull { fits(from, it) } ?: sample.minBy { abs(turnsOn(route(from, it.edge), from) - (lo + hi) / 2) }
+        }
+        val pick = pickWithin(pickups, at)
         stops += Stop(pick.id, StopKind.PICKUP, helpFor(pick.id))
         val count = when { level >= 8 && r.nextInt(3) == 0 -> 3; level >= 3 && r.nextInt(3) == 0 -> 2; else -> 1 }
         // regulars come back: half the time, a place you've been to but don't know well yet
         val due = drops.filter { (visits[it.id] ?: 0) > 0 && (familiarity[it.id] ?: 0) < 4 }
         val chosen = HashSet<Int>()
         repeat(count) {
-            val pool = if (due.isNotEmpty() && r.nextBoolean()) due else drops
-            val far = pool.filter { it.id !in chosen }.sortedBy { -dist(it, pick) }
-            // longer trips as you grow: pick from the farther part of the list
-            val span = max(1, far.size * (40 - min(level, 6) * 5) / 100)
-            val p = far.take(max(span, 1)).let { if (level < 1) far.reversed().take(max(1, far.size / 3)) else it }.let { it[r.nextInt(it.size)] }
+            val pool = (if (due.isNotEmpty() && r.nextBoolean()) due else drops).filter { it.id !in chosen }.ifEmpty { drops }
+            val from = city.edges[(if (chosen.isEmpty()) pick else city.places[chosen.last()]).edge].a
+            val p = pickWithin(pool, from)
             chosen += p.id
             stops += Stop(p.id, StopKind.DROP, helpFor(p.id))
         }
@@ -243,6 +248,19 @@ class StreetSmarts(val city: City = City.harbor) {
     }
 
     fun shiftLength() = 3 + min(level, 4)
+
+    /** How many turns a leg should take at your level: 0-1 at first, longer as you improve. */
+    fun turnRange(): Pair<Int, Int> = when (level) {
+        0 -> 0 to 1
+        1 -> 0 to 2
+        2 -> 1 to 3
+        3 -> 2 to 4
+        else -> 2 to min(9, level + 1)
+    }
+
+    /** The real turns along a path (left, right or around; going straight doesn't count). */
+    fun turnsOn(path: List<Int>, from: Int): Int =
+        steps(path, from, -1).count { it.dir == TurnDir.LEFT || it.dir == TurnDir.RIGHT || it.dir == TurnDir.UTURN }
 
     /** Road works appear from level 2: a few closed blocks, changing each shift. */
     fun newShiftRoadWorks() {

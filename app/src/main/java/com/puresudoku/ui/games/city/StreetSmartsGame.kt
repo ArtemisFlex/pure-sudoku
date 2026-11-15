@@ -429,6 +429,7 @@ private fun StreetMap(
 
             // places: pins, names only when the help level allows
             val showNames = help.ordinal <= Help.ADDRESS.ordinal
+            val labelled = ArrayList<Offset>()   // place names already drawn, so they never pile up
             for (pl in city.places) {
                 val (px, py) = city.placeXY(pl)
                 if (!near(px, py) || !g.unlockedPlace(pl)) continue
@@ -442,17 +443,18 @@ private fun StreetMap(
                 drawCircle(Color.White, 5.2f * scale, c)
                 drawCircle(kindColor(pl.kind), 4.2f * scale, c)
                 val nameOk = showNames || (help == Help.NAME && pl.kind == City.Kind.LANDMARK)
-                if (nameOk && scale > 0.75f) label(tm, pl.name, c + Offset(0f, 9f * scale), 9.5f, kindColor(pl.kind).copy(alpha = 0.95f), mc.labelHalo, 0f)
+                val at = c + Offset(0f, 9f * scale)
+                val clear = labelled.none { abs(it.x - at.x) < 110f * density && abs(it.y - at.y) < 16f * density }
+                if (nameOk && scale > 0.75f && clear) { label(tm, pl.name, at, 9.5f, kindColor(pl.kind).copy(alpha = 0.95f), mc.labelHalo, 0f); labelled += at }
             }
 
             // street names along the streets (fewer as the GPS lets go)
-            if (help != Help.MEMORY && scale > 0.5f) {
+            if (scale > 0.5f) {
                 val seen = HashSet<Int>()
                 for (e in city.edges) {
                     if (e.id !in city.touching[e.a]) continue
                     val mx = (city.nodeX[e.a] + city.nodeX[e.b]) / 2; val my = (city.nodeY[e.a] + city.nodeY[e.b]) / 2
                     if (!near(mx, my)) continue
-                    if (help == Help.NAME && hypot(mx - city.nodeX[g.at], my - city.nodeY[g.at]) > 230f) continue
                     val st = city.streets[e.street]
                     // one label per street every few blocks
                     val along = if (st.axis == City.Axis.NS) city.gy(e.a) else city.gx(e.a)
@@ -657,7 +659,7 @@ private fun GpsPanel(s: StreetSmartsSession, help: Help) {
                 }
                 Help.NAME, Help.MEMORY -> {
                     Text("$verb ${p.name}", color = white, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                    Text(if (help == Help.NAME) "From memory. Street names show near you." else "From memory. Read the street signs.", color = white.copy(alpha = 0.85f), fontSize = 13.sp)
+                    Text(if (help == Help.NAME) "From memory: no address." else "From memory: no address, and only landmarks are marked.", color = white.copy(alpha = 0.85f), fontSize = 13.sp)
                 }
             }
             val more = g.order?.stops?.filter { !it.done }?.drop(1)

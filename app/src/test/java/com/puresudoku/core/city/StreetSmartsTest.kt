@@ -13,7 +13,7 @@ class StreetSmartsTest {
         assertTrue("lights", city.lights.count { it != null } > 20)
         assertTrue("one-way blocks", city.edges.count { it.oneWay != 0 } > 50)
         assertTrue("bridges", city.edges.count { it.bridge } >= 5)
-        assertTrue("places: ${city.places.size}", city.places.size > 150)
+        assertEquals("places", City.PLACES, city.places.size)
         val game = StreetSmarts.newGame(1).apply { deliveries = 1000 }   // whole city open
         val home = city.edges[city.places[city.home].edge].a
         for (p in city.places) {
@@ -43,5 +43,22 @@ class StreetSmartsTest {
         // save and reload keeps the career
         val copy = StreetSmarts().apply { load(g.state()) }
         assertEquals(g.state(), copy.state())
+    }
+
+    @Test fun firstOrdersHaveSimpleRoutes() {
+        val g = StreetSmarts.newGame(11)
+        var simple = 0; var legs = 0
+        repeat(12) {
+            g.offer = null; g.makeOffer()
+            val o = g.offer!!
+            var from = g.at
+            for (s in o.stops) {
+                val path = g.route(from, city.places[s.place].edge)
+                if (g.turnsOn(path, from) <= 1) simple++
+                legs++
+                from = g.endOf(path, from)
+            }
+        }
+        assertTrue("simple legs $simple of $legs", simple * 10 >= legs * 7)
     }
 }
