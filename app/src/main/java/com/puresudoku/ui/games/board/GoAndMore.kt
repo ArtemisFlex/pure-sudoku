@@ -68,6 +68,7 @@ private fun IntArray.jarr() = JSONArray().also { a -> forEach { a.put(it) } }
 // =====================================================================  Go
 
 class GoSession(difficulty: Difficulty, val g: GoGame) : DuelSession(GameKind.GO, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "Black" to androidx.compose.ui.graphics.Color(0xFF26262C) else "White" to androidx.compose.ui.graphics.Color(0xFFF4F1EA)
     override val localActor: Int? get() = if (g.over || final != null) null else g.turn
     var ghost by mutableIntStateOf(-1); private set
     var final by mutableStateOf<GoGame.Estimate?>(null); private set
@@ -282,6 +283,7 @@ private fun GoUi(s: GoSession, targets: DemoTargets?) {
 // =====================================================================  Backgammon
 
 class BackgammonSession(difficulty: Difficulty, val g: Backgammon) : DuelSession(GameKind.BACKGAMMON, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "White" to androidx.compose.ui.graphics.Color(0xFFF4F1EA) else "Black" to androidx.compose.ui.graphics.Color(0xFF26262C)
     override val localActor: Int get() = g.turn + 1
     var selected by mutableIntStateOf(-1); private set
     private var seqs: List<List<Backgammon.Step>> = emptyList()

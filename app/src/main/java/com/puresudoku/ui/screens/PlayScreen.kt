@@ -2,6 +2,8 @@ package com.puresudoku.ui.screens
 
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -84,23 +86,7 @@ fun PlayScreen(vm: AppViewModel) {
         duel.version
         duel.localActor
     } else null
-    var acknowledgedActor by remember(session) { mutableStateOf<Int?>(null) }
-    if (actor != null && actor != acknowledgedActor) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = {},
-            properties = androidx.compose.ui.window.DialogProperties(
-                dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false,
-            ),
-        ) {
-            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Hand phone to Player $actor", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = { acknowledgedActor = actor }) { Text("Ready") }
-                }
-            }
-        }
-    }
+    // Open-information board games need no hand-off screen: a coloured bar shows whose move it is.
     Box(Modifier.fillMaxSize()) {
         val backdrop = def.background(session)
         if (backdrop != 0) {
@@ -133,7 +119,7 @@ fun PlayScreen(vm: AppViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(session.difficulty.accent(), 8)
                         HSpace(6)
-                        Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players · pass the phone" else (if (session.training) "Training wheels · " else "") + if (def.singleLevel) "Endless career" else session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players" else (if (session.training) "Training wheels · " else "") + if (def.singleLevel) "Endless career" else session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 IconButton(onClick = { vm.openTutorial(session.kind) }) {
@@ -146,7 +132,8 @@ fun PlayScreen(vm: AppViewModel) {
             }
             if (!def.fullBleed) {
                 StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
-                Text(
+                if (actor != null && duel != null) TurnBar(duel.localSide(actor), actor, Modifier.padding(horizontal = 6.dp, vertical = 8.dp))
+                else Text(
                     if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Take turns and pass the phone to the next player." else def.hint(session.difficulty),
                     fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -208,6 +195,22 @@ fun PlayScreen(vm: AppViewModel) {
 }
 
 /** Shows why a move did nothing, with a short buzz. Strikes buzz too. */
+/** Whose move it is in pass-and-play: the side's own colour, edge to edge. */
+@Composable
+private fun TurnBar(side: Pair<String, androidx.compose.ui.graphics.Color>, actor: Int, modifier: Modifier = Modifier) {
+    androidx.compose.animation.AnimatedContent(side, modifier.fillMaxWidth(), label = "turn") { (n, c) ->
+        val ink = if (c.luminance() > 0.5f) androidx.compose.ui.graphics.Color(0xFF1B1B1F) else androidx.compose.ui.graphics.Color.White
+        Box(
+            Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(c)
+                .border(1.5.dp, androidx.compose.ui.graphics.Color(0x33000000), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                .padding(vertical = 9.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(if (n.startsWith("Player")) "$n to move" else "$n to move · Player $actor", color = ink, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 15.sp)
+        }
+    }
+}
+
 @Composable
 private fun NudgePill(session: Session, modifier: Modifier) {
     val haptics = LocalHapticFeedback.current

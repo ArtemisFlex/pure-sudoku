@@ -69,6 +69,7 @@ private fun IntArray.jarr() = JSONArray().also { a -> forEach { a.put(it) } }
 // =====================================================================  Tic-tac-toe
 
 class TicTacToeSession(difficulty: Difficulty, val g: TicTacToe) : DuelSession(GameKind.TIC_TAC_TOE, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "X" to androidx.compose.ui.graphics.Color(0xFF2F6FD6) else "O" to androidx.compose.ui.graphics.Color(0xFFC62828)
     override val localActor: Int? get() = if (roundOver) null else g.turn
     var round by mutableIntStateOf(1); private set
     var youWins by mutableIntStateOf(0); private set
@@ -286,6 +287,7 @@ private fun TicTacToeUi(s: TicTacToeSession, targets: DemoTargets?) {
 // =====================================================================  Gomoku
 
 class GomokuSession(difficulty: Difficulty, val g: Gomoku) : DuelSession(GameKind.GOMOKU, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "Black" to androidx.compose.ui.graphics.Color(0xFF26262C) else "White" to androidx.compose.ui.graphics.Color(0xFFF4F1EA)
     override val localActor: Int get() = g.turn
     var ghost by mutableIntStateOf(-1); private set
 
@@ -441,6 +443,7 @@ private fun GomokuUi(s: GomokuSession, targets: DemoTargets?) {
 // =====================================================================  Nine Men's Morris
 
 class MorrisSession(difficulty: Difficulty, val g: Morris) : DuelSession(GameKind.MORRIS, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "White" to androidx.compose.ui.graphics.Color(0xFFF4F1EA) else "Black" to androidx.compose.ui.graphics.Color(0xFF26262C)
     override val localActor: Int get() = g.turn
     var selected by mutableIntStateOf(-1); private set
     /** Moves waiting for you to choose which enemy piece to take. */
@@ -650,6 +653,7 @@ private fun MorrisUi(s: MorrisSession, targets: DemoTargets?) {
 // =====================================================================  Mancala
 
 class MancalaSession(difficulty: Difficulty, val g: Mancala) : DuelSession(GameKind.MANCALA, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "Bottom row" to androidx.compose.ui.graphics.Color(0xFF2F6FD6) else "Top row" to androidx.compose.ui.graphics.Color(0xFFC62828)
     override val localActor: Int get() = g.turn + 1
     /** Pits touched by the last sowing, in order, for the trail animation. */
     var trail by mutableStateOf<List<Int>>(emptyList()); private set
@@ -834,6 +838,7 @@ private fun MancalaUi(s: MancalaSession, targets: DemoTargets?) {
 // =====================================================================  Checkers
 
 class CheckersSession(difficulty: Difficulty, val g: Checkers) : DuelSession(GameKind.CHECKERS, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "Red" to androidx.compose.ui.graphics.Color(0xFFC62828) else "Black" to androidx.compose.ui.graphics.Color(0xFF26262C)
     override val localActor: Int get() = if (g.turn == 1) 1 else 2
     var selected by mutableIntStateOf(-1); private set
     var lastPath by mutableStateOf<List<Int>>(emptyList()); private set

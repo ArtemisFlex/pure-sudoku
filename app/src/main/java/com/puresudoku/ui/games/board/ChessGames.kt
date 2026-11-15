@@ -88,6 +88,7 @@ private fun IntArray.jarr() = JSONArray().also { a -> forEach { a.put(it) } }
 // =====================================================================  Chess
 
 class ChessSession(difficulty: Difficulty, val g: Chess) : DuelSession(GameKind.CHESS, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "White" to androidx.compose.ui.graphics.Color(0xFFF4F1EA) else "Black" to androidx.compose.ui.graphics.Color(0xFF26262C)
     override val localActor: Int get() = if (g.turn == 1) 1 else 2
     var selected by mutableIntStateOf(-1); private set
     var lastFrom by mutableIntStateOf(-1); private set
@@ -252,7 +253,7 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
     val anim = remember(s.moveId) { Animatable(0f) }
     LaunchedEffect(s.moveId) { anim.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        CapturedRow(g, white = true)
+        CapturedRow(g, white = true, twoPlayer = s.localTwoPlayer)
         Spacer(Modifier.height(6.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val side = min(maxWidth, maxHeight)
@@ -298,7 +299,7 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        CapturedRow(g, white = false)
+        CapturedRow(g, white = false, twoPlayer = s.localTwoPlayer)
         Spacer(Modifier.height(8.dp))
         TurnBanner(if (s.thinking) "Computer is thinking…" else s.message.ifEmpty { "Your move" }, s.thinking)
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))
@@ -323,13 +324,13 @@ private fun ChessBoardUi(s: ChessSession, targets: DemoTargets?) {
 
 /** Pieces captured from one side, smallest first. */
 @Composable
-private fun CapturedRow(g: Chess, white: Boolean) {
+private fun CapturedRow(g: Chess, white: Boolean, twoPlayer: Boolean = false) {
     val start = intArrayOf(0, 8, 2, 2, 2, 1, 1)
     val sign = if (white) 1 else -1
     val lost = (1..5).flatMap { t -> List((start[t] - g.b.count { it == t * sign }).coerceAtLeast(0)) { t } }
     val diff = (1..5).sumOf { t -> (g.b.count { it == t } - g.b.count { it == -t }) * Chess.VALUE[t] } / 100
     Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(if (white) "Computer took" else "You took", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
+        Text(if (twoPlayer) (if (white) "Black took" else "White took") else if (white) "Computer took" else "You took", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
         Spacer(Modifier.size(6.dp))
         Canvas(Modifier.weight(1f).height(22.dp)) {
             lost.forEachIndexed { k, t -> drawChessPiece(t, white, Rect(k * size.height * 0.62f, 0f, k * size.height * 0.62f + size.height, size.height)) }
@@ -342,6 +343,7 @@ private fun CapturedRow(g: Chess, white: Boolean) {
 // =====================================================================  Xiangqi
 
 class XiangqiSession(difficulty: Difficulty, val g: Xiangqi) : DuelSession(GameKind.XIANGQI, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "Red" to androidx.compose.ui.graphics.Color(0xFFC62828) else "Black" to androidx.compose.ui.graphics.Color(0xFF26262C)
     override val localActor: Int get() = if (g.turn == 1) 1 else 2
     var selected by mutableIntStateOf(-1); private set
     var lastFrom by mutableIntStateOf(-1); private set
@@ -543,6 +545,7 @@ private fun XiangqiBoardUi(s: XiangqiSession, targets: DemoTargets?) {
 // =====================================================================  Shogi
 
 class ShogiSession(difficulty: Difficulty, val g: Shogi) : DuelSession(GameKind.SHOGI, difficulty) {
+    override fun localSide(actor: Int) = if (actor == 1) "Bottom player" to androidx.compose.ui.graphics.Color(0xFF26262C) else "Top player" to androidx.compose.ui.graphics.Color(0xFFF4F1EA)
     override val localActor: Int get() = if (g.turn == 1) 1 else 2
     /** Selected board square, or 100 + piece type for a piece in hand. */
     var selected by mutableIntStateOf(-1); private set

@@ -64,6 +64,9 @@ abstract class DuelSession(kind: GameKind, difficulty: Difficulty) : Session(kin
     var localTwoPlayer by mutableStateOf(false)
     /** Current local seat, or null when a game handles its own private handoff. */
     open val localActor: Int? get() = null
+    /** The colour each seat plays in pass-and-play (name, colour): shown as the whose-turn bar. */
+    open fun localSide(actor: Int): Pair<String, androidx.compose.ui.graphics.Color> =
+        if (actor == 1) "Player 1" to androidx.compose.ui.graphics.Color(0xFF2F6FD6) else "Player 2" to androidx.compose.ui.graphics.Color(0xFFD93025)
 
     override val usesStrikes get() = false
     override val middleStat: MiddleStat get() = MiddleStat.Counter("Moves", "$moves")

@@ -112,7 +112,7 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                 }
                 if (kind in com.puresudoku.core.localTwoPlayerGames) {
                     OutlinedButton(onClick = { vm.startLocalTwoPlayer(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
-                        Text("Two players · pass the phone", fontSize = 16.sp)
+                        Text("Two players · one device", fontSize = 16.sp)
                     }
                 }
                 TextButton(onClick = { vm.openTutorial(kind) }, Modifier.fillMaxWidth()) {
