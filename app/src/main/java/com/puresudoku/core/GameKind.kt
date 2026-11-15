@@ -7,6 +7,7 @@ enum class GameCategory(val title: String, val blurb: String) {
     BOARD("Board Games", "Strategy · Tactics · Territory · Planning · Patterns · Luck"),
     STRATEGY("Strategy Games", "Territory · Trade · Exploration · Risk · Long-term planning"),
     TRAINING("Brain Training", "Memory · Recall · Sense of direction · Navigation"),
+    KIDS("Early Learning", "Ages 4–10 · Math · Reading · Spelling · Telling time"),
 }
 
 /** Every game in PureGames. Order here is the order on the home screen. */
@@ -60,6 +61,13 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     AEG_CONQUEST("Aegwaspell: Conquest", "Conquest & Stewardship", "Post soldiers and workers tile by tile, trade at your port, and hold your land while rival civilizations fight for every tile.", GameCategory.STRATEGY),
     VEILGUARD("Veilguard", "Deception", "Give secret orders, hide your Crown and bluff with decoys. Find the rival's Crown to win.", GameCategory.STRATEGY),
     STREET_SMARTS("Street Smarts", "Navigation", "Deliver around a big city while the GPS slowly lets go. Learn the streets by heart.", GameCategory.TRAINING),
+    LEARN_MATH("Math Flashcards", "Arithmetic", "From counting to long multiplication, with every step shown.", GameCategory.KIDS),
+    LEARN_DIVISION("Long Division", "Division", "Share things fairly, then master long division step by step.", GameCategory.KIDS),
+    LEARN_ALGEBRA("Missing Number", "Algebra", "Find the missing number, then solve for x.", GameCategory.KIDS),
+    LEARN_LETTERS("Letter Sounds", "Phonics", "First letters, last letters and spelling.", GameCategory.KIDS),
+    LEARN_WORDS("Word Cards", "Vocabulary", "Read words, opposites, past tense and big-word meanings.", GameCategory.KIDS),
+    LEARN_READING("Reading Practice", "Reading", "Read short stories and answer questions about them.", GameCategory.KIDS),
+    LEARN_CLOCK("Clock Cards", "Telling time", "Read the clock, from o'clock to elapsed time.", GameCategory.KIDS),
 }
 
 /** Games offering equal-sided, local pass-and-play. */

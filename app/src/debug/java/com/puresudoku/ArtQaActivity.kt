@@ -1,5 +1,7 @@
 package com.puresudoku
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -344,6 +346,17 @@ class ArtQaActivity : ComponentActivity() {
                     g.map.hexNbrs[h].take(3).forEach { n -> val edge = g.side(h, n); if (edge >= 0) g.wall[edge] = p }
                 }
                 setContent { PureSudokuTheme { KreashunUi(KreashunSession(Difficulty.EASY, g), null) } }; return
+            }
+            "learn" -> {
+                // a flashcard deck: game index, level, seed; optionally with the steps panel open
+                val game = com.puresudoku.core.learn.LearnGame.entries[intent.getIntExtra("game", 0)]
+                val level = intent.getIntExtra("level", 0)
+                val cards = com.puresudoku.core.learn.Learn.deck(game, level, kotlin.random.Random(intent.getIntExtra("seed", 1)))
+                val s = com.puresudoku.ui.games.learn.LearnSession(GameKind.LEARN_MATH, Difficulty.entries[level], cards)
+                s.showSteps = intent.getBooleanExtra("steps", false)
+                setContent { PureSudokuTheme { androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(top = 36.dp, start = 12.dp, end = 12.dp)) { com.puresudoku.ui.games.learn.LearnUi(s) } } } }
+                return
             }
             "street" -> {
                 // Street Smarts at a chosen help level: every place known to that level, with the experience it needs

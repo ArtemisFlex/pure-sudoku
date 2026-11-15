@@ -113,6 +113,13 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.AEGWASPELL -> realmIcon(colors, o, inner, 0)
             GameKind.AEG_CONQUEST -> realmIcon(colors, o, inner, 1)
             GameKind.STREET_SMARTS -> mapIcon(colors, o, inner)
+            GameKind.LEARN_MATH -> flashIcon(colors, tm, o, inner, "1+2")
+            GameKind.LEARN_DIVISION -> flashIcon(colors, tm, o, inner, "÷")
+            GameKind.LEARN_ALGEBRA -> flashIcon(colors, tm, o, inner, "x=?")
+            GameKind.LEARN_LETTERS -> flashIcon(colors, tm, o, inner, "Aa")
+            GameKind.LEARN_WORDS -> flashIcon(colors, tm, o, inner, "cat")
+            GameKind.LEARN_READING -> flashIcon(colors, tm, o, inner, "Read")
+            GameKind.LEARN_CLOCK -> clockIcon(colors, o, inner)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),
@@ -519,3 +526,28 @@ private fun DrawScope.mapIcon(c: BoardColors, o: Float, inner: Float) {
     drawPath(pin, Color(0xFFEA4335))
     drawCircle(c.boardBg, r * 0.45f, Offset(px, py - r * 2.05f))
 }
+
+/** Early Learning: a tilted flashcard with its subject on it. */
+private fun DrawScope.flashIcon(c: BoardColors, tm: TextMeasurer, o: Float, inner: Float, text: String) {
+    val w = inner * 0.78f; val h = inner * 0.6f
+    val back = Offset(o + (inner - w) / 2 + inner * 0.06f, o + (inner - h) / 2 - inner * 0.07f)
+    drawRoundRect(c.given.copy(alpha = 0.25f), back, Size(w, h), CornerRadius(inner * 0.08f))
+    val front = Offset(o + (inner - w) / 2 - inner * 0.03f, o + (inner - h) / 2 + inner * 0.05f)
+    drawRoundRect(c.boardBg, front, Size(w, h), CornerRadius(inner * 0.08f))
+    drawRoundRect(c.entered, front, Size(w, h), CornerRadius(inner * 0.08f), style = Stroke(inner * 0.035f))
+    label(tm, text, front.x + w / 2, front.y + h / 2, h * (if (text.length > 3) 0.34f else 0.45f), c.entered, center = true)
+}
+
+/** Clock Cards: a clock face at ten past two. */
+private fun DrawScope.clockIcon(c: BoardColors, o: Float, inner: Float) {
+    val ctr = Offset(o + inner / 2, o + inner / 2); val r = inner * 0.38f
+    drawCircle(c.entered, r, ctr, style = Stroke(inner * 0.05f))
+    for (i in 0 until 12) {
+        val a = Math.toRadiansCompat(i * 30.0)
+        drawCircle(c.thickLine, inner * 0.018f, Offset(ctr.x + r * 0.8f * kotlin.math.cos(a).toFloat(), ctr.y + r * 0.8f * kotlin.math.sin(a).toFloat()))
+    }
+    drawLine(c.thickLine, ctr, Offset(ctr.x + r * 0.42f, ctr.y - r * 0.22f), inner * 0.05f, StrokeCap.Round)
+    drawLine(c.given, ctr, Offset(ctr.x + r * 0.35f, ctr.y - r * 0.62f), inner * 0.035f, StrokeCap.Round)
+}
+
+private object Math { fun toRadiansCompat(d: Double) = d * kotlin.math.PI / 180 }

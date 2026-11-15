@@ -58,6 +58,7 @@ object Games {
         listOf(
             com.puresudoku.ui.games.sudoku.SudokuDef,
             com.puresudoku.ui.games.city.StreetSmartsDef,
+        ) + com.puresudoku.ui.games.learn.LearnGames.all + listOf(
             com.puresudoku.ui.games.cagemath.CageMathDef,
             com.puresudoku.ui.games.kakuro.KakuroDef,
             com.puresudoku.ui.games.picture.PictureDef,
