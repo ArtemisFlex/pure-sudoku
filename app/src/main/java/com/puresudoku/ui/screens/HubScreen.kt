@@ -81,10 +81,12 @@ fun HubScreen(vm: AppViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(28.dp))
+            TwoPlayerCard(vm)
+            Spacer(Modifier.height(14.dp))
             // Strategy games lead the list; the rest keep their usual order.
             (GameCategory.entries.filter { it != GameCategory.STRATEGY } + GameCategory.STRATEGY).forEachIndexed { idx, cat ->
                 val games = Games.all.filter { it.kind.category == cat }
-                if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx)
+                if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx + 1)
                 Spacer(Modifier.height(14.dp))
             }
             if (vm.backupFolderName == null) BackupNudge(vm) { showAppearance = true }
@@ -179,6 +181,65 @@ private fun CategoryCard(vm: AppViewModel, cat: GameCategory, games: List<GameDe
                 "${games.size} game${if (games.size == 1) "" else "s"}" + if (saved > 0) " · $saved saved" else "",
                 fontSize = 12.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
             )
+        }
+    }
+}
+
+private val twoPlayerGames get() = Games.all.filter { it.kind in com.puresudoku.core.localTwoPlayerGames }
+
+/** The Two Players collection: every game two people can play, from board games to strategy. */
+@Composable
+private fun TwoPlayerCard(vm: AppViewModel) {
+    val enter = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { delay(150L); enter.animateTo(1f, spring(0.7f, Spring.StiffnessMediumLow)) }
+    val games = twoPlayerGames
+    Surface(
+        onClick = vm::openTwoPlayer,
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().graphicsLayer {
+            alpha = enter.value.coerceIn(0f, 1f)
+            translationY = (1f - enter.value) * 60.dp.toPx()
+        },
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val show = listOf(com.puresudoku.core.GameKind.CHESS, com.puresudoku.core.GameKind.CRAZY_EIGHTS, com.puresudoku.core.GameKind.GO,
+                    com.puresudoku.core.GameKind.BACKGAMMON, com.puresudoku.core.GameKind.TIC_TAC_TOE)
+                for (k in show) Games.of(k).Icon(46.dp)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("Two Players", style = MaterialTheme.typography.headlineSmall)
+            Text("Play a friend on one device or online · Board · Card · Strategy", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "${games.size} games", fontSize = 12.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/** Every two-player game in one list. */
+@Composable
+fun TwoPlayerScreen(vm: AppViewModel) {
+    val games = twoPlayerGames
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+        TopBar("Two Players", vm::back)
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 160.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Text(
+                    "Each game here can be played with a friend on this device, with table mode for sitting across from each other, or online with a room code.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+            }
+            itemsIndexed(games, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
         }
     }
 }
