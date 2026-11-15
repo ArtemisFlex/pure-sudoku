@@ -308,7 +308,7 @@ private fun HaikuLayout(s: HaikuSession, targets: DemoTargets?) {
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = s::clearLine) { Text("Clear line") }
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::clearLine) { Text("Clear line") }
             Button(onClick = s::finishPoem, modifier = Modifier.demoTarget(targets, "finish")) { Text("Finish poem") }
         }
         Spacer(Modifier.height(if (targets == null) 16.dp else 4.dp))

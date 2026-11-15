@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.board
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -334,7 +336,7 @@ private fun CapturedRow(g: Chess, white: Boolean) {
     val lost = (1..5).flatMap { t -> List((start[t] - g.b.count { it == t * sign }).coerceAtLeast(0)) { t } }
     val diff = (1..5).sumOf { t -> (g.b.count { it == t } - g.b.count { it == -t }) * Chess.VALUE[t] } / 100
     Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(if (white) "Computer took" else "You took", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (white) "Computer took" else "You took", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
         Spacer(Modifier.size(6.dp))
         Canvas(Modifier.weight(1f).height(22.dp)) {
             lost.forEachIndexed { k, t -> drawChessPiece(t, white, Rect(k * size.height * 0.62f, 0f, k * size.height * 0.62f + size.height, size.height)) }
@@ -793,7 +795,7 @@ private fun ShogiBoardUi(s: ShogiSession, targets: DemoTargets?) {
 private fun HandRow(hand: IntArray, mine: Boolean, selected: Int, targets: DemoTargets?, enabled: Boolean = mine, label: String = if (mine) "Your hand" else "Computer hand", onTap: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x33A0743A)).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 4.dp))
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable(), modifier = Modifier.padding(end = 4.dp))
         for (t in 7 downTo 1) {
             if (hand[t] == 0) continue
             Box(Modifier.size(34.dp, 40.dp).demoTarget(targets, "hand-$t").clickable(enabled = enabled) { onTap(t) }, contentAlignment = Alignment.Center) {

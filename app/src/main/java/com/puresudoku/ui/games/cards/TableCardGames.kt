@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.cards
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -77,7 +79,7 @@ private fun List<Int>.jarr(): JSONArray = JSONArray().also { a -> forEach { a.pu
 
 @Composable
 private fun Label(text: String) = Text(text.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold,
-    color = LocalBoardColors.current.note)
+    color = LocalBoardColors.current.note.readable())
 
 // =====================================================================
 // Blackjack
@@ -261,7 +263,7 @@ private fun BlackjackTableUi(s: BlackjackSession, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Hand ${minOf(s.round + if (s.phase == 0) 1 else 0, s.cfg.hands)} of ${s.cfg.hands} · goal ${s.target} chips",
-            fontSize = 13.sp, color = colors.note, modifier = Modifier.demoTarget(targets, "goal"))
+            fontSize = 13.sp, color = colors.note.readable(), modifier = Modifier.demoTarget(targets, "goal"))
         Spacer(Modifier.height(10.dp))
         Label("Dealer" + if (t.dealer.isNotEmpty()) " · " + (if (t.dealerRevealed) "${BlackjackRules.total(t.dealer).first}" else "${BlackjackRules.total(listOf(t.dealer[0])).first} + ?") else "")
         Spacer(Modifier.height(6.dp))
@@ -286,21 +288,22 @@ private fun BlackjackTableUi(s: BlackjackSession, targets: DemoTargets?) {
             }
         }
         TableMessage(s.message)
-        s.advice?.let { Spacer(Modifier.height(6.dp)); Text("Tip: $it", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
+        s.advice?.let { Spacer(Modifier.height(6.dp)); Text("Tip: $it", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary.readable(), fontWeight = FontWeight.SemiBold) }
         Spacer(Modifier.height(12.dp))
         if (s.phase == 1) {
             FlowRow(Modifier.demoTarget(targets, "actions"), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
                 Button(onClick = s::hit, modifier = Modifier.demoTarget(targets, "hit")) { Text("Hit") }
                 Button(onClick = s::stand, modifier = Modifier.demoTarget(targets, "stand")) { Text("Stand") }
-                OutlinedButton(onClick = s::double) { Text("Double") }
-                OutlinedButton(onClick = s::split) { Text("Split") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::double) { Text("Double") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::split) { Text("Split") }
             }
         } else if (s.outcome == Outcome.PLAYING) {
             Label("Bet")
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (b in BlackjackRules.BETS) FilterChip(selected = s.bet == b, onClick = { if (b <= s.chips) s.bet = b else s.nudge("You only have ${s.chips} chips") },
-                    label = { Text("$b") }, enabled = b <= s.chips, modifier = Modifier.demoTarget(targets, "bet-$b"))
+                    label = { Text("$b") }, enabled = b <= s.chips,
+                    colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(labelColor = MaterialTheme.colorScheme.onSurfaceVariant.readable()), modifier = Modifier.demoTarget(targets, "bet-$b"))
             }
             Spacer(Modifier.height(10.dp))
             Button(onClick = s::deal, modifier = Modifier.demoTarget(targets, "deal")) { Text(if (s.phase == 2) "Next hand" else "Deal") }
@@ -544,7 +547,7 @@ private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(10.dp))
-        Text("Pond: ${g.deck.size} cards", fontSize = 13.sp, color = colors.note)
+        Text("Pond: ${g.deck.size} cards", fontSize = 13.sp, color = colors.note.readable())
         Spacer(Modifier.height(8.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(10.dp)) {
             for ((i, line) in s.log.takeLast(4).withIndex()) Text(line, fontSize = 13.sp,
@@ -561,7 +564,7 @@ private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
             !s.localTwoPlayer && g.turn != 0 -> "${FISH_NAMES[g.turn]} is thinking…"
             s.rank == 0 -> "Your turn: pick a card"
             else -> "Ask a player for ${Cards.plural(s.rank)}"
-        }, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        }, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary.readable())
         Spacer(Modifier.height(8.dp))
         if (s.localTwoPlayer && s.othersEmpty && !g.over) Button(onClick = s::lonelyDraw) { Text("Draw a card") }
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((-14).dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -820,7 +823,7 @@ object CuttleDef : GameDef {
 @Composable
 private fun Field(points: List<PointCard>, royals: List<Int>, w: Dp) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (points.isEmpty() && royals.isEmpty()) Text("—", color = LocalBoardColors.current.note, modifier = Modifier.padding(vertical = 18.dp))
+        if (points.isEmpty() && royals.isEmpty()) Text("—", color = LocalBoardColors.current.note.readable(), modifier = Modifier.padding(vertical = 18.dp))
         for (pc in points) Box(Modifier.width(w + 12.dp * pc.jacks.size)) {
             PopCard(pc.card, true, w, art = CardArt.cuttle(pc.card))
             pc.jacks.forEachIndexed { i, j -> PopCard(j, true, w, Modifier.offset(x = 12.dp * (i + 1), y = 10.dp), art = CardArt.cuttle(j)) }
@@ -851,8 +854,8 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${if (s.localTwoPlayer) "Player ${them + 1}" else "Opponent"} ${g.score(them)}/${g.goal(them)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Text("${g.hands[them].size} in hand", fontSize = 12.sp, color = colors.note)
+            Text("${if (s.localTwoPlayer) "Player ${them + 1}" else "Opponent"} ${g.score(them)}/${g.goal(them)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = backdropInk(), modifier = Modifier.weight(1f))
+            Text("${g.hands[them].size} in hand", fontSize = 12.sp, color = colors.note.readable())
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy((-20).dp)) {
@@ -862,7 +865,7 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         Spacer(Modifier.height(6.dp))
         Field(g.points[them], g.royals[them], 50.dp)
         Spacer(Modifier.height(10.dp))
-        Text("Deck ${g.deck.size} · Scrap ${g.scrap.size}", fontSize = 12.sp, color = colors.note)
+        Text("Deck ${g.deck.size} · Scrap ${g.scrap.size}", fontSize = 12.sp, color = colors.note.readable())
         Spacer(Modifier.height(4.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
             val lines = g.log.takeLast(3)
@@ -871,8 +874,8 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${if (s.localTwoPlayer) "Player ${me + 1}" else "You"} ${g.score(me)}/${g.goal(me)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            if (g.queens(me) > 0) Text("Protected by ${g.queens(me)} Queen${if (g.queens(me) > 1) "s" else ""}", fontSize = 12.sp, color = colors.note)
+            Text("${if (s.localTwoPlayer) "Player ${me + 1}" else "You"} ${g.score(me)}/${g.goal(me)}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = backdropInk(), modifier = Modifier.weight(1f))
+            if (g.queens(me) > 0) Text("Protected by ${g.queens(me)} Queen${if (g.queens(me) > 1) "s" else ""}", fontSize = 12.sp, color = colors.note.readable())
         }
         Spacer(Modifier.height(4.dp))
         Field(g.points[me], g.royals[me], 50.dp)
@@ -890,7 +893,7 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
             s.selected >= 0 -> "What should ${Cuttle.name(s.selected)} do?"
             else -> "Your turn: draw, or tap a card"
         }
-        if (prompt.isNotEmpty()) Text(prompt, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+        if (prompt.isNotEmpty()) Text(prompt, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary.readable(), textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
 
         if (w is CWait.Seven && s.myTurn) { PopCard(w.card, true, 64.dp, highlight = true, art = CardArt.cuttle(w.card)); Spacer(Modifier.height(8.dp)) }
@@ -903,11 +906,11 @@ private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
         val opts = s.options
         if (opts.isNotEmpty()) FlowRow(Modifier.fillMaxWidth().demoTarget(targets, "options"), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            opts.forEachIndexed { i, m -> OutlinedButton(onClick = { s.play(m) }, modifier = Modifier.demoTarget(targets, "opt-$i")) { Text(CuttleSession.label(m), fontSize = 13.sp) } }
+            opts.forEachIndexed { i, m -> com.puresudoku.ui.components.BackdropOutlinedButton(onClick = { s.play(m) }, modifier = Modifier.demoTarget(targets, "opt-$i")) { Text(CuttleSession.label(m), fontSize = 13.sp) } }
         }
         if (s.myTurn && w is CWait.Counter) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (two in g.hands[me].filter { Cuttle.r(it) == 2 }) Button(onClick = { s.counter(two) }) { Text("Counter with ${Cuttle.name(two)}") }
-            OutlinedButton(onClick = { s.counter(null) }) { Text("Let it happen") }
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = { s.counter(null) }) { Text("Let it happen") }
         }
         if (s.myTurn && w is CWait.Discard) Button(onClick = s::confirmDiscard) { Text("Discard ${s.discards.size}/${w.count}") }
         if (s.myTurn && w == CWait.Move && s.selected < 0) Button(onClick = s::drawCard, modifier = Modifier.demoTarget(targets, "draw")) {

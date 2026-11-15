@@ -500,10 +500,10 @@ private fun WheelLayout(s: WheelSession, targets: DemoTargets?) {
             Wheel(s, side, targets)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = s::delete, modifier = Modifier.demoTarget(targets, "del")) {
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::delete, modifier = Modifier.demoTarget(targets, "del")) {
                 Icon(Icons.AutoMirrored.Outlined.Backspace, contentDescription = "Delete", modifier = Modifier.size(18.dp))
             }
-            OutlinedButton(onClick = s::shuffle, modifier = Modifier.demoTarget(targets, "shuffle")) {
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::shuffle, modifier = Modifier.demoTarget(targets, "shuffle")) {
                 Icon(Icons.Outlined.Shuffle, contentDescription = "Shuffle", modifier = Modifier.size(18.dp))
             }
             Button(onClick = s::submit, modifier = Modifier.demoTarget(targets, "enter")) { Text("Enter") }

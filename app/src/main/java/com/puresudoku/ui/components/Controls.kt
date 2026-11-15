@@ -167,9 +167,9 @@ fun ActionButton(icon: ImageVector, label: String, enabled: Boolean = true, acti
     val scale by animateFloatAsState(if (pressed) 0.88f else 1f, spring(0.5f, Spring.StiffnessHigh), label = "press")
     val tint by animateColorAsState(
         when {
-            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-            active -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
+            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.readable().copy(alpha = 0.45f)
+            active -> MaterialTheme.colorScheme.primary.readable()
+            else -> MaterialTheme.colorScheme.onSurfaceVariant.readable()
         }, label = "tint",
     )
     val bg by animateColorAsState(

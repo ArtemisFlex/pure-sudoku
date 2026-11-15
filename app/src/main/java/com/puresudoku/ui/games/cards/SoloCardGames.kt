@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.cards
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -109,7 +111,7 @@ private fun List<Int>.json() = toIntArray().toJson()
 
 @Composable
 private fun Caption(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) =
-    Text(text, fontSize = 12.sp, color = color, textAlign = TextAlign.Center, lineHeight = 14.sp)
+    Text(text, fontSize = 12.sp, color = color.readable(), textAlign = TextAlign.Center, lineHeight = 14.sp)
 
 // =====================================================================
 // Scoundrel
@@ -260,12 +262,12 @@ private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("♥ ${g.health}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = CARD_RED)
+            Text("♥ ${g.health}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = CARD_RED.readable())
             HSpace(10)
             LinearProgressIndicator(progress = { g.health / g.maxHealth.toFloat() }, color = CARD_RED,
                 modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(50)))
             HSpace(10)
-            Text("${g.dungeon.size} left", fontSize = 13.sp, color = colors.note)
+            Text("${g.dungeon.size} left", fontSize = 13.sp, color = colors.note.readable())
         }
         Spacer(Modifier.height(14.dp))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -287,13 +289,13 @@ private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = { s.resolve(m, true) }, modifier = Modifier.demoTarget(targets, "use-weapon")) { Text("Weapon (take ${g.damage(m, true)})") }
-                OutlinedButton(onClick = { s.resolve(m, false) }) { Text("Barehanded (take ${g.damage(m, false)})") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = { s.resolve(m, false) }) { Text("Barehanded (take ${g.damage(m, false)})") }
             }
         }
         Spacer(Modifier.height(12.dp))
         TableMessage(s.message)
         Spacer(Modifier.height(14.dp))
-        Text("WEAPON", fontSize = 11.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = colors.note)
+        Text("WEAPON", fontSize = 11.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = colors.note.readable())
         Spacer(Modifier.height(6.dp))
         Box(Modifier.height(cardHeightFor(78.dp) + 4.dp)) {
             if (g.weapon < 0) CardSlot(78.dp, label = "—")
@@ -304,7 +306,7 @@ private fun ScoundrelTable(s: ScoundrelSession, targets: DemoTargets?) {
         }
         if (g.weapon >= 0) Caption(if (g.slain.isEmpty()) "Fresh: can fight anything" else "Can fight monsters below ${Scoundrel.value(g.slain.last())}")
         Spacer(Modifier.height(14.dp))
-        OutlinedButton(onClick = s::avoid, enabled = s.outcome == Outcome.PLAYING, modifier = Modifier.demoTarget(targets, "avoid")) {
+        com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::avoid, enabled = s.outcome == Outcome.PLAYING, modifier = Modifier.demoTarget(targets, "avoid")) {
             Text(if (g.canAvoid()) "Avoid this room" else "Can't avoid now")
         }
         Spacer(Modifier.height(12.dp))
@@ -502,14 +504,14 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
             PopCard(g.enemy, true, 96.dp, art = CardArt.regicide(g.enemy))
             HSpace(16)
             Column(Modifier.widthIn(max = 200.dp)) {
-                Text("${Cards.rankName(Cards.rank(g.enemy))} of ${Cards.suitName(Cards.suit(g.enemy))}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text("${Cards.rankName(Cards.rank(g.enemy))} of ${Cards.suitName(Cards.suit(g.enemy))}", fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = backdropInk())
                 Spacer(Modifier.height(4.dp))
-                Text("Health ${g.health}/${Regicide.health(g.enemy)}", fontSize = 13.sp)
+                Text("Health ${g.health}/${Regicide.health(g.enemy)}", fontSize = 13.sp, color = backdropInk())
                 LinearProgressIndicator(progress = { g.health / Regicide.health(g.enemy).toFloat() }, color = CARD_RED,
                     modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(50)))
                 Spacer(Modifier.height(4.dp))
-                Text("Attack ${Regicide.attack(g.enemy)}" + (if (g.shield > 0) " − ${g.shield} shield = ${g.enemyAttack}" else ""), fontSize = 13.sp)
-                Text("Immune to ${Cards.suitSymbol(g.immune)} ${Regicide.power(g.immune)}", fontSize = 13.sp, color = colors.note)
+                Text("Attack ${Regicide.attack(g.enemy)}" + (if (g.shield > 0) " − ${g.shield} shield = ${g.enemyAttack}" else ""), fontSize = 13.sp, color = backdropInk())
+                Text("Immune to ${Cards.suitSymbol(g.immune)} ${Regicide.power(g.immune)}", fontSize = 13.sp, color = colors.note.readable())
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -523,7 +525,7 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
         Spacer(Modifier.height(10.dp))
         val prev = s.preview
         Text(prev.ifEmpty { if (g.suffer > 0) "" else "Select cards to attack" }, fontSize = 14.sp, textAlign = TextAlign.Center,
-            color = if (g.suffer > 0) colors.error else MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
+            color = (if (g.suffer > 0) colors.error else MaterialTheme.colorScheme.primary).readable(), fontWeight = FontWeight.SemiBold,
             modifier = Modifier.demoTarget(targets, "preview").padding(horizontal = 8.dp))
         Spacer(Modifier.height(10.dp))
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -537,9 +539,9 @@ private fun RegicideTable(s: RegicideSession, targets: DemoTargets?) {
                 Button(onClick = s::takeHit, modifier = Modifier.demoTarget(targets, "take")) { Text("Discard to survive") }
             } else {
                 Button(onClick = s::play, enabled = s.selected.isNotEmpty(), modifier = Modifier.demoTarget(targets, "play")) { Text("Play") }
-                OutlinedButton(onClick = s::yieldTurn) { Text("Yield") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::yieldTurn) { Text("Yield") }
             }
-            if (g.jesters > 0) OutlinedButton(onClick = s::jester) { Text("Jester ★") }
+            if (g.jesters > 0) com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::jester) { Text("Jester ★") }
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -689,7 +691,7 @@ private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
         }
         Spacer(Modifier.height(10.dp))
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            for (line in g.log.takeLast(3)) Text(line, fontSize = 13.sp, textAlign = TextAlign.Center, color = if (line == g.log.lastOrNull()) colors.given else colors.note)
+            for (line in g.log.takeLast(3)) Text(line, fontSize = 13.sp, textAlign = TextAlign.Center, color = (if (line == g.log.lastOrNull()) colors.given else colors.note).readable())
         }
         Spacer(Modifier.height(10.dp))
         if (g.hand.isNotEmpty()) {
@@ -708,17 +710,17 @@ private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
         if (g.choosing) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = s::flip, modifier = Modifier.demoTarget(targets, "flip")) { Text("Delve deeper") }
-                OutlinedButton(onClick = s::turnBack, modifier = Modifier.demoTarget(targets, "back")) { Text("Turn back (${maxOf(0, g.delve.size - 1)} to escape)") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::turnBack, modifier = Modifier.demoTarget(targets, "back")) { Text("Turn back (${maxOf(0, g.delve.size - 1)} to escape)") }
             }
         } else {
             Button(onClick = s::flip, enabled = s.outcome == Outcome.PLAYING, modifier = Modifier.demoTarget(targets, "flip")) { Text("Turn a card") }
             g.usableSkill()?.let { su ->
                 Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = s::skill) { Text("Use ${DungeonSolitaire.skillName(Cards.of(11, su))}") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::skill) { Text("Use ${DungeonSolitaire.skillName(Cards.of(11, su))}") }
             }
             for (c in g.dropOptions()) {
                 Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = { s.drop(c) }) { Text("Drop ${if (c == JOKER) "the Scroll" else Cards.label(c)} to flee") }
+                com.puresudoku.ui.components.BackdropOutlinedButton(onClick = { s.drop(c) }) { Text("Drop ${if (c == JOKER) "the Scroll" else Cards.label(c)} to flee") }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -729,8 +731,8 @@ private fun DungeonTable(s: DungeonSession, targets: DemoTargets?) {
 @Composable
 private fun Stat(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color)
+        Text(label, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
+        Text(value, fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color.readable())
     }
 }
 
@@ -869,7 +871,7 @@ private fun JailbreakTable(s: JailbreakSession, targets: DemoTargets?) {
     val g = s.g
     val colors = LocalBoardColors.current
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(s.summary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+        Text(s.summary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary.readable(), textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val cw = min(maxWidth / 3.6f, (maxHeight / 3.4f) / 1.4f).coerceAtMost(96.dp)
@@ -893,7 +895,7 @@ private fun JailbreakTable(s: JailbreakSession, targets: DemoTargets?) {
             }
         }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = s::place, modifier = Modifier.demoTarget(targets, "spare")) {
+        com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::place, modifier = Modifier.demoTarget(targets, "spare")) {
             Text("Put a spare card on the Joker (${g.remainder.size} left)")
         }
         Spacer(Modifier.height(if (targets == null) 14.dp else 2.dp))

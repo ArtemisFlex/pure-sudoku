@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.recall
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -360,7 +362,7 @@ private fun PhaseBanner(s: RecallSession, targets: DemoTargets?) {
     Column(Modifier.fillMaxWidth().demoTarget(targets, "phase"), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             "ROUND ${s.round + 1} OF ${s.cfg.rounds}", fontSize = 11.sp, letterSpacing = 1.2.sp,
-            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant.readable(),
         )
         AnimatedContent(
             s.phase, label = "phase",
@@ -372,7 +374,7 @@ private fun PhaseBanner(s: RecallSession, targets: DemoTargets?) {
                     RecallPhase.RECALL -> if (s.cfg.ordered) "Your turn — in order" else "Your turn"
                     RecallPhase.PASS -> "Round clear!"
                 },
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleLarge, color = backdropInk(),
             )
         }
         val frac = if (s.phase == RecallPhase.SHOW) 1f - (s.phaseMs / s.showMs.toFloat()).coerceIn(0f, 1f) else 0f

@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.cards
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -291,7 +293,7 @@ private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = Pro
             }
             PopCard(g.top, true, 86.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("SUIT", fontSize = 10.sp, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("SUIT", fontSize = 10.sp, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
                 Text(Cards.suitSymbol(g.suit), fontSize = 34.sp, color = th.ink(g.suit), fontWeight = FontWeight.Bold)
             }
         }

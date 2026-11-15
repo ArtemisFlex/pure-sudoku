@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.cards
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -554,13 +556,13 @@ private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
     val deal = s.deal
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth().demoTarget(targets, "torches"), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text("FLOOR ${s.floor + 1} OF ${s.cfg.floors}", fontSize = 12.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            Text("   Torches: " + "🔥".repeat(maxOf(0, s.torchesLeft)) + "·".repeat(maxOf(0, s.cfg.passes - 1 - s.torchesLeft)), fontSize = 14.sp)
+            Text("FLOOR ${s.floor + 1} OF ${s.cfg.floors}", fontSize = 12.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary.readable())
+            Text("   Torches: " + "🔥".repeat(maxOf(0, s.torchesLeft)) + "·".repeat(maxOf(0, s.cfg.passes - 1 - s.torchesLeft)), fontSize = 14.sp, color = backdropInk())
         }
         Spacer(Modifier.height(6.dp))
         TableMessage(s.message)
         Spacer(Modifier.height(4.dp))
-        Text(s.prompt, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
+        Text(s.prompt, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary.readable(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = 8.dp))
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val cw = min(maxWidth / 7.4f, (maxHeight - 10.dp) / (cardHeight(1.dp).value * (6 * 0.5f + 1) + 1.6f) )
@@ -575,7 +577,7 @@ private fun PyramidTable(s: PyramidSession, targets: DemoTargets?) {
             }
             Text(if (s.pos < 24) "Deck · tap" else if (s.torchesLeft > 0) "Relight" else "Empty",
                 Modifier.offset(stockX, stockY + ch + 2.dp).width(cw), fontSize = 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.readable())
             Box(Modifier) {
             }
             val cards = ArrayList<Placed>(52)

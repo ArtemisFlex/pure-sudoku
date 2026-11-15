@@ -267,7 +267,7 @@ private fun GoUi(s: GoSession, targets: DemoTargets?) {
                 s.ghost >= 0 -> "Tap again to place it"
                 else -> s.message
             }, s.thinking, Modifier.weight(1f, fill = false))
-            OutlinedButton(onClick = s::pass, enabled = !s.thinking && s.final == null, modifier = Modifier.demoTarget(targets, "pass")) { Text("Pass") }
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::pass, enabled = !s.thinking && s.final == null, modifier = Modifier.demoTarget(targets, "pass")) { Text("Pass") }
         }
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))
     }
@@ -577,7 +577,7 @@ private fun BackgammonUi(s: BackgammonSession, targets: DemoTargets?) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TurnBanner(if (s.thinking) "Computer is thinking…" else s.message, s.thinking, Modifier.weight(1f, fill = false))
             if (s.needRoll) Button(onClick = s::roll, modifier = Modifier.demoTarget(targets, "roll")) { Text("Roll") }
-            else if (s.canUndo) OutlinedButton(onClick = s::undo) { Text("Undo") }
+            else if (s.canUndo) com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::undo) { Text("Undo") }
         }
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))
     }
@@ -833,8 +833,8 @@ private fun MahjongUi(s: MahjongSession, targets: DemoTargets?) {
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = s::hint, enabled = s.hints > 0, modifier = Modifier.demoTarget(targets, "hint")) { Text("Hint" + if (s.hints in 1..98) " (${s.hints})" else "") }
-            OutlinedButton(onClick = s::shuffle, enabled = s.shuffles > 0) { Text("Shuffle" + if (s.shuffles in 1..98) " (${s.shuffles})" else "") }
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::hint, enabled = s.hints > 0, modifier = Modifier.demoTarget(targets, "hint")) { Text("Hint" + if (s.hints in 1..98) " (${s.hints})" else "") }
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::shuffle, enabled = s.shuffles > 0) { Text("Shuffle" + if (s.shuffles in 1..98) " (${s.shuffles})" else "") }
         }
         if (s.message.isNotEmpty()) { Spacer(Modifier.height(6.dp)); TurnBanner(s.message, false) }
         Spacer(Modifier.height(if (targets == null) 12.dp else 4.dp))

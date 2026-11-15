@@ -1,5 +1,7 @@
 package com.puresudoku.ui.games.code
 
+import com.puresudoku.ui.components.readable
+import com.puresudoku.ui.components.backdropInk
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -308,7 +310,7 @@ private fun CodeLayout(s: CodeSession, targets: DemoTargets?, status: Boolean = 
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = s::backspace) {
+            com.puresudoku.ui.components.BackdropOutlinedButton(onClick = s::backspace) {
                 Icon(Icons.AutoMirrored.Outlined.Backspace, contentDescription = "Delete", modifier = Modifier.size(18.dp))
             }
             Button(onClick = s::submit, enabled = s.outcome == Outcome.PLAYING, modifier = Modifier.demoTarget(targets, "submit").width(140.dp)) { Text("Guess") }
@@ -336,7 +338,7 @@ private fun GuessRow(
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("${row + 1}", Modifier.width(22.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text("${row + 1}", Modifier.width(22.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.let { if (isCurrent) it else it.readable() }, fontSize = 13.sp)
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (k in 0 until s.cfg.length) {
                 val sym = guess?.get(k) ?: 0

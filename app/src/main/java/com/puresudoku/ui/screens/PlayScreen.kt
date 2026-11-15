@@ -1,5 +1,7 @@
 package com.puresudoku.ui.screens
 
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -107,11 +109,12 @@ fun PlayScreen(vm: AppViewModel) {
             }
         }
         if (def.fullBleed) Box(Modifier.fillMaxSize()) { def.Play(session) }
-        ShadowedText(backdrop != 0) {
+        ShadowedText(backdrop) {
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            BackdropChrome(enabled = !def.hasHeader) {
             if (def.hasHeader) def.Header(session, com.puresudoku.ui.games.HeaderActions(
                 back = vm::leaveGame, info = { vm.openTutorial(session.kind) },
                 pause = { if (vm.paused) vm.unpause() else vm.pause() }, paused = vm.paused, canPause = playing,
@@ -148,6 +151,7 @@ fun PlayScreen(vm: AppViewModel) {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 )
             }
+            }
 
             var coachOpen by remember(session) { mutableStateOf(session.training) }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -164,12 +168,15 @@ fun PlayScreen(vm: AppViewModel) {
                             .clickable(remember { MutableInteractionSource() }, null) { vm.unpause() },
                         contentAlignment = Alignment.Center,
                     ) {
+                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Paused", style = MaterialTheme.typography.headlineMedium)
+                            Text("Paused", style = MaterialTheme.typography.headlineMedium.copy(shadow = androidx.compose.ui.graphics.Shadow.None))
                             Spacer(Modifier.height(4.dp))
-                            Text(formatTime(session.elapsedMs), fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatTime(session.elapsedMs), fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = androidx.compose.ui.graphics.Shadow.None))
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = vm::unpause) { Text("Resume") }
+                        }
                         }
                     }
                 }
@@ -332,13 +339,73 @@ private fun Backdrop(res: Int) {
 
 
 /**
- * Over a backdrop, every piece of game text gets a soft halo in the page colour, so it reads
- * on any scene without dimming the art.
+ * Over a backdrop, game text keeps its own colours with a soft halo (or, on a busy scene, the
+ * measured shadow), and [BackdropInk] is provided so text that sits directly on the scene can
+ * call [com.puresudoku.ui.components.readable].
  */
 @Composable
-private fun ShadowedText(enabled: Boolean, content: @Composable () -> Unit) {
-    if (!enabled) { content(); return }
-    val halo = androidx.compose.ui.graphics.Shadow(MaterialTheme.colorScheme.background.copy(alpha = 0.95f), androidx.compose.ui.geometry.Offset(0f, 1f), 8f)
+private fun ShadowedText(backdrop: Int, content: @Composable () -> Unit) {
+    if (backdrop == 0) { content(); return }
+    // A backdrop is fixed art that looks the same in light and dark mode, so the play area over
+    // it uses one palette too: the light one, whose white panels and dark text read on any scene
+    // once on-scene text goes through readable().
+    com.puresudoku.ui.theme.PureSudokuTheme(dark = false) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+            SceneText(backdrop, content)
+        }
+    }
+}
+
+@Composable
+private fun SceneText(backdrop: Int, content: @Composable () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val aspect = cfg.screenWidthDp.toFloat() / cfg.screenHeightDp.coerceAtLeast(1)
+    val spec = remember(backdrop, aspect) { com.puresudoku.ui.components.BackdropInks.of(ctx, backdrop, aspect) }
+    // A soft halo on the far side of the ink: dark round white text, light round dark text.
+    val opposite = if (spec.ink.luminance() > 0.5f) Color.Black else Color.White
+    val halo = spec.shadow?.let { busyShadow(it) }
+        ?: androidx.compose.ui.graphics.Shadow(opposite.copy(alpha = 0.55f), androidx.compose.ui.geometry.Offset(0f, 1f), 8f)
+    WithShadow(halo, MaterialTheme.colorScheme) {
+        androidx.compose.runtime.CompositionLocalProvider(com.puresudoku.ui.components.LocalBackdropInk provides spec) { content() }
+    }
+}
+
+/** The top bar, stats and hint sit straight on the backdrop: they take its measured ink, and a shadow only when the scene is busy. */
+@Composable
+private fun BackdropChrome(enabled: Boolean, content: @Composable () -> Unit) {
+    if (!enabled) return content()
+    val spec = com.puresudoku.ui.components.LocalBackdropInk.current ?: return content()
+    val scheme = MaterialTheme.colorScheme.copy(onBackground = spec.ink, onSurfaceVariant = spec.ink.copy(alpha = 0.85f))
+    WithShadow(spec.shadow?.let { busyShadow(it) } ?: androidx.compose.ui.graphics.Shadow.None, scheme) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides spec.ink) {
+            if (spec.scrim <= 0f) content() else {
+                // Wash behind the bar, reaching up under the status bar and fading out below it.
+                val wash = if (spec.ink.luminance() > 0.5f) Color.Black else Color.White
+                Column(
+                    Modifier.fillMaxWidth().drawBehind {
+                        val up = 400f; val down = 24.dp.toPx()
+                        drawRect(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0f to wash.copy(alpha = spec.scrim), 0.75f to wash.copy(alpha = spec.scrim), 1f to Color.Transparent,
+                                startY = -up, endY = size.height + down,
+                            ),
+                            topLeft = androidx.compose.ui.geometry.Offset(-200f, -up),
+                            size = androidx.compose.ui.geometry.Size(size.width + 400f, size.height + up + down),
+                        )
+                    },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) { content() }
+            }
+        }
+    }
+}
+
+/** A tight halo hugging each letter: reads like an outline on bright patches of a busy scene. */
+private fun busyShadow(c: Color) = androidx.compose.ui.graphics.Shadow(c, androidx.compose.ui.geometry.Offset(0f, 1f), 5f)
+
+@Composable
+private fun WithShadow(halo: androidx.compose.ui.graphics.Shadow, scheme: androidx.compose.material3.ColorScheme, content: @Composable () -> Unit) {
     val t = MaterialTheme.typography
     fun androidx.compose.ui.text.TextStyle.h() = copy(shadow = halo)
     val typography = t.copy(
@@ -348,7 +415,7 @@ private fun ShadowedText(enabled: Boolean, content: @Composable () -> Unit) {
         bodyLarge = t.bodyLarge.h(), bodyMedium = t.bodyMedium.h(), bodySmall = t.bodySmall.h(),
         labelLarge = t.labelLarge.h(), labelMedium = t.labelMedium.h(), labelSmall = t.labelSmall.h(),
     )
-    MaterialTheme(colorScheme = MaterialTheme.colorScheme, typography = typography, shapes = MaterialTheme.shapes) {
+    MaterialTheme(colorScheme = scheme, typography = typography, shapes = MaterialTheme.shapes) {
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.LocalTextStyle.current.copy(shadow = halo),
         ) { content() }
