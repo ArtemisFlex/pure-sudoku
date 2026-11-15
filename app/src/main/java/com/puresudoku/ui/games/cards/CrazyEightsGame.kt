@@ -256,13 +256,7 @@ object CrazyEightsDef : GameDef {
 @Composable
 private fun CrazyEightsTable(s: CrazyEightsSession, targets: DemoTargets?) = ProvideCardTheme(CardThemes.CRAZY_EIGHTS) {
     if (s.localTwoPlayer && s.handoffPending) {
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Hand phone to Player ${s.currentPlayer + 1}")
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = s::acceptHandoff) { Text("I'm ready") }
-            }
-        }
+        com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return@ProvideCardTheme
     }
     @Suppress("UNUSED_VARIABLE") val v = s.version

@@ -8,6 +8,7 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Done
 
+- 2026-11-15 Pass-the-phone screens (card games, Aegwaspell, Veilguard, Wisteria, Kreashun) now fill the whole screen in the next player's colour (Player 1 blue, Player 2 red) with white text.
 - 2026-11-15 Pass-and-play board games (chess, checkers, go, xiangqi, shogi, gomoku, morris, mancala, backgammon, tic-tac-toe): no more "hand phone to Player X" pop-up; a bar in the side's colour shows whose move it is.
 - 2026-11-15 Street Smarts: full-screen map with a minimal floating bar, pinch to zoom and drag to pan (recentre button), every route has at least 4-5 turns, old saves load safely.
 - 2026-11-15 puregames.app updated: Street Smarts, Early Learning, text fix; new versions now take over as soon as they download.

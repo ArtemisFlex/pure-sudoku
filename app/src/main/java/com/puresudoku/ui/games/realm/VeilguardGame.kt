@@ -580,12 +580,7 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     if (s.localTwoPlayer && s.handoffPending) {
-        Box(Modifier.fillMaxSize().background(PARCH_TOP), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Hand phone to Player ${s.currentPlayer + 1}", color = INK, fontFamily = SERIF, fontSize = 22.sp)
-                Spacer(Modifier.height(16.dp)); WoodButton("I'm ready", null) { s.acceptHandoff() }
-            }
-        }
+        com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return
     }
     val full = targets == null

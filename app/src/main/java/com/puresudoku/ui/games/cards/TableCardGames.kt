@@ -513,13 +513,7 @@ object GoFishDef : GameDef {
 private fun GoFishTable(s: GoFishSession, targets: DemoTargets?) {
     com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.GO_FISH) {
     if (s.localTwoPlayer && s.handoffPending) {
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Hand phone to Player ${s.currentPlayer + 1}")
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = s::acceptHandoff) { Text("Ready") }
-            }
-        }
+        com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return@ProvideCardTheme
     }
     @Suppress("UNUSED_VARIABLE") val v = s.version
@@ -837,13 +831,7 @@ private fun Field(points: List<PointCard>, royals: List<Int>, w: Dp) {
 private fun CuttleTable(s: CuttleSession, targets: DemoTargets?) {
     com.puresudoku.ui.components.ProvideCardTheme(com.puresudoku.ui.components.CardThemes.CUTTLE) {
     if (s.localTwoPlayer && s.handoffPending) {
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Hand phone to Player ${s.currentPlayer + 1}")
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = s::acceptHandoff) { Text("Ready") }
-            }
-        }
+        com.puresudoku.ui.components.HandoffScreen(s.currentPlayer + 1, onReady = { s.acceptHandoff() })
         return@ProvideCardTheme
     }
     @Suppress("UNUSED_VARIABLE") val v = s.version
