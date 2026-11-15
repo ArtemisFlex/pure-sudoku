@@ -13,7 +13,7 @@ class StreetSmartsTest {
         assertTrue("lights", city.lights.count { it != null } > 20)
         assertTrue("one-way blocks", city.edges.count { it.oneWay != 0 } > 50)
         assertTrue("bridges", city.edges.count { it.bridge } >= 5)
-        assertEquals("places", City.PLACES, city.places.size)
+        assertEquals("customers", City.CUSTOMERS, city.places.count { it.kind == City.Kind.CUSTOMER })
         val game = StreetSmarts.newGame(1).apply { deliveries = 1000 }   // whole city open
         val home = city.edges[city.places[city.home].edge].a
         for (p in city.places) {

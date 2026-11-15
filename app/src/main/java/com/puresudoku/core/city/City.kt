@@ -23,8 +23,8 @@ class City private constructor() {
         const val BLOCK = 100f          // metres between intersections
         const val STOP_WAIT = 4         // seconds lost at a stop sign
         const val SEED = 20261114L
-        /** Every place in the city: home, landmarks, shops, eateries and regular customers. */
-        const val PLACES = 100
+        /** Regular customers: households who order again and again, spread over every district. */
+        const val CUSTOMERS = 100
 
         /** The city, built once. */
         val harbor: City by lazy { City().also { it.build(Random(SEED)) } }
@@ -289,11 +289,11 @@ class City private constructor() {
         // regular customers: households on quiet streets, in every district
         val names = HashSet<String>()
         var k = 0
-        // regulars fill the city up to exactly PLACES places, so it can be learned by heart
-        while (places.size < PLACES) {
+        // regular customers, to learn by heart
+        while (names.size < CUSTOMERS) {
             val nm = first[k % first.size] + " " + last[(k * 7 + k / first.size) % last.size]; k++
             if (!names.add(nm)) continue
-            val maxRing = 2 + (names.size - 1) * 12 / 37
+            val maxRing = 2 + (names.size - 1) * 12 / CUSTOMERS
             place(nm, Kind.CUSTOMER) { ring(it.a) <= maxRing && !streets[it.street].major }
         }
     }

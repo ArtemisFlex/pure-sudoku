@@ -579,36 +579,111 @@ private fun DrawScope.drawOctagon(c: Offset, r: Float) {
     drawPath(path, Color.White, style = Stroke(r * 0.18f))
 }
 
-/** A little top-down car (or van, scooter...) pointing along [heading] degrees. */
-private fun DrawScope.drawCar(c: Offset, heading: Float, density: Float, paint: Color, style: StreetSmarts.CarStyle) {
-    val len = when (style) { StreetSmarts.CarStyle.VAN -> 26f; StreetSmarts.CarStyle.SCOOTER -> 16f; StreetSmarts.CarStyle.PICKUP -> 25f; else -> 22f } * density
-    val wid = if (style == StreetSmarts.CarStyle.SCOOTER) 7f * density else 12f * density
-    drawCircle(Color(0x334285F4), len * 0.95f, c)
+/**
+ * A top-down vehicle facing along [heading] degrees, in the player's [paint]: body, glass, roof,
+ * wheels, mirrors, headlights and taillights. Each style has its own shape.
+ */
+private fun DrawScope.drawCar(c: Offset, heading: Float, density: Float, paint: Color, style: StreetSmarts.CarStyle, glow: Boolean = true) {
+    val d = density
+    val (len, wid) = when (style) {
+        StreetSmarts.CarStyle.SCOOTER -> 20f to 8f
+        StreetSmarts.CarStyle.HATCH -> 26f to 14f
+        StreetSmarts.CarStyle.SUV -> 31f to 16f
+        StreetSmarts.CarStyle.VAN -> 34f to 15f
+        StreetSmarts.CarStyle.PICKUP -> 33f to 15f
+        StreetSmarts.CarStyle.TRUCK -> 40f to 16f
+        else -> 30f to 14f
+    }.let { (l, w) -> l * d to w * d }
+    val hx = len / 2; val hy = wid / 2
+    val ink = Color(0xFF202124)
+    val glass = Color(0xFF9CC3F5)
+    val dark = lerpColor(paint, Color.Black, 0.28f)
+    val light = lerpColor(paint, Color.White, 0.25f)
+    fun rr(l: Float, t: Float, r: Float, b: Float, rear: Float, front: Float) = Path().apply {
+        addRoundRect(androidx.compose.ui.geometry.RoundRect(l, t, r, b,
+            topLeftCornerRadius = androidx.compose.ui.geometry.CornerRadius(rear), topRightCornerRadius = androidx.compose.ui.geometry.CornerRadius(front),
+            bottomRightCornerRadius = androidx.compose.ui.geometry.CornerRadius(front), bottomLeftCornerRadius = androidx.compose.ui.geometry.CornerRadius(rear)))
+    }
+    fun quad(x1: Float, w1: Float, x2: Float, w2: Float) = Path().apply { moveTo(x1, -w1); lineTo(x2, -w2); lineTo(x2, w2); lineTo(x1, w1); close() }
+    // a soft glow under the car so it stands out on the map
+    if (glow) drawCircle(Color(0x334285F4), len * 0.8f, c)
     rotate(heading, c) {
         translate(c.x, c.y) {
-            drawRoundRect(Color(0x55000000), Offset(-len / 2 + density, -wid / 2 + density), Size(len, wid), androidx.compose.ui.geometry.CornerRadius(wid * 0.35f))
-            drawRoundRect(paint, Offset(-len / 2, -wid / 2), Size(len, wid), androidx.compose.ui.geometry.CornerRadius(wid * 0.35f))
-            drawRoundRect(Color(0xFF202124).copy(alpha = 0.8f), Offset(-len / 2, -wid / 2), Size(len, wid), androidx.compose.ui.geometry.CornerRadius(wid * 0.35f), style = Stroke(1.2f * density))
-            val glass = Color(0xFF9CC3F5)
+            if (style == StreetSmarts.CarStyle.SCOOTER) {
+                drawRoundRect(Color(0x55000000), Offset(-hx + d, -hy + d), Size(len, wid), androidx.compose.ui.geometry.CornerRadius(hy))
+                drawRoundRect(ink, Offset(-hx, -hy * 0.45f), Size(len * 0.26f, hy * 0.9f), androidx.compose.ui.geometry.CornerRadius(hy * 0.4f))   // back wheel
+                drawRoundRect(ink, Offset(hx - len * 0.26f, -hy * 0.45f), Size(len * 0.26f, hy * 0.9f), androidx.compose.ui.geometry.CornerRadius(hy * 0.4f))
+                drawPath(rr(-hx * 0.75f, -hy, hx * 0.7f, hy, hy, hy * 0.6f), paint)
+                drawLine(ink, Offset(hx * 0.45f, -hy * 1.35f), Offset(hx * 0.45f, hy * 1.35f), 1.6f * d, StrokeCap.Round)   // handlebars
+                drawOval(dark, Offset(-hx * 0.55f, -hy * 0.6f), Size(len * 0.38f, hy * 1.2f))                                 // seat
+                drawCircle(light, hy * 0.75f, Offset(hx * 0.05f, 0f))                                                        // helmet
+                drawCircle(Color(0xFFFFF59D), hy * 0.3f, Offset(hx * 0.92f, 0f))
+                return@translate
+            }
+            // shadow and wheels
+            drawPath(rr(-hx + d * 1.2f, -hy + d * 1.2f, hx + d * 1.2f, hy + d * 1.2f, wid * 0.3f, wid * 0.35f), Color(0x55000000))
+            val wl = len * 0.17f; val ww = wid * 0.16f
+            for (x in listOf(-hx + len * 0.12f, hx - len * 0.12f - wl)) for (sgn in listOf(-1f, 1f))
+                drawRoundRect(ink, Offset(x, if (sgn < 0) -hy - ww * 0.35f else hy - ww * 0.65f), Size(wl, ww), androidx.compose.ui.geometry.CornerRadius(ww * 0.4f))
             when (style) {
-                StreetSmarts.CarStyle.SCOOTER -> drawCircle(Color(0xFF202124), wid * 0.35f, Offset(len * 0.05f, 0f))
-                StreetSmarts.CarStyle.PICKUP -> {
-                    drawRect(glass, Offset(len * 0.08f, -wid * 0.36f), Size(len * 0.16f, wid * 0.72f))
-                    drawRect(Color(0x33000000), Offset(-len * 0.45f, -wid * 0.36f), Size(len * 0.42f, wid * 0.72f))
+                StreetSmarts.CarStyle.TRUCK -> {
+                    val split = hx - len * 0.27f
+                    drawPath(rr(-hx, -hy, split - d, hy, wid * 0.08f, wid * 0.08f), Color(0xFFF1F3F4))          // white box
+                    drawRect(Color(0xFFDADCE0), Offset(-hx, -d * 0.5f), Size(split - d + hx, d))                  // roof seam
+                    drawPath(rr(split, -hy, hx, hy, wid * 0.12f, wid * 0.3f), paint)                              // cab
+                    drawPath(quad(split + len * 0.08f, hy * 0.8f, hx - len * 0.05f, hy * 0.72f), glass)
                 }
-                StreetSmarts.CarStyle.VAN -> drawRect(glass, Offset(len * 0.22f, -wid * 0.38f), Size(len * 0.14f, wid * 0.76f))
-                else -> {
-                    drawRect(glass, Offset(len * 0.1f, -wid * 0.36f), Size(len * 0.16f, wid * 0.72f))
-                    drawRect(glass, Offset(-len * 0.32f, -wid * 0.32f), Size(len * 0.1f, wid * 0.64f))
-                    if (style == StreetSmarts.CarStyle.TAXI) drawRect(Color(0xFF202124), Offset(-len * 0.08f, -wid * 0.2f), Size(len * 0.12f, wid * 0.4f))
+                StreetSmarts.CarStyle.VAN -> {
+                    drawPath(rr(-hx, -hy, hx, hy, wid * 0.18f, wid * 0.42f), paint)
+                    drawPath(quad(hx - len * 0.24f, hy * 0.82f, hx - len * 0.08f, hy * 0.72f), glass)             // windscreen
+                    drawPath(rr(-hx + len * 0.06f, -hy * 0.78f, hx - len * 0.26f, hy * 0.78f, wid * 0.1f, wid * 0.1f), light)   // long roof
+                    drawLine(dark, Offset(-hx + len * 0.4f, -hy), Offset(-hx + len * 0.4f, hy), d)                // sliding door
+                }
+                StreetSmarts.CarStyle.PICKUP -> {
+                    drawPath(rr(-hx, -hy, hx, hy, wid * 0.15f, wid * 0.38f), paint)
+                    drawRoundRect(Color(0xFF3C4043), Offset(-hx + len * 0.05f, -hy * 0.72f), Size(len * 0.42f, hy * 1.44f), androidx.compose.ui.geometry.CornerRadius(wid * 0.06f))   // open bed
+                    drawPath(quad(hx - len * 0.3f, hy * 0.8f, hx - len * 0.14f, hy * 0.72f), glass)
+                    drawRect(light, Offset(-hx + len * 0.5f, -hy * 0.76f), Size(len * 0.18f, hy * 1.52f))         // cab roof
+                }
+                StreetSmarts.CarStyle.SUV -> {
+                    drawPath(rr(-hx, -hy, hx, hy, wid * 0.2f, wid * 0.3f), paint)
+                    drawPath(quad(hx - len * 0.3f, hy * 0.86f, hx - len * 0.15f, hy * 0.76f), glass)
+                    drawPath(quad(-hx + len * 0.1f, hy * 0.78f, -hx + len * 0.18f, hy * 0.84f), glass)
+                    drawRect(light, Offset(-hx + len * 0.18f, -hy * 0.84f), Size(len * 0.52f, hy * 1.68f))
+                    for (k in 1..3) drawLine(dark, Offset(-hx + len * (0.18f + k * 0.13f), -hy * 0.7f), Offset(-hx + len * (0.18f + k * 0.13f), hy * 0.7f), d * 0.8f)   // roof rack
+                }
+                StreetSmarts.CarStyle.SPORTS -> {
+                    drawPath(rr(-hx, -hy, hx, hy, wid * 0.32f, wid * 0.5f), paint)
+                    drawPath(quad(-hx + len * 0.3f, hy * 0.7f, -hx + len * 0.48f, hy * 0.8f), glass)                // windscreen, set well back
+                    drawRect(dark, Offset(-hx + len * 0.12f, -hy * 0.7f), Size(len * 0.18f, hy * 1.4f))             // cockpit
+                    for (sgn in listOf(-1f, 1f)) drawLine(Color.White.copy(alpha = 0.85f), Offset(-hx + d, sgn * hy * 0.2f), Offset(hx - d, sgn * hy * 0.2f), d * 1.3f)   // racing stripes
+                }
+                else -> {   // sedan, hatchback, cab
+                    val hatch = style == StreetSmarts.CarStyle.HATCH
+                    drawPath(rr(-hx, -hy, hx, hy, wid * (if (hatch) 0.22f else 0.3f), wid * 0.42f), paint)
+                    drawPath(quad(hx - len * 0.36f, hy * 0.84f, hx - len * 0.2f, hy * 0.74f), glass)                // windscreen
+                    val rearStart = if (hatch) -hx + len * 0.06f else -hx + len * 0.16f
+                    drawPath(quad(rearStart, hy * 0.72f, rearStart + len * 0.1f, hy * 0.8f), glass)                // rear window
+                    drawRect(light, Offset(rearStart + len * 0.1f, -hy * 0.8f), Size(hx - len * 0.36f - rearStart - len * 0.1f, hy * 1.6f))   // roof
+                    if (style == StreetSmarts.CarStyle.TAXI) {
+                        drawRoundRect(Color(0xFFFBBC04), Offset(-len * 0.08f, -hy * 0.32f), Size(len * 0.16f, hy * 0.64f), androidx.compose.ui.geometry.CornerRadius(d))
+                        for (k in 0..3) drawRect(ink, Offset(-len * 0.08f + k * len * 0.04f, -hy * 0.32f + (k % 2) * hy * 0.32f), Size(len * 0.04f, hy * 0.32f))
+                    }
                 }
             }
-            // headlights show which way is forward
-            drawCircle(Color(0xFFFFF59D), wid * 0.12f, Offset(len * 0.46f, -wid * 0.3f))
-            drawCircle(Color(0xFFFFF59D), wid * 0.12f, Offset(len * 0.46f, wid * 0.3f))
+            // mirrors, lights and outline
+            if (style != StreetSmarts.CarStyle.TRUCK) for (sgn in listOf(-1f, 1f))
+                drawOval(dark, Offset(hx - len * 0.36f, if (sgn < 0) -hy - d * 1.6f else hy - d * 0.4f), Size(d * 2.6f, d * 2f))
+            for (sgn in listOf(-1f, 1f)) {
+                drawRoundRect(Color(0xFFFFF59D), Offset(hx - d * 2.4f, sgn * hy * 0.62f - d * 1.2f), Size(d * 2f, d * 2.4f), androidx.compose.ui.geometry.CornerRadius(d))
+                drawRoundRect(Color(0xFFE53935), Offset(-hx + d * 0.4f, sgn * hy * 0.62f - d * 1.2f), Size(d * 1.6f, d * 2.4f), androidx.compose.ui.geometry.CornerRadius(d * 0.6f))
+            }
+            drawPath(rr(-hx, -hy, hx, hy, wid * 0.25f, wid * 0.35f), ink.copy(alpha = 0.55f), style = Stroke(d))
         }
     }
 }
+
+private fun lerpColor(a: Color, b: Color, t: Float) = Color(a.red + (b.red - a.red) * t, a.green + (b.green - a.green) * t, a.blue + (b.blue - a.blue) * t, 1f)
 
 // =====================================================================  the screen
 
@@ -877,7 +952,7 @@ private fun GarageDialog(s: StreetSmartsSession, close: () -> Unit) {
                     val owned = g.ownsStyle(c.ordinal) || c.price == 0
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { s.shop(style = c.ordinal) }
                         .background(if (g.car == c.ordinal) MaterialTheme.colorScheme.primaryContainer else Color.Transparent).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(Modifier.size(44.dp, 26.dp)) { drawCar(center, 0f, density, Color(g.paints[g.paint]), c) }
+                        Canvas(Modifier.size(76.dp, 36.dp)) { drawCar(center, 0f, density * 1.7f, Color(g.paints[g.paint]), c, glow = false) }
                         Spacer(Modifier.width(8.dp))
                         Text(c.label, Modifier.weight(1f))
                         Text(if (g.car == c.ordinal) "Driving" else if (owned) "Owned" else "${c.price}", fontWeight = FontWeight.SemiBold)

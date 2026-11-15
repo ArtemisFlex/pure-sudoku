@@ -419,7 +419,7 @@ class StreetSmarts(val city: City = City.harbor) {
         return true
     }
 
-    enum class CarStyle(val label: String, val price: Int) { SEDAN("Sedan", 0), HATCH("Hatchback", 60), VAN("Delivery van", 120), PICKUP("Pickup", 160), SCOOTER("Scooter", 90), TAXI("Cab", 220) }
+    enum class CarStyle(val label: String, val price: Int) { SEDAN("Sedan", 0), HATCH("Hatchback", 60), VAN("Delivery van", 120), PICKUP("Pickup", 160), SCOOTER("Scooter", 90), TAXI("Cab", 220), SPORTS("Sports car", 300), SUV("SUV", 180), TRUCK("Box truck", 250) }
     val paints = listOf(0xFF1A73E8, 0xFFD93025, 0xFF188038, 0xFFF9AB00, 0xFF7B1FA2, 0xFF202124, 0xFFFFFFFF, 0xFFE8710A, 0xFF12B5CB, 0xFFFF6D9E)
     fun paintPrice(i: Int) = if (i == 0) 0 else 25 + i * 5
     fun owns(style: Int, paintIx: Int) = (style * 100 + paintIx) in owned || (CarStyle.entries[style].price == 0 && paintPrice(paintIx) == 0)
