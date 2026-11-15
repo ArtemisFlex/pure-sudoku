@@ -2,19 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#1F2A3A">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>PureGames</title>
-    <link rel="icon" href="data:,">
+    <meta name="description" content="48 games for your brain: number, word, card, board and strategy games. Every one fresh, no ads, works offline.">
+    <meta name="theme-color" content="#F6F3EE" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121216" media="(prefers-color-scheme: dark)">
+    <!-- installable web app: home-screen icon, full screen, works offline -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="PureGames">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <style>
-        html, body { margin: 0; height: 100%; overflow: hidden; background: #F6F3EE; }
+        html, body { margin: 0; height: 100%; overflow: hidden; background: #F6F3EE; overscroll-behavior: none; }
         @media (prefers-color-scheme: dark) { html, body { background: #121216; } #loading { color: #ddd; } }
-        #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        #loading { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
                    font: 600 18px system-ui, sans-serif; color: #333; }
+        #loading img { width: 96px; height: 96px; }
     </style>
+    <script>
+        // Offline play and quick starts: the service worker keeps a copy of the app on this device.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+        }
+        // Ask the browser not to clear saves when the device runs low on space.
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    </script>
     <script src="puregames.js"></script>
 </head>
 <body>
-<div id="loading">Loading PureGames…</div>
+<div id="loading"><img src="icons/icon.svg" alt=""><span>Loading PureGames…</span></div>
 </body>
 </html>

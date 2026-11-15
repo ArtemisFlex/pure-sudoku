@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 // PureGames in the browser: compiles the Android app's own game rules and screens to WebAssembly.
@@ -99,4 +100,26 @@ compose.resources {
     generateResClass = always
     packageOfResClass = "com.puresudoku.web.res"
     customDirectory(sourceSetName = "commonMain", directoryProvider = gatherArt.map { layout.buildDirectory.dir("appArt").get() })
+}
+
+// The installable web app's service worker: after each production build, list every file to keep
+// offline and stamp a version that changes whenever any of them does (see sw-template.js).
+tasks.named("wasmJsBrowserDistribution") {
+    doLast {
+        val dist = layout.buildDirectory.dir("dist/wasmJs/productionExecutable").get().asFile
+        val skip = setOf("sw.js", "vercel.json")
+        val files = dist.walkTopDown()
+            .filter { it.isFile && !it.relativeTo(dist).invariantSeparatorsPath.split("/").any { p -> p.startsWith(".") } }
+            .map { it.relativeTo(dist).invariantSeparatorsPath }
+            .filter { it !in skip && !it.endsWith(".map") && !it.endsWith(".LICENSE.txt") && it != "index.html" }
+            .sorted().toList()
+        val digest = MessageDigest.getInstance("SHA-256")
+        (files + "index.html").forEach { digest.update(it.toByteArray()); digest.update(dist.resolve(it).readBytes()) }
+        val version = digest.digest().joinToString("") { "%02x".format(it) }.take(16)
+        val list = (listOf("./") + files).joinToString(",\n  ", "[\n  ", "\n]") { "\"$it\"" }
+        dist.resolve("sw.js").writeText(
+            file("sw-template.js").readText().replace("'__VERSION__'", "'$version'").replace("__FILES__", list)
+        )
+        logger.lifecycle("Service worker: ${files.size + 1} files, version $version")
+    }
 }

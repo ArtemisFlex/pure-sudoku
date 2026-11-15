@@ -20,6 +20,14 @@ Kotlin/Wasm and Compose Multiplatform. Nothing is copied: `build.gradle.kts` com
   `fonts/OFL-Noto.txt`) for card suits, arrows, symbols, an emoji and the Chinese/Japanese piece names.
   Add characters there (fontTools `pyftsubset`) if the app starts using new symbols.
 
+## Installable web app
+
+`manifest.webmanifest`, the icons in `resources/icons/` (drawn from the Android launcher icon) and a
+service worker make the site installable ("Add to Home Screen" / "Install app") and playable offline.
+The production build writes `sw.js` from `sw-template.js`: it lists every file and carries a version
+hash of them all, so each deploy installs as one consistent copy that takes over the next time the
+app is opened.
+
 ## Build and run
 
 ```bash
@@ -34,5 +42,7 @@ The production folder is a static site (it includes `vercel.json` for caching). 
 `puregames` Vercel project, served at https://puregames.app (and www.puregames.app):
 
 ```bash
-vercel deploy build/dist/wasmJs/productionExecutable --prod --scope formappteam
+cd build/dist/wasmJs/productionExecutable
+vercel link --yes --project puregames --scope formappteam   # each build recreates this folder
+vercel deploy --prod --yes --scope formappteam
 ```
