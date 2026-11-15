@@ -87,6 +87,8 @@ private fun Face(card: Int, width: Dp, highlight: Boolean, error: Boolean, art: 
     val small = with(density) { (width * 0.27f).toSp() }
     val big = with(density) { (width * 0.5f).toSp() }
     val th = LocalCardTheme.current
+    // The card is its own white surface: its rank and suits never take the backdrop's text shadow.
+    NoShadow {
     Box(
         Modifier.fillMaxSize().clip(shape).background(if (error) Color(0xFFFFE1E1) else th.face)
             .border(if (highlight) 3.dp else 1.dp, if (highlight) colors.entered else th.edge, shape),
@@ -112,7 +114,16 @@ private fun Face(card: Int, width: Dp, highlight: Boolean, error: Boolean, art: 
             fontSize = if (Cards.rank(card) in 11..13) big * 0.8f else big, color = col, fontWeight = FontWeight.Bold, fontFamily = th.font,
         )
     }
+    }
 }
+
+/** Text inside [content] draws without the backdrop's shadow (for text on cards and other solid surfaces). */
+@Composable
+fun NoShadow(content: @Composable () -> Unit) =
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.LocalTextStyle.current.copy(shadow = androidx.compose.ui.graphics.Shadow.None),
+        content = content,
+    )
 
 @Composable
 fun Back(width: Dp, highlight: Boolean = false) {

@@ -4,12 +4,6 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Open
 
-### Dungeon Delver: no shadow on card faces
-The rank numbers and suit symbols printed on the cards get the backdrop text shadow/halo, which smudges them
-(see the Easy pyramid screenshot from 2026-11-14). Card-face text and suits should draw crisp, with no shadow;
-only text that sits directly on the dungeon scene should keep its halo. Check the other card games with
-backdrops for the same thing.
-
 ### New game: a GPS memory driving game (roguelike, endless)
 Train memory, recall and sense of direction so players stop relying on GPS.
 
@@ -29,5 +23,6 @@ Train memory, recall and sense of direction so players stop relying on GPS.
 
 ## Done
 
+- 2026-11-14 Dungeon Delver (and every card game): rank and suit on card faces draw without the backdrop text shadow.
 - 2026-11-14 Web version live at https://puregames.app, installable as a web app (manifest, icons,
   offline service worker).
