@@ -45,7 +45,7 @@ class StreetSmartsTest {
         assertEquals(g.state(), copy.state())
     }
 
-    @Test fun firstOrdersHaveSimpleRoutes() {
+    @Test fun everyLegHasFourOrMoreTurns() {
         val g = StreetSmarts.newGame(11)
         var simple = 0; var legs = 0
         repeat(12) {
@@ -54,12 +54,12 @@ class StreetSmartsTest {
             var from = g.at
             for (s in o.stops) {
                 val path = g.route(from, city.places[s.place].edge)
-                if (g.turnsOn(path, from) <= 1) simple++
+                if (g.turnsOn(path, from) >= 4) simple++
                 legs++
                 from = g.endOf(path, from)
             }
         }
-        assertTrue("simple legs $simple of $legs", simple * 10 >= legs * 7)
+        assertTrue("legs with 4+ turns: $simple of $legs", simple * 10 >= legs * 8)
     }
 
     @Test fun shortestPathEarnsTheRouteBonusAndAlternativesDiffer() {

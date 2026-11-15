@@ -8,6 +8,7 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Done
 
+- 2026-11-15 Street Smarts: full-screen map with a minimal floating bar, pinch to zoom and drag to pan (recentre button), every route has at least 4-5 turns, old saves load safely.
 - 2026-11-15 puregames.app updated: Street Smarts, Early Learning, text fix; new versions now take over as soon as they download.
 - 2026-11-14 Early Learning: 7 flashcard games for ages 4-10 (math, long division, missing number/algebra, letters,
   words, reading, clock), 6 age levels each, with step-by-step "i" explanations.

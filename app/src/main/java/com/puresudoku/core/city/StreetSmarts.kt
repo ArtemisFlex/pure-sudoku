@@ -52,7 +52,7 @@ class StreetSmarts(val city: City = City.harbor) {
 
     val level: Int get() = deliveries / 6
     /** Rings of the city open to you: downtown first, then outward. */
-    val ring: Int get() = min(City.N / 2, 3 + level)
+    val ring: Int get() = min(City.N / 2, 6 + level)
 
     fun unlocked(n: Int) = city.ring(n) <= ring
     fun unlockedPlace(p: City.Place) = unlocked(city.edges[p.edge].a) && unlocked(city.edges[p.edge].b)
@@ -240,12 +240,17 @@ class StreetSmarts(val city: City = City.harbor) {
         val pickups = city.places.filter { it.kind.pickup && unlockedPlace(it) }
         val drops = city.places.filter { (it.kind == Kind.CUSTOMER || it.kind == Kind.LANDMARK) && unlockedPlace(it) }
         val stops = ArrayList<Stop>()
-        // routes grow from simple (straight there, or one turn) to complex as you level up
+        // every leg has at least four turns, and routes grow more winding as you level up
         val (lo, hi) = turnRange()
-        fun fits(from: Int, p: City.Place): Boolean = turnsOn(route(from, p.edge), from) in lo..hi
         fun pickWithin(pool: List<City.Place>, from: Int): City.Place {
-            val sample = pool.shuffled(r).take(24)
-            return sample.firstOrNull { fits(from, it) } ?: sample.minBy { abs(turnsOn(route(from, it.edge), from) - (lo + hi) / 2) }
+            var best = pool.first(); var bestMiss = Int.MAX_VALUE
+            for (p in pool.shuffled(r)) {
+                val t = turnsOn(route(from, p.edge), from)
+                val miss = if (t < lo) (lo - t) * 3 else if (t > hi) t - hi else 0
+                if (miss == 0) return p
+                if (miss < bestMiss) { best = p; bestMiss = miss }
+            }
+            return best
         }
         val pick = pickWithin(pickups, at)
         stops += Stop(pick.id, StopKind.PICKUP, helpFor(pick.id))
@@ -278,13 +283,13 @@ class StreetSmarts(val city: City = City.harbor) {
 
     fun shiftLength() = 3 + min(level, 4)
 
-    /** How many turns a leg should take at your level: 0-1 at first, longer as you improve. */
+    /** How many turns a leg should take at your level: four or five at first, more as you improve. */
     fun turnRange(): Pair<Int, Int> = when (level) {
-        0 -> 0 to 1
-        1 -> 0 to 2
-        2 -> 1 to 3
-        3 -> 2 to 4
-        else -> 2 to min(9, level + 1)
+        0 -> 4 to 5
+        1 -> 4 to 6
+        2 -> 5 to 7
+        3 -> 5 to 8
+        else -> 5 to min(12, level + 5)
     }
 
     /** The real turns along a path (left, right or around; going straight doesn't count). */
@@ -478,6 +483,16 @@ class StreetSmarts(val city: City = City.harbor) {
         closed.clear(); if (parts[4].isNotEmpty()) closed += parts[4].split(',').map { it.toInt() }
         order = orderFrom(parts[5]); offer = orderFrom(parts[6])
         rng = Random(clock.toLong() * 31 + deliveries)
+        // a save from an older city map: keep the career, start the drive fresh from home
+        val places = city.places.size; val nodes = City.N * City.N
+        fun stale(o: Order?) = o != null && o.stops.any { it.place !in 0 until places }
+        if (stale(order) || stale(offer) || at !in 0 until nodes || !city.alive(at) || cameBy >= city.edges.size) {
+            order = null; offer = null; at = city.edges[city.places[city.home].edge].a; cameBy = -1
+            makeOffer()
+        }
+        familiarity.keys.retainAll { it in 0 until places }; visits.keys.retainAll { it in 0 until places }
+        closed.retainAll { it in city.edges.indices }
+        car = car.coerceIn(0, CarStyle.entries.size - 1); paint = paint.coerceIn(0, paints.size - 1)
     }
 
     companion object {

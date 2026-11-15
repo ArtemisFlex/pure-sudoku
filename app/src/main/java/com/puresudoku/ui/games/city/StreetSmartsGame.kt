@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -22,11 +23,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DirectionsCar
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.MyLocation
-import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Straight
 import androidx.compose.material.icons.rounded.TurnLeft
 import androidx.compose.material.icons.rounded.TurnRight
@@ -284,6 +287,9 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
 object StreetSmartsDef : GameDef {
     override val kind = GameKind.STREET_SMARTS
     override val singleLevel = true
+    override val fullBleed = true
+    override val hasHeader = true
+    @Composable override fun Header(session: Session, actions: com.puresudoku.ui.games.HeaderActions) = StreetHeader(session as StreetSmartsSession, actions)
 
     override fun generate(d: Difficulty): Session = StreetSmartsSession(d, StreetSmarts.newGame(nowMillis()))
     override fun restore(o: JSONObject): Session {
@@ -528,22 +534,16 @@ private fun StreetMap(
             } else if (g.cameBy >= 0) g.heading(city.edges[g.cameBy], city.other(city.edges[g.cameBy], g.at)).toFloat() else -90f
             drawCar(Offset(sx(cx), sy(cy)), heading, density, Color(g.paints[g.paint]), StreetSmarts.CarStyle.entries[g.car])
         }
-        // zoom and recentre
-        Column(Modifier.align(Alignment.BottomEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            MapButton(Icons.Rounded.Add, "Zoom in") { zoom = (zoom * 1.3f).coerceAtMost(3f) }
-            MapButton(Icons.Rounded.Remove, "Zoom out") { zoom = (zoom / 1.3f).coerceAtLeast(0.35f) }
+        // pinch to zoom, drag to pan; one button brings the car back to the middle
+        if (zoom != 1f || pan != Offset.Zero) Box(Modifier.align(Alignment.CenterEnd).padding(end = 10.dp)) {
             MapButton(Icons.Rounded.MyLocation, "Recentre") { pan = Offset.Zero; zoom = 1f }
-        }
-        // north arrow: the map never rotates
-        Surface(Modifier.align(Alignment.TopEnd).padding(8.dp).size(30.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
-            Box(contentAlignment = Alignment.Center) { Text("N", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD93025)) }
         }
     }
 }
 
 @Composable
-private fun MapButton(icon: ImageVector, desc: String, onClick: () -> Unit) {
-    Surface(Modifier.size(38.dp).clickable(onClick = onClick), shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
+private fun MapButton(icon: ImageVector, desc: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Surface(modifier.size(40.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick), shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
         Box(contentAlignment = Alignment.Center) { Icon(icon, desc, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface) }
     }
 }
@@ -701,30 +701,51 @@ fun StreetSmartsUi(s: StreetSmartsSession) {
         while (s.glide != null || nowMillis() < s.routeUntil) { withFrameMillis { now = nowMillis() } }
         now = nowMillis()
     }
-    Column(Modifier.fillMaxSize()) {
-        GpsPanel(s, help)
-        Spacer(Modifier.height(6.dp))
-        Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(18.dp))) {
-            StreetMap(
-                g, s, help,
-                routeShown = (help == Help.ROUTE || now < s.routeUntil) && s.glide == null,
-                pinPlace = s.pinFor, hintEdge = s.hintEdge, planned = s.planned, alts = s.alts, altPicked = s.altPicked,
-                glideProgress = gp@{
-                    val gl = s.glide ?: return@gp null
-                    val f = ((now - gl.start).toFloat() / gl.driveMs).coerceIn(0f, 1f)
-                    gl to f
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-            StreetSign(g, Modifier.align(Alignment.TopStart).padding(8.dp))
-            StatusChip(g, Modifier.align(Alignment.BottomStart).padding(8.dp))
+    // the map fills the screen; the GPS floats on top and the controls float at the bottom
+    Box(Modifier.fillMaxSize()) {
+        StreetMap(
+            g, s, help,
+            routeShown = (help == Help.ROUTE || now < s.routeUntil) && s.glide == null,
+            pinPlace = s.pinFor, hintEdge = s.hintEdge, planned = s.planned, alts = s.alts, altPicked = s.altPicked,
+            glideProgress = gp@{
+                val gl = s.glide ?: return@gp null
+                val f = ((now - gl.start).toFloat() / gl.driveMs).coerceIn(0f, 1f)
+                gl to f
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 10.dp)) {
+            Spacer(Modifier.height(54.dp))   // room for the floating header
+            GpsPanel(s, help)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                StreetSign(g, Modifier.align(Alignment.TopStart).padding(top = 8.dp))
+                StatusChip(g, Modifier.align(Alignment.BottomStart).padding(bottom = 8.dp))
+            }
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), shadowElevation = 6.dp) {
+                Box(Modifier.padding(8.dp)) { Controls(s, onHints = { showHints = true }, onGarage = { showGarage = true }) }
+            }
+            Spacer(Modifier.height(6.dp))
         }
-        Spacer(Modifier.height(8.dp))
-        Controls(s, onHints = { showHints = true }, onGarage = { showGarage = true })
-        Spacer(Modifier.height(6.dp))
+        com.puresudoku.ui.components.HeraldOverlay(s, StreetSmartsDef, Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 54.dp))
     }
     if (showHints) HintsDialog(s) { showHints = false }
     if (showGarage) GarageDialog(s) { showGarage = false }
+}
+
+/** A minimal floating bar: back, coins and pause, over the map. */
+@Composable
+private fun StreetHeader(s: StreetSmartsSession, a: com.puresudoku.ui.games.HeaderActions) {
+    s.version
+    Box(Modifier.fillMaxWidth().height(50.dp)) {
+        MapButton(Icons.AutoMirrored.Rounded.ArrowBack, "Back", Modifier.align(Alignment.CenterStart), onClick = a.back)
+        Surface(Modifier.align(Alignment.Center), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
+            Text("${s.g.coins} coins · Lv ${s.g.level + 1}", Modifier.padding(horizontal = 14.dp, vertical = 7.dp), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        }
+        Row(Modifier.align(Alignment.CenterEnd), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MapButton(Icons.Outlined.Info, "How to play", onClick = a.info)
+            MapButton(if (a.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, "Pause", enabled = a.canPause, onClick = a.pause)
+        }
+    }
 }
 
 /** The GPS: how much it tells you depends on the help level for this stop. */
@@ -804,6 +825,7 @@ private fun GpsPanel(s: StreetSmartsSession, help: Help) {
 /** The compass direction the leg's turn list starts out in. */
 private fun legHeading(g: StreetSmarts, s: StreetSmartsSession): String {
     val first = s.legSteps.firstOrNull() ?: return "out"
+    s.planned.firstOrNull()?.let { id -> val pe = g.city.edges[id]; if (pe.a == g.at || pe.b == g.at) return compassLabel(g.heading(pe, g.at)).lowercase() }
     val e = g.city.touching[first.node].map { g.city.edges[it] }.firstOrNull { g.city.streets[it.street].name == first.street && g.canDrive(it, first.node) } ?: return "out"
     return compassLabel(g.heading(e, first.node)).lowercase()
 }
