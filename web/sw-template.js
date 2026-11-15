@@ -3,8 +3,9 @@
 // build, filling in VERSION (a hash of every file) and FILES (everything to keep).
 //
 // Each build is one cache. A new deploy changes VERSION, so the browser installs the new worker,
-// which downloads the new build into a fresh cache while the old one keeps serving. The new copy
-// takes over the next time the app is opened, so nobody's game is reloaded mid-play.
+// which downloads the new build into a fresh cache while the old one keeps serving. Once it has
+// everything it takes over straight away (no waiting for every tab to close), so the next open or
+// reload runs the new version; a game already running is never reloaded under the player.
 
 const VERSION = '__VERSION__';
 const FILES = __FILES__;
@@ -12,7 +13,9 @@ const CACHE = 'puregames-' + VERSION;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
 });
 

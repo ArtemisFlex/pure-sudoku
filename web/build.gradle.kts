@@ -105,6 +105,7 @@ compose.resources {
 // The installable web app's service worker: after each production build, list every file to keep
 // offline and stamp a version that changes whenever any of them does (see sw-template.js).
 tasks.named("wasmJsBrowserDistribution") {
+    inputs.file("sw-template.js")
     doLast {
         val dist = layout.buildDirectory.dir("dist/wasmJs/productionExecutable").get().asFile
         val skip = setOf("sw.js", "vercel.json")

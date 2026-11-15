@@ -4,12 +4,11 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Open
 
-### Deploy the Early Learning games to puregames.app
-Built and pushed for Android; the web bundle still needs a production build and deploy (see web/README.md).
-The web emoji font subset (web/fonts/noto_emoji_ui.ttf) already includes the flashcard pictures.
+(nothing waiting)
 
 ## Done
 
+- 2026-11-15 puregames.app updated: Street Smarts, Early Learning, text fix; new versions now take over as soon as they download.
 - 2026-11-14 Early Learning: 7 flashcard games for ages 4-10 (math, long division, missing number/algebra, letters,
   words, reading, clock), 6 age levels each, with step-by-step "i" explanations.
 - 2026-11-14 Text over game backdrops: plain white or black, a shadow only on busy scenes, and no grey text on scenes.

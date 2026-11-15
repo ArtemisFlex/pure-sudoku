@@ -25,8 +25,8 @@ Kotlin/Wasm and Compose Multiplatform. Nothing is copied: `build.gradle.kts` com
 `manifest.webmanifest`, the icons in `resources/icons/` (drawn from the Android launcher icon) and a
 service worker make the site installable ("Add to Home Screen" / "Install app") and playable offline.
 The production build writes `sw.js` from `sw-template.js`: it lists every file and carries a version
-hash of them all, so each deploy installs as one consistent copy that takes over the next time the
-app is opened.
+hash of them all, so each deploy installs as one consistent copy that takes over as soon as it has
+downloaded; the next open or reload runs it.
 
 ## Build and run
 
