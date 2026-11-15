@@ -345,6 +345,19 @@ class ArtQaActivity : ComponentActivity() {
                 }
                 setContent { PureSudokuTheme { KreashunUi(KreashunSession(Difficulty.EASY, g), null) } }; return
             }
+            "street" -> {
+                // Street Smarts at a chosen help level: every place known to that level, with the experience it needs
+                val help = intent.getIntExtra("help", 0)
+                val g = com.puresudoku.core.city.StreetSmarts.newGame(5).apply {
+                    deliveries = listOf(0, 4, 12, 26, 45)[help]
+                    for (p in city.places) familiarity[p.id] = help
+                    offer = null; makeOffer(); accept()
+                }
+                val s = com.puresudoku.ui.games.city.StreetSmartsSession(Difficulty.EASY, g)
+                if (intent.getBooleanExtra("pointed", false)) s.pointedFor = g.current?.place ?: -1
+                setContent { PureSudokuTheme(dark = intent.getBooleanExtra("dark", false)) { androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) { com.puresudoku.ui.games.city.StreetSmartsUi(s) } } }
+                return
+            }
             "veilguard" -> {
                 val g = Veilguard.newGame(Difficulty.EASY, Random(44))
                 for (p in 0..1) { val h = if (p == 0) 2 else g.H - 3; g.owner[h] = p; g.level[h] = 1 }

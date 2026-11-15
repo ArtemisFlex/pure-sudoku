@@ -6,6 +6,7 @@ enum class GameCategory(val title: String, val blurb: String) {
     CARDS("Card Games", "Strategy · Patience · Odds · Memory · Adventure · Combat"),
     BOARD("Board Games", "Strategy · Tactics · Territory · Planning · Patterns · Luck"),
     STRATEGY("Strategy Games", "Territory · Trade · Exploration · Risk · Long-term planning"),
+    TRAINING("Brain Training", "Memory · Recall · Sense of direction · Navigation"),
 }
 
 /** Every game in PureGames. Order here is the order on the home screen. */
@@ -58,6 +59,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     AEGWASPELL("Aegwaspell", "Stewardship", "Grow a civilization from a single port: build, feed your people, survive the seasons and take the rival capitals.", GameCategory.STRATEGY),
     AEG_CONQUEST("Aegwaspell: Conquest", "Conquest & Stewardship", "Post soldiers and workers tile by tile, trade at your port, and hold your land while rival civilizations fight for every tile.", GameCategory.STRATEGY),
     VEILGUARD("Veilguard", "Deception", "Give secret orders, hide your Crown and bluff with decoys. Find the rival's Crown to win.", GameCategory.STRATEGY),
+    STREET_SMARTS("Street Smarts", "Navigation", "Deliver around a big city while the GPS slowly lets go. Learn the streets by heart.", GameCategory.TRAINING),
 }
 
 /** Games offering equal-sided, local pass-and-play. */

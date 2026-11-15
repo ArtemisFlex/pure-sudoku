@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextMeasurer
@@ -111,6 +112,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.VEILGUARD -> realmIcon(colors, o, inner, 2)
             GameKind.AEGWASPELL -> realmIcon(colors, o, inner, 0)
             GameKind.AEG_CONQUEST -> realmIcon(colors, o, inner, 1)
+            GameKind.STREET_SMARTS -> mapIcon(colors, o, inner)
         }
         drawRoundRect(
             colors.thickLine, Offset(frame / 2, frame / 2), Size(s - frame, s - frame),
@@ -493,4 +495,27 @@ private fun DrawScope.tttIcon(c: BoardColors, o: Float, inner: Float) {
     x(0, 0, c.entered); x(1, 1, c.entered); x(2, 2, c.entered)
     drawCircle(c.given, cell * 0.26f, Offset(o + 2.5f * cell, o + 0.5f * cell), style = Stroke(cell * 0.1f))
     drawCircle(c.given, cell * 0.26f, Offset(o + 0.5f * cell, o + 2.5f * cell), style = Stroke(cell * 0.1f))
+}
+
+/** Street Smarts: a street grid, a blue route and a destination pin. */
+private fun DrawScope.mapIcon(c: BoardColors, o: Float, inner: Float) {
+    val cell = inner / 4
+    for (k in 1..3) {
+        drawLine(c.thickLine.copy(alpha = 0.35f), Offset(o + k * cell, o + cell * 0.2f), Offset(o + k * cell, o + inner - cell * 0.2f), cell * 0.16f)
+        drawLine(c.thickLine.copy(alpha = 0.35f), Offset(o + cell * 0.2f, o + k * cell), Offset(o + inner - cell * 0.2f, o + k * cell), cell * 0.16f)
+    }
+    val route = Path().apply {
+        moveTo(o + cell, o + 3 * cell); lineTo(o + 2 * cell, o + 3 * cell); lineTo(o + 2 * cell, o + 2 * cell); lineTo(o + 3 * cell, o + 2 * cell); lineTo(o + 3 * cell, o + cell)
+    }
+    drawPath(route, c.entered, style = Stroke(cell * 0.24f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    drawCircle(c.given, cell * 0.24f, Offset(o + cell, o + 3 * cell))
+    val px = o + 3 * cell; val py = o + cell; val r = cell * 0.34f
+    val pin = Path().apply {
+        moveTo(px, py)
+        cubicTo(px - r * 1.2f, py - r * 1.4f, px - r * 1.1f, py - r * 2.9f, px, py - r * 2.9f)
+        cubicTo(px + r * 1.1f, py - r * 2.9f, px + r * 1.2f, py - r * 1.4f, px, py)
+        close()
+    }
+    drawPath(pin, Color(0xFFEA4335))
+    drawCircle(c.boardBg, r * 0.45f, Offset(px, py - r * 2.05f))
 }

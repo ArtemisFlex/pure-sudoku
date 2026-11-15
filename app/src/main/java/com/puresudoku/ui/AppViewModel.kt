@@ -180,6 +180,11 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
 
     // ---------------- starting games ----------------
 
+    /** "New game": the level picker, or straight to a slot for games with one endless mode. */
+    fun newGame(kind: GameKind) {
+        if (Games.of(kind).singleLevel) { pendingLocalTwoPlayer = false; chooseLevel(kind, Difficulty.EASY) } else openLevelPicker(kind)
+    }
+
     fun chooseLevel(kind: GameKind, d: Difficulty) {
         val free = slots.getValue(kind).indexOfFirst { it == null }
         if (free >= 0) startNew(kind, d, free) else screen = Screen.Slots(kind, replaceFor = d)

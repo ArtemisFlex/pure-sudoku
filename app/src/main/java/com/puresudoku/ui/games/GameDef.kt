@@ -41,6 +41,9 @@ interface GameDef {
     /** The game draws edge to edge under the top bar, and hides the status row and hint. */
     val fullBleed: Boolean get() = false
 
+    /** One endless mode, no difficulty levels: "New game" goes straight to a free save slot. */
+    val singleLevel: Boolean get() = false
+
     /** A game can draw its own themed top bar in place of the standard one. */
     val hasHeader: Boolean get() = false
     @Composable fun Header(session: Session, actions: HeaderActions) {}
@@ -54,6 +57,7 @@ object Games {
     val all: List<GameDef> by lazy {
         listOf(
             com.puresudoku.ui.games.sudoku.SudokuDef,
+            com.puresudoku.ui.games.city.StreetSmartsDef,
             com.puresudoku.ui.games.cagemath.CageMathDef,
             com.puresudoku.ui.games.kakuro.KakuroDef,
             com.puresudoku.ui.games.picture.PictureDef,

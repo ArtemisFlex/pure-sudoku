@@ -133,7 +133,7 @@ fun PlayScreen(vm: AppViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(session.difficulty.accent(), 8)
                         HSpace(6)
-                        Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players · pass the phone" else (if (session.training) "Training wheels · " else "") + session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Two players · pass the phone" else (if (session.training) "Training wheels · " else "") + if (def.singleLevel) "Endless career" else session.difficulty.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 IconButton(onClick = { vm.openTutorial(session.kind) }) {

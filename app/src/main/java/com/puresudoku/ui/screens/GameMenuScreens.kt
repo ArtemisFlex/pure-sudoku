@@ -102,11 +102,11 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                     Button(onClick = { vm.openSlots(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
                         Text("Continue  ·  $saved saved", fontSize = 17.sp)
                     }
-                    OutlinedButton(onClick = { vm.openLevelPicker(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
+                    OutlinedButton(onClick = { vm.newGame(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
                         Text("New game", fontSize = 17.sp)
                     }
                 } else {
-                    Button(onClick = { vm.openLevelPicker(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
+                    Button(onClick = { vm.newGame(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
                         Text("New game", fontSize = 17.sp)
                     }
                 }
@@ -361,6 +361,7 @@ fun SlotsScreen(vm: AppViewModel, kind: GameKind, replaceFor: Difficulty?) {
                         slot, snap,
                         onOpen = { if (replaceFor != null) confirmReplace = slot else vm.resume(kind, slot) },
                         onDelete = if (replaceFor == null) ({ confirmDelete = slot }) else null,
+                        endless = Games.of(kind).singleLevel,
                     )
                 }
             }
@@ -394,14 +395,14 @@ fun SlotsScreen(vm: AppViewModel, kind: GameKind, replaceFor: Difficulty?) {
 }
 
 @Composable
-private fun SlotCard(slot: Int, s: SlotSummary, onOpen: () -> Unit, onDelete: (() -> Unit)?) {
+private fun SlotCard(slot: Int, s: SlotSummary, onOpen: () -> Unit, onDelete: (() -> Unit)?, endless: Boolean = false) {
     Surface(onClick = onOpen, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("SLOT ${slot + 1}", fontSize = 11.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HSpace(10)
                 Dot(s.difficulty.accent(), 8); HSpace(6)
-                Text(if (s.localTwoPlayer) "Two players" else s.difficulty.label, fontWeight = FontWeight.SemiBold)
+                Text(if (s.localTwoPlayer) "Two players" else if (endless) "Career" else s.difficulty.label, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 if (onDelete != null) IconButton(onClick = onDelete, Modifier.size(32.dp)) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)

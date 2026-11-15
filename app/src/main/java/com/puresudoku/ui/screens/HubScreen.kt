@@ -174,7 +174,7 @@ private fun CategoryCard(vm: AppViewModel, cat: GameCategory, games: List<GameDe
             Text(cat.blurb, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                "${games.size} games" + if (saved > 0) " · $saved saved" else "",
+                "${games.size} game${if (games.size == 1) "" else "s"}" + if (saved > 0) " · $saved saved" else "",
                 fontSize = 12.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
             )
         }
