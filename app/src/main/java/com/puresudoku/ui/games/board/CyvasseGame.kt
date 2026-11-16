@@ -123,11 +123,20 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
 
     override val middleStat get() = MiddleStat.Counter("Taken", "${g.captured[0].sum()}")
     override val progress: Float get() = (g.captured[0].sum() / Cyvasse.ARMY_SIZE.toFloat()).coerceAtMost(0.95f)
-    override val wonTitle get() = if (localTwoPlayer) "Checkmate: Alabaster wins!" else "Checkmate!"
-    override val lostTitle get() = if (localTwoPlayer) "Checkmate: Onyx wins!" else "Your king is checkmated"
-    override val lostMessage get() = "The rival checkmated your king. This game's save slot has been cleared."
+    override val wonTitle get() = when {
+        g.stalemate -> if (localTwoPlayer) "Stalemate: Alabaster wins on pieces taken" else "Stalemate: you took more pieces"
+        localTwoPlayer -> "Checkmate: Alabaster wins!"
+        else -> "Checkmate!"
+    }
+    override val lostTitle get() = when {
+        g.stalemate -> if (localTwoPlayer) "Stalemate: Onyx wins on pieces taken" else "Stalemate: the rival took more pieces"
+        localTwoPlayer -> "Checkmate: Onyx wins!"
+        else -> "Your king is checkmated"
+    }
+    override val lostMessage get() = if (g.stalemate) "No legal move was left, and the rival had taken more pieces. This game's save slot has been cleared."
+        else "The rival checkmated your king. This game's save slot has been cleared."
     override val drawTitle get() = "Stalemate"
-    override val drawMessage get() = "The side to move had no legal move but wasn't in check: a draw."
+    override val drawMessage get() = "The side to move had no legal move but wasn't in check, and both sides had taken the same number of pieces: a draw."
 
     val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != Cyvasse.OVER &&
         (localTwoPlayer || currentPlayer == 0) && (!localTwoPlayer || online || !handoffPending) && myOnlineTurn
@@ -384,11 +393,11 @@ object CyvasseDef : GameDef {
             val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.LIGHT_HORSE) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("The river and the dragon", "Entering water ends a move and holds the piece a turn. A piece in a forest can't attack, and catapults, trebuchets and dragons can't hit it there. Siege engines never cross the river; other ground units that cross it can't step back. Dragons fly over water and forest but mountains, pieces and fortresses stop them. A rabble on the enemy's back row is promoted.") { _ ->
+        TutorialStep("The river and the dragon", "Entering water ends a move and holds the piece a turn (not a light horse). A piece in a forest can't attack, and catapults, trebuchets and dragons can't hit it there. Ground units that cross the river can't step back until they touch the enemy's back row. Dragons fly over water, forest and mountains; pieces and fortresses stop them. A rabble on the enemy's back row is promoted.") { _ ->
             val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.DRAGON) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("Check and checkmate", "Like chess: you may never leave your king in check, and you must get out of check at once. No legal move while in check is checkmate; no legal move otherwise is a stalemate draw.") { _ ->
+        TutorialStep("Check and checkmate", "Like chess: you may never leave your king in check, and you must get out of check at once. No legal move while in check is checkmate. No legal move otherwise is stalemate: whoever has taken more pieces wins, and level is a draw.") { _ ->
             val s = remember { demo() }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
