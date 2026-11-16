@@ -1,0 +1,17 @@
+The attached images set the art style for the medieval board game "Deed or Dungeon": the logo, an approved board tile (the Spire), an approved game piece (the Knight) and an approved coin. Match them exactly: glossy, richly painted high-detail fantasy illustration, bold readable shapes, ornate gold filigree accents, deep navy blue, royal red and warm gold, dramatic warm lighting, premium mobile game art.
+
+Using the built-in image generation tool, make ONE call per image below, then copy each final image into the current working directory with the exact filename given. Never overwrite a file that already exists. No text, letters or numbers in any image.
+
+1. dd_piece_dragon.png - 1024x1024 with a TRANSPARENT background: a single game piece, a painted miniature on the same round ornate gold-trimmed stone base as the approved Knight, three-quarter view, centred, same scale and lighting as the Knight. Paint cloaks, banners and trim in light neutral grey (not coloured) so the game can tint them: a coiled red dragon with spread wings perched on the base; its wing membranes in light neutral grey.
+
+2. dd_piece_thief.png - 1024x1024 with a TRANSPARENT background: a single game piece, a painted miniature on the same round ornate gold-trimmed stone base as the approved Knight, three-quarter view, centred, same scale and lighting as the Knight. Paint cloaks, banners and trim in light neutral grey (not coloured) so the game can tint them: the Veilnight Thief, a hooded rogue with twin daggers in a dynamic pose; hood and cloak in light neutral grey.
+
+3. dd_piece_black_knight.png - 1024x1024 with a TRANSPARENT background: a single game piece, a painted miniature on the same round ornate gold-trimmed stone base as the approved Knight, three-quarter view, centred, same scale and lighting as the Knight. Paint cloaks, banners and trim in light neutral grey (not coloured) so the game can tint them: the Black Knight, a menacing knight in dark spiked armour with a great sword; cloak and shield face in light neutral grey.
+
+4. dd_tower.png - 1024x1024 with a TRANSPARENT background: a small round stone watchtower with a red pennant, gold trim, centred, readable at tiny size.
+
+5. dd_castle.png - 1024x1024 with a TRANSPARENT background: a compact fortified stone castle with three towers and red banners, gold trim, centred, readable at tiny size.
+
+6. dd_coin_blade.png - 1024x1024 with a TRANSPARENT background: a single thick coin seen face-on, matching the approved crown coin in shape and ornate gold rim, but with a deep red enamel field stamped with a raised silver sword, centred, filling most of the frame.
+
+When done, list the files you saved.

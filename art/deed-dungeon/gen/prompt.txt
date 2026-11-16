@@ -1,0 +1,11 @@
+The attached image is the logo of a medieval board game called "Deed or Dungeon". It sets the art style for every asset: glossy, richly painted high-detail fantasy illustration, bold readable shapes, ornate gold filigree accents, deep navy blue and royal red with warm gold, dramatic warm lighting, like premium mobile game art.
+
+Using the built-in image generation tool (one call per image), create these 3 game assets in exactly that style, then copy each final image into the current working directory with the exact filename given. No text, letters or numbers in any image.
+
+1. dd_tile_spire.png - square 1024x1024 board tile painting, full-bleed scene with no frame or border: "The Spire", a tall white-and-gold royal spire tower with red fleur-de-lis banners on a hill, sunrise sky behind it. Keep the main subject in the centre third of the image, because the game crops the edges.
+
+2. dd_piece_knight.png - 1024x1024 with a TRANSPARENT background: a single game piece, a painted miniature of an armoured knight with sword and shield standing on a round ornate gold-trimmed base, three-quarter view, centred. Paint his cloak, shield face and banner trim in light neutral grey (not coloured) so the game can tint them to each player's colour.
+
+3. dd_coin_crown.png - 1024x1024 with a TRANSPARENT background: a single thick gold coin seen face-on, stamped with a raised royal crown, ornate rim, centred, filling most of the frame.
+
+When done, list the three files you saved.

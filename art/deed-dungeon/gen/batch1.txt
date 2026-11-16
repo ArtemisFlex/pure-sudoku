@@ -1,0 +1,21 @@
+The attached images set the art style for the medieval board game "Deed or Dungeon": the logo, an approved board tile (the Spire), an approved game piece (the Knight) and an approved coin. Match them exactly: glossy, richly painted high-detail fantasy illustration, bold readable shapes, ornate gold filigree accents, deep navy blue, royal red and warm gold, dramatic warm lighting, premium mobile game art.
+
+Using the built-in image generation tool, make ONE call per image below, then copy each final image into the current working directory with the exact filename given. Never overwrite a file that already exists. No text, letters or numbers in any image.
+
+1. dd_tile_inquisitor.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "The Inquisitor": a grim hooded inquisitor in dark red robes holding a lantern and a long scroll of charges, torch-lit stone hall; he must not look like an armoured knight.
+
+2. dd_tile_colosseum.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "The Colosseum": a grand stone arena seen from above at an angle, red banners, sunlit sand floor with iron grates showing torch-lit dungeon cells beneath.
+
+3. dd_tile_market.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "The Royal Market": colourful striped market stalls in a cobbled square, a merchant with potions, keys, shields and scrolls on display.
+
+4. dd_tile_fate.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Fate": a glowing mystical swirl of purple and gold magic with a single ornate fortune card floating at its centre (card face blank or with a symbol, no text).
+
+5. dd_tile_loot.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Loot": an iron-banded wooden treasure chest, lid cracked open, golden light and coins spilling out, on a dungeon floor.
+
+6. dd_tile_tithe.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "The Abbey's Tithe": a stone abbey doorway with a monk holding out a golden collection plate full of coins.
+
+7. dd_tile_levy.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "The King's Levy": a tax collector's table with stacks of gold coins, a ledger and a red wax royal crown seal.
+
+8. dd_tile_windmill.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "The Windmill": a tall wooden windmill on a grassy rise above golden fields.
+
+When done, list the files you saved.

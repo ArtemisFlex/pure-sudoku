@@ -1,0 +1,21 @@
+The attached images set the art style for the medieval board game "Deed or Dungeon": the logo, an approved board tile (the Spire), an approved game piece (the Knight) and an approved coin. Match them exactly: glossy, richly painted high-detail fantasy illustration, bold readable shapes, ornate gold filigree accents, deep navy blue, royal red and warm gold, dramatic warm lighting, premium mobile game art.
+
+Using the built-in image generation tool, make ONE call per image below, then copy each final image into the current working directory with the exact filename given. Never overwrite a file that already exists. No text, letters or numbers in any image.
+
+1. dd_tile_thatchwick.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Thatchwick": a cosy village of thatched cottages with chimney smoke.
+
+2. dd_tile_ploughmead.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Ploughmead": golden ploughed fields with a pair of oxen pulling a plough.
+
+3. dd_tile_wolfden.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Wolfden": a dark forest at dusk with glowing wolf eyes in the shadows between the trees.
+
+4. dd_tile_old_oakhurst.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Old Oakhurst": a single giant ancient oak tree with sunbeams in a forest glade.
+
+5. dd_tile_thornwick.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Thornwick": a small forest village choked with thorny briars and brambles.
+
+6. dd_tile_gallows_hill.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Gallows Hill": a purple heather moor with a lone wooden gallows on a hill and crows, stormy sky.
+
+7. dd_tile_ravenscar.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Ravenscar": a jagged sea-cliff crag with ravens circling, a ruined watchtower on top.
+
+8. dd_tile_harbour_keep.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Harbour Keep": a small fortified stone harbour keep with ships moored, teal sea.
+
+When done, list the files you saved.

@@ -1,0 +1,13 @@
+The attached images set the art style for the medieval board game "Deed or Dungeon": the logo, an approved board tile (the Spire), an approved game piece (the Knight) and an approved coin. Match them exactly: glossy, richly painted high-detail fantasy illustration, bold readable shapes, ornate gold filigree accents, deep navy blue, royal red and warm gold, dramatic warm lighting, premium mobile game art.
+
+Using the built-in image generation tool, make ONE call per image below, then copy each final image into the current working directory with the exact filename given. Never overwrite a file that already exists. No text, letters or numbers in any image.
+
+1. dd_portrait_dragon.png - 1024x1024 square portrait, head and shoulders, painted in the same style, rich navy-and-gold vignette background, matching the game piece: the red dragon, fierce and regal.
+
+2. dd_portrait_knight.png - 1024x1024 square portrait, head and shoulders, painted in the same style, rich navy-and-gold vignette background, matching the game piece: the knight, same face and armour as the approved Knight piece, helm under arm.
+
+3. dd_portrait_thief.png - 1024x1024 square portrait, head and shoulders, painted in the same style, rich navy-and-gold vignette background, matching the game piece: the Veilnight Thief, hooded with glinting eyes in shadow.
+
+4. dd_portrait_black_knight.png - 1024x1024 square portrait, head and shoulders, painted in the same style, rich navy-and-gold vignette background, matching the game piece: the Black Knight, dark spiked helm with a glowing visor slit.
+
+When done, list the files you saved.

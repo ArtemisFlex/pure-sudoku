@@ -8,3 +8,6 @@ build/
 .externalNativeBuild/
 .cxx/
 .kotlin/
+art/deed-dungeon/gen/*.png
+art/deed-dungeon/gen/*.log
+art/deed-dungeon/gen/last*.txt

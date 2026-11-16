@@ -1,0 +1,21 @@
+The attached images set the art style for the medieval board game "Deed or Dungeon": the logo, an approved board tile (the Spire), an approved game piece (the Knight) and an approved coin. Match them exactly: glossy, richly painted high-detail fantasy illustration, bold readable shapes, ornate gold filigree accents, deep navy blue, royal red and warm gold, dramatic warm lighting, premium mobile game art.
+
+Using the built-in image generation tool, make ONE call per image below, then copy each final image into the current working directory with the exact filename given. Never overwrite a file that already exists. No text, letters or numbers in any image.
+
+1. dd_tile_fishwife_quay.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Fishwife Quay": a busy fish market on a wooden quay, baskets of fish, nets, boats.
+
+2. dd_tile_tidewatch.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Tidewatch": a lighthouse tower on rocks with waves crashing, glowing lamp.
+
+3. dd_tile_quarry_gate.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Quarry Gate": a grey stone quarry with a wooden crane lifting a block and a gate.
+
+4. dd_tile_ironforge.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Ironforge": a mountain forge built into rock, glowing furnace and anvil, sparks.
+
+5. dd_tile_bishops_close.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Bishop's Close": a walled cloister garden with arches, a fountain and roses.
+
+6. dd_tile_cathedral_square.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Cathedral Square": a grand gothic cathedral front with a rose window, crimson banners.
+
+7. dd_tile_throne_hill.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Throne Hill": a green hill crowned by a golden-roofed throne hall with royal banners.
+
+8. dd_tile_golden_keep.png - Square 1024x1024 board tile painting, full-bleed scene with no frame or border, main subject in the centre third (the game crops the edges): "Golden Keep": a gilded white-and-gold castle keep glowing in sunlight.
+
+When done, list the files you saved.

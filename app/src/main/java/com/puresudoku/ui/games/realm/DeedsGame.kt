@@ -98,56 +98,44 @@ internal val DOMAIN_COLORS = listOf(
     Color(0xFF00897B), Color(0xFF78909C), Color(0xFFC2185B), Color(0xFFF9A825),
 )
 private val SEAT_COLORS = listOf(Color(0xFF2E7BD6), Color(0xFFD93A3F), Color(0xFF2E9E57), Color(0xFF8E54C9))
-private val HERO_ART = intArrayOf(com.puresudoku.R.drawable.rt_dragon, com.puresudoku.R.drawable.rt_knight_piece, com.puresudoku.R.drawable.rt_thief, com.puresudoku.R.drawable.rt_black_knight)
-
-/** A hero piece tinted in its colour (Natural keeps the painted colours). */
-internal fun heroTint(c: Int): ColorFilter? = if (c <= 0) null else ColorFilter.tint(lerp(Color.White, DEED_COLORS[c], 0.42f), BlendMode.Modulate)
-
-private class DeedArt(val heroes: List<ImageBitmap>, val special: Map<Int, ImageBitmap>, val tower: ImageBitmap, val castle: ImageBitmap, val road: ImageBitmap,
-    /** Each tile's landscape, painted edge to edge behind it. */
-    val land: List<ImageBitmap>)
-
-/** The landscapes behind each domain's lands (a domain's tiles take them in turn). */
-private val DOMAIN_LAND = listOf(
-    intArrayOf(com.puresudoku.R.drawable.rt_ag_swamp, com.puresudoku.R.drawable.rt_timber_3),
-    intArrayOf(com.puresudoku.R.drawable.rt_grain_1, com.puresudoku.R.drawable.rt_ag_plains, com.puresudoku.R.drawable.rt_grain_2),
-    intArrayOf(com.puresudoku.R.drawable.rt_timber_1, com.puresudoku.R.drawable.rt_timber_2, com.puresudoku.R.drawable.rt_timber_4),
-    intArrayOf(com.puresudoku.R.drawable.rt_beasts_5, com.puresudoku.R.drawable.rt_beasts_3),
-    intArrayOf(com.puresudoku.R.drawable.rt_ag_coast, com.puresudoku.R.drawable.rt_mana_3, com.puresudoku.R.drawable.rt_beasts_4),
-    intArrayOf(com.puresudoku.R.drawable.rt_ore_1, com.puresudoku.R.drawable.rt_ore_2),
-    intArrayOf(com.puresudoku.R.drawable.rt_ore_4, com.puresudoku.R.drawable.rt_ag_hills),
-    intArrayOf(com.puresudoku.R.drawable.rt_mana_2, com.puresudoku.R.drawable.rt_beasts_1),
+private val HERO_ART = intArrayOf(com.puresudoku.R.drawable.dd_piece_dragon, com.puresudoku.R.drawable.dd_piece_knight, com.puresudoku.R.drawable.dd_piece_thief, com.puresudoku.R.drawable.dd_piece_black_knight)
+/** The light grey parts of each piece (cloak, banner, trim) that take the player's colour. */
+private val HERO_MASK = intArrayOf(com.puresudoku.R.drawable.dd_piece_dragon_mask, com.puresudoku.R.drawable.dd_piece_knight_mask, com.puresudoku.R.drawable.dd_piece_thief_mask, com.puresudoku.R.drawable.dd_piece_black_knight_mask)
+private val HERO_PORTRAIT = intArrayOf(com.puresudoku.R.drawable.dd_portrait_dragon, com.puresudoku.R.drawable.dd_portrait_knight, com.puresudoku.R.drawable.dd_portrait_thief, com.puresudoku.R.drawable.dd_portrait_black_knight)
+/** Each tile's painting, Spire first, clockwise. */
+private val TILE_ART = intArrayOf(
+    com.puresudoku.R.drawable.dd_tile_spire, com.puresudoku.R.drawable.dd_tile_pigsty_hollow, com.puresudoku.R.drawable.dd_tile_loot,
+    com.puresudoku.R.drawable.dd_tile_turnip_row, com.puresudoku.R.drawable.dd_tile_ferrymans_bridge, com.puresudoku.R.drawable.dd_tile_millbrook,
+    com.puresudoku.R.drawable.dd_tile_fate, com.puresudoku.R.drawable.dd_tile_thatchwick, com.puresudoku.R.drawable.dd_tile_ploughmead,
+    com.puresudoku.R.drawable.dd_tile_inquisitor, com.puresudoku.R.drawable.dd_tile_wolfden, com.puresudoku.R.drawable.dd_tile_windmill,
+    com.puresudoku.R.drawable.dd_tile_old_oakhurst, com.puresudoku.R.drawable.dd_tile_thornwick, com.puresudoku.R.drawable.dd_tile_troll_bridge,
+    com.puresudoku.R.drawable.dd_tile_gallows_hill, com.puresudoku.R.drawable.dd_tile_loot, com.puresudoku.R.drawable.dd_tile_ravenscar,
+    com.puresudoku.R.drawable.dd_tile_colosseum, com.puresudoku.R.drawable.dd_tile_harbour_keep, com.puresudoku.R.drawable.dd_tile_fate,
+    com.puresudoku.R.drawable.dd_tile_fishwife_quay, com.puresudoku.R.drawable.dd_tile_tidewatch, com.puresudoku.R.drawable.dd_tile_old_stone_bridge,
+    com.puresudoku.R.drawable.dd_tile_quarry_gate, com.puresudoku.R.drawable.dd_tile_silver_mine, com.puresudoku.R.drawable.dd_tile_ironforge,
+    com.puresudoku.R.drawable.dd_tile_market, com.puresudoku.R.drawable.dd_tile_bishops_close, com.puresudoku.R.drawable.dd_tile_tithe,
+    com.puresudoku.R.drawable.dd_tile_cathedral_square, com.puresudoku.R.drawable.dd_tile_kingsbridge, com.puresudoku.R.drawable.dd_tile_fate,
+    com.puresudoku.R.drawable.dd_tile_throne_hill, com.puresudoku.R.drawable.dd_tile_levy, com.puresudoku.R.drawable.dd_tile_golden_keep,
 )
 
-/** The landscape behind tile [t]. */
-private fun landFor(t: Int): Int {
-    val d = Deeds.GROUP[t]
-    if (d >= 0) { val nth = (0 until t).count { Deeds.GROUP[it] == d }; return DOMAIN_LAND[d][nth % DOMAIN_LAND[d].size] }
-    return when (Deeds.KIND[t]) {
-        Deeds.SPIRE -> com.puresudoku.R.drawable.rt_ag_hills
-        Deeds.ARENA -> com.puresudoku.R.drawable.rt_ag_desert
-        Deeds.SEIZE -> com.puresudoku.R.drawable.rt_af_embers
-        Deeds.MARKET -> com.puresudoku.R.drawable.rt_ag_plains
-        Deeds.BRIDGE -> if (t % 2 == 0) com.puresudoku.R.drawable.rt_beasts_4 else com.puresudoku.R.drawable.rt_ore_4
-        Deeds.MILL -> if (t < 18) com.puresudoku.R.drawable.rt_grain_2 else com.puresudoku.R.drawable.rt_ore_2
-        Deeds.FATE -> com.puresudoku.R.drawable.rt_mana_1
-        Deeds.LOOT -> com.puresudoku.R.drawable.rt_waste_1
-        Deeds.TITHE -> com.puresudoku.R.drawable.rt_ag_plains
-        else -> com.puresudoku.R.drawable.rt_beasts_2
-    }
-}
+/** A hero piece tinted in its colour (Natural keeps the painted colours). */
+internal fun heroTint(c: Int): ColorFilter? = if (c <= 0) null else ColorFilter.tint(lerp(Color.White, DEED_COLORS[c], 0.85f), BlendMode.Modulate)
+
+private class DeedArt(val heroes: List<ImageBitmap>, val masks: List<ImageBitmap>, val tower: ImageBitmap, val castle: ImageBitmap,
+    val coinCrown: ImageBitmap, val coinBlade: ImageBitmap,
+    /** Each tile's painting, drawn edge to edge. */
+    val land: List<ImageBitmap>)
 
 /**
- * Fills [r] with the painting inside a hexagonal landscape tile, zoomed so the tile is covered edge to edge:
- * the largest rectangle of the tile's shape that fits inside the hexagon's gold frame.
+ * Fills [r] with a square painting, zoomed so the tile is covered edge to edge: the centre of the painting,
+ * cropped to the tile's shape.
  */
 private fun DrawScope.landscape(img: ImageBitmap, r: Rect) {
     val w = img.width.toFloat(); val h = img.height.toFloat()
-    val inR = w / 2f * 0.9f
-    val outR = inR * 2f / kotlin.math.sqrt(3f)
     val k = r.height / r.width
-    val a = minOf(inR, outR / (k + 1f / kotlin.math.sqrt(3f)))
-    val b = a * k
+    // the biggest rectangle of the tile's shape inside the painting, trimmed a little so the subject fills it
+    var a = w / 2f * 0.94f; var b = a * k
+    if (b > h / 2f * 0.94f) { b = h / 2f * 0.94f; a = b / k }
     val cx = w / 2f; val cy = h / 2f
     drawImage(img, srcOffset = IntOffset((cx - a).toInt(), (cy - b).toInt()), srcSize = IntSize((2 * a).toInt().coerceAtLeast(1), (2 * b).toInt().coerceAtLeast(1)),
         dstOffset = IntOffset(r.left.toInt(), r.top.toInt()), dstSize = IntSize(kotlin.math.ceil(r.width).toInt().coerceAtLeast(1), kotlin.math.ceil(r.height).toInt().coerceAtLeast(1)),
@@ -158,24 +146,13 @@ private fun DrawScope.landscape(img: ImageBitmap, r: Rect) {
 private fun rememberDeedArt(): DeedArt {
     @Composable fun img(id: Int) = ImageBitmap.imageResource(id)
     val heroes = HERO_ART.map { img(it) }
-    val special = mapOf(
-        Deeds.SPIRE to img(com.puresudoku.R.drawable.rt_wonder_sky_temple),
-        Deeds.ARENA to img(com.puresudoku.R.drawable.rt_ag_colosseum),
-        Deeds.SEIZE to img(com.puresudoku.R.drawable.rt_black_knight),
-        Deeds.MARKET to img(com.puresudoku.R.drawable.rt_ag_market),
-        Deeds.FATE to img(com.puresudoku.R.drawable.rt_ui_scroll),
-        Deeds.LOOT to img(com.puresudoku.R.drawable.rt_ui_relic),
-        Deeds.TITHE to img(com.puresudoku.R.drawable.rt_ag_temple),
-        Deeds.LEVY to img(com.puresudoku.R.drawable.rt_ui_crown),
-        100 to img(com.puresudoku.R.drawable.rt_ag_mill),
-        101 to img(com.puresudoku.R.drawable.rt_ag_mine),
-    )
-    val tower = img(com.puresudoku.R.drawable.rt_ag_tower)
-    val castle = img(com.puresudoku.R.drawable.rt_wonder_citadel)
-    val road = img(com.puresudoku.R.drawable.rt_road_neutral)
-    val landIds = remember { List(Deeds.N) { landFor(it) } }
-    val landImgs = landIds.distinct().associateWith { img(it) }
-    return remember(heroes, tower, landImgs) { DeedArt(heroes, special, tower, castle, road, landIds.map { landImgs.getValue(it) }) }
+    val masks = HERO_MASK.map { img(it) }
+    val tower = img(com.puresudoku.R.drawable.dd_tower)
+    val castle = img(com.puresudoku.R.drawable.dd_castle)
+    val crown = img(com.puresudoku.R.drawable.dd_coin_crown)
+    val blade = img(com.puresudoku.R.drawable.dd_coin_blade)
+    val landImgs = TILE_ART.distinct().associateWith { img(it) }
+    return remember(heroes, tower, landImgs) { DeedArt(heroes, masks, tower, castle, crown, blade, TILE_ART.map { landImgs.getValue(it) }) }
 }
 
 // =====================================================================  session
@@ -457,29 +434,13 @@ private fun DrawScope.radiance(c: Offset, r: Float, strength: Float = 1f) {
     drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.95f * strength), Color.White.copy(alpha = 0.55f * strength), Color.White.copy(alpha = 0f)), c, r), r, c)
 }
 
-/** The two-sided coin: a crown on gold, or a blade on red, ringed in the owner's colour. */
-internal fun DrawScope.deedCoin(c: Offset, r: Float, face: Int, owner: Color, dim: Boolean = false) {
+/** The two-sided coin: the painted crown or blade coin, ringed in white and the owner's colour. */
+private fun DrawScope.deedCoin(art: DeedArt, c: Offset, r: Float, face: Int, owner: Color, dim: Boolean = false) {
     val a = if (dim) 0.45f else 1f
-    drawCircle(Color.Black.copy(alpha = 0.45f * a), r * 1.12f, c + Offset(0f, r * 0.12f))
-    drawCircle(Color.White.copy(alpha = a), r * 1.08f, c)
-    drawCircle(owner.copy(alpha = a), r, c)
-    val inner = r * 0.76f
-    drawCircle(Brush.radialGradient(if (face == Deeds.COIN_CROWN) listOf(Color(0xFFFFE082), Color(0xFFC9972F)) else listOf(Color(0xFFEF6C6C), Color(0xFF8E1B1B)), c - Offset(inner * 0.3f, inner * 0.3f), inner * 1.6f), inner, c, alpha = a)
-    if (face == Deeds.COIN_CROWN) {
-        val u = inner * 0.62f
-        val p = Path().apply {
-            moveTo(c.x - u, c.y + u * 0.55f); lineTo(c.x - u, c.y - u * 0.35f); lineTo(c.x - u * 0.5f, c.y + u * 0.05f); lineTo(c.x, c.y - u * 0.65f)
-            lineTo(c.x + u * 0.5f, c.y + u * 0.05f); lineTo(c.x + u, c.y - u * 0.35f); lineTo(c.x + u, c.y + u * 0.55f); close()
-        }
-        drawPath(p, Color(0xFF8D5A12).copy(alpha = a))
-    } else {
-        val u = inner * 0.7f
-        rotate(-45f, c) {
-            drawLine(Color.White.copy(alpha = a), c - Offset(0f, u), c + Offset(0f, u * 0.55f), u * 0.26f, StrokeCap.Round)
-            drawLine(Color(0xFFFFD54F).copy(alpha = a), c + Offset(-u * 0.45f, u * 0.42f), c + Offset(u * 0.45f, u * 0.42f), u * 0.22f, StrokeCap.Round)
-            drawLine(Color(0xFFFFD54F).copy(alpha = a), c + Offset(0f, u * 0.5f), c + Offset(0f, u * 0.85f), u * 0.2f, StrokeCap.Round)
-        }
-    }
+    drawCircle(Color.Black.copy(alpha = 0.45f * a), r * 1.16f, c + Offset(0f, r * 0.14f))
+    drawCircle(Color.White.copy(alpha = a), r * 1.14f, c)
+    drawCircle(owner.copy(alpha = a), r * 1.06f, c)
+    art(if (face == Deeds.COIN_CROWN) art.coinCrown else art.coinBlade, c, r * 2f, alpha = a)
 }
 
 /** A small dark label with white writing, for prices and corner names. */
@@ -554,7 +515,8 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
                     drawCircle(Brush.radialGradient(listOf(Color.White, Color.White, Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0f)), ctr, gr), gr, ctr)
                     drawOval(Color.Black.copy(alpha = 0.35f), Offset(ctr.x - box * 0.3f, ctr.y + box * 0.3f), Size(box * 0.6f, box * 0.16f))
                     drawCircle(s.seatColor(p), box * 0.32f, ctr + Offset(0f, box * 0.3f), style = Stroke(e * 0.06f))
-                    art(art.heroes[g.hero[p]], ctr - Offset(0f, box * 0.06f), box, heroTint(g.color[p]))
+                    art(art.heroes[g.hero[p]], ctr - Offset(0f, box * 0.06f), box)
+                    heroTint(g.color[p])?.let { art(art.masks[g.hero[p]], ctr - Offset(0f, box * 0.06f), box, it) }
                 }
             }
             val inner = sideDp / 11f * 1.5f
@@ -584,23 +546,10 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
     val outer = when (ie) { 0 -> Offset(0f, e * 0.16f); 1 -> Offset(-e * 0.16f, 0f); 2 -> Offset(0f, -e * 0.16f); else -> Offset(e * 0.16f, 0f) }
     val owner = g.owner[t]
     when {
-        corner -> {
-            art.special[kind]?.let { radiance(r.center - Offset(0f, e * 0.08f), e * 0.62f, 0.7f); art(it, r.center - Offset(0f, e * 0.08f), minOf(r.width, r.height) * 0.78f) }
-            CORNER_LABEL[t]?.let { tag(it, Offset(r.center.x, r.bottom - e * 0.2f), e * 0.26f) }
-        }
+        corner -> CORNER_LABEL[t]?.let { tag(it, Offset(r.center.x, r.bottom - e * 0.2f), e * 0.26f) }
         kind == Deeds.LAND -> drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
-        kind == Deeds.BRIDGE -> {
-            drawRect(Color(0xFF3F6E8C), bandRect.topLeft, bandRect.size)
-            val ctr = r.center + outer
-            rotate(if (ie == 1 || ie == 3) 90f else 0f, ctr) {
-                drawImage(art.road, dstOffset = IntOffset((ctr.x - e * 0.5f).toInt(), (ctr.y - e * 0.11f).toInt()), dstSize = IntSize(e.toInt().coerceAtLeast(1), (e * 0.22f).toInt().coerceAtLeast(1)), filterQuality = FilterQuality.Medium)
-            }
-        }
-        kind == Deeds.MILL -> {
-            drawRect(Color(0xFF6D4C41), bandRect.topLeft, bandRect.size)
-            art.special[if (t < 18) 100 else 101]?.let { radiance(r.center + outer, e * 0.42f, 0.6f); art(it, r.center + outer, e * 0.74f) }
-        }
-        else -> art.special[kind]?.let { radiance(r.center, e * 0.42f, 0.8f); art(it, r.center, e * 0.66f) }
+        kind == Deeds.BRIDGE -> drawRect(Color(0xFF3F6E8C), bandRect.topLeft, bandRect.size)
+        kind == Deeds.MILL -> drawRect(Color(0xFF6D4C41), bandRect.topLeft, bandRect.size)
     }
     if (!corner) drawLine(Color.White.copy(alpha = 0.7f), when (ie) { 0 -> Offset(r.left, r.top + band); 1 -> Offset(r.right - band, r.top); 2 -> Offset(r.left, r.bottom - band); else -> Offset(r.left + band, r.top) },
         when (ie) { 0 -> Offset(r.right, r.top + band); 1 -> Offset(r.right - band, r.bottom); 2 -> Offset(r.right, r.bottom - band); else -> Offset(r.left + band, r.bottom) }, 2f)
@@ -622,7 +571,7 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
             art(art.tower, bc + if (ie == 0 || ie == 2) Offset(f, 0f) else Offset(0f, f), e * 0.34f)
         }
         val coinAt = r.center + outer * 0.9f
-        deedCoin(coinAt, e * 0.22f, g.face(t), oc, dim = g.pawned[t] == 1)
+        deedCoin(art, coinAt, e * 0.24f, g.face(t), oc, dim = g.pawned[t] == 1)
         if (g.pawned[t] == 1) tag("PAWNED", Offset(r.center.x, coinAt.y + e * 0.34f), e * 0.2f)
     }
 }
@@ -732,8 +681,18 @@ private fun TileInfo(s: DeedsSession, t: Int, modifier: Modifier) {
 @Composable
 private fun HeroImg(hero: Int, color: Int, size: Dp, modifier: Modifier = Modifier) {
     if (hero < 0) { Box(modifier.size(size)); return }
-    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(HERO_ART[hero]), null, modifier.size(size),
-        contentScale = androidx.compose.ui.layout.ContentScale.Fit, colorFilter = heroTint(color))
+    Box(modifier.size(size)) {
+        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(HERO_ART[hero]), null, Modifier.size(size), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+        heroTint(color)?.let {
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(HERO_MASK[hero]), null, Modifier.size(size), contentScale = androidx.compose.ui.layout.ContentScale.Fit, colorFilter = it)
+        }
+    }
+}
+
+@Composable
+private fun Portrait(hero: Int, size: Dp, modifier: Modifier = Modifier) {
+    if (hero < 0) { Box(modifier.size(size)); return }
+    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(HERO_PORTRAIT[hero]), null, modifier.size(size), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
 }
 
 @Composable
@@ -742,8 +701,8 @@ private fun PlayerCard(s: DeedsSession, p: Int, modifier: Modifier) {
     val active = g.decider == p && g.phase != Deeds.OVER
     val col = s.seatColor(p)
     Row(modifier.alpha(if (g.out[p] == 1) 0.45f else 1f).parchment(PANEL, if (active) col else GOLD, if (active) 2.5.dp else 1.dp).padding(horizontal = 5.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0.6f), col.copy(alpha = 0.25f)))).border(1.5.dp, col, CircleShape), contentAlignment = Alignment.Center) {
-            HeroImg(g.hero[p], g.color[p], 34.dp)
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, col, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+            Portrait(g.hero[p], 40.dp)
         }
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
@@ -1075,8 +1034,8 @@ private fun LandsDialog(s: DeedsSession, close: () -> Unit) {
                                 InkText(g.names[t], 13, bold = true, lines = 1)
                                 InkText((if (g.fullDomain(t)) "Whole domain · " else "") + (if (g.towers[t] > 0) g.towerWord(g.towers[t]) + " · " else "") + (if (g.pawned[t] == 1) "pawned" else "homage ${g.homageOf(t, 7)} · blade ${g.bladeDmg(t)}"), 10, color = INK_SOFT, lines = 1)
                             }
-                            Canvas(Modifier.size(30.dp).clip(CircleShape).clickable(enabled = canAct && g.canFlip(t)) { s.act(Act.FLIP, t) }) {
-                                deedCoin(center, size.minDimension * 0.4f, g.coin[t], s.seatColor(p))
+                            Box(Modifier.size(34.dp).clip(CircleShape).background(s.seatColor(p)).clickable(enabled = canAct && g.canFlip(t)) { s.act(Act.FLIP, t) }, contentAlignment = Alignment.Center) {
+                                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(if (g.coin[t] == Deeds.COIN_CROWN) com.puresudoku.R.drawable.dd_coin_crown else com.puresudoku.R.drawable.dd_coin_blade), null, Modifier.size(30.dp))
                             }
                         }
                         if (canAct) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
