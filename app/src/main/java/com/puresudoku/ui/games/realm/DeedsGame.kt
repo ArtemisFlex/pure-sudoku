@@ -162,6 +162,9 @@ private fun rememberDeedArt(): DeedArt {
         Deeds.SEIZE to img(com.puresudoku.R.drawable.dd_inquisitor),
         Deeds.BRIDGE to img(com.puresudoku.R.drawable.dd_bridge),
         200 to img(com.puresudoku.R.drawable.dd_dungeon),
+        // full paintings for two corners
+        300 to img(com.puresudoku.R.drawable.dd_corner_spire),
+        318 to img(com.puresudoku.R.drawable.dd_corner_colosseum),
         Deeds.MARKET to img(com.puresudoku.R.drawable.rt_ag_market),
         Deeds.FATE to img(com.puresudoku.R.drawable.rt_ui_scroll),
         Deeds.LOOT to img(com.puresudoku.R.drawable.rt_ui_relic),
@@ -613,18 +616,25 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
     val owner = g.owner[t]
     // the set's painting at half strength over parchment, so the pieces and towers stand out
     drawRect(Brush.verticalGradient(listOf(Color(0xFFFBF3E0), Color(0xFFF0E2C2)), r.top, r.bottom), r.topLeft, r.size)
-    landscape(art.land[t], r, 0.5f)
+    // the Spire and the Colosseum show their own paintings edge to edge; the rest show their set's landscape
+    val corner_painting = art.icons[300 + t]
+    if (corner && corner_painting != null) drawImage(corner_painting, dstOffset = IntOffset(r.left.toInt(), r.top.toInt()),
+        dstSize = IntSize(kotlin.math.ceil(r.width).toInt(), kotlin.math.ceil(r.height).toInt()), filterQuality = FilterQuality.Medium)
+    else landscape(art.land[t], r, 0.5f)
     val c = r.center
     if (corner) {
         val m = minOf(r.width, r.height)
         clipRect(r.left, r.top, r.right, r.bottom) {
             rotate(tileAngle(t), c) {
-                if (kind == Deeds.ARENA) {
-                    // the Colosseum, with the Dungeon's entrance in front of it
-                    art(art.icons.getValue(Deeds.ARENA), c + Offset(m * 0.13f, -m * 0.2f), m * 0.54f)
-                    art(art.icons.getValue(200), c + Offset(-m * 0.14f, m * 0.0f), m * 0.5f)
-                } else art.icons[kind]?.let { art(it, c - Offset(0f, m * 0.08f), m * 0.62f) }
-                CORNER_LABEL[t]?.let { tag(it, c + Offset(0f, m * 0.22f), e * 0.22f) }
+                when (kind) {
+                    // the Colosseum's painting, with the Dungeon's entrance over it
+                    Deeds.ARENA -> { art(art.icons.getValue(200), c - Offset(0f, m * 0.06f), m * 0.58f); tag("DUNGEON", c + Offset(0f, m * 0.24f), e * 0.22f) }
+                    Deeds.SPIRE -> tag("SPIRE", c + Offset(0f, m * 0.24f), e * 0.22f)
+                    else -> {
+                        art.icons[kind]?.let { art(it, c - Offset(0f, m * 0.08f), m * 0.62f) }
+                        CORNER_LABEL[t]?.let { tag(it, c + Offset(0f, m * 0.22f), e * 0.22f) }
+                    }
+                }
             }
         }
         drawRect(Color(0xFF6E5636), r.topLeft, r.size, style = Stroke(1.5f))
