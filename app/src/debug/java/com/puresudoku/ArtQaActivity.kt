@@ -335,7 +335,7 @@ class ArtQaActivity : ComponentActivity() {
                 s.tap(com.puresudoku.core.board.Cyvasse.W * 9 + 1)
                 setContent { PureSudokuTheme {
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
-                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.bg_realm_ocean), null,
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.cyvasse_background), null,
                             androidx.compose.ui.Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                         com.puresudoku.ui.games.board.CyvasseUi(s)
                     }

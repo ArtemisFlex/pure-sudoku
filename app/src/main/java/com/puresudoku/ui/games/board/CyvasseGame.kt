@@ -352,6 +352,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
 
 object CyvasseDef : GameDef {
     override val kind = GameKind.CYVASSE
+    override fun background(session: Session) = com.puresudoku.R.drawable.cyvasse_background
     override fun generate(d: Difficulty): Session = CyvasseSession(d, Cyvasse.standard())
     override fun restore(o: JSONObject): Session = CyvasseSession.restore(o).also { it.resume() }
     override fun hint(d: Difficulty) = "Both armies start from the same field, either side of a river. Checkmate the rival king."
@@ -571,7 +572,6 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
     val targets = if (g.phase == Cyvasse.BATTLE) s.targets() else emptyMap()
     val me = s.viewer
     val setup = g.phase == Cyvasse.SETUP
-    val frameArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_frame)
     val grassArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_grass)
     val waterArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_water)
     val forestArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_forest)
@@ -579,24 +579,22 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
     val keepArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_keep)
     val ivoryArt = Cyvasse.TYPES.map { cyvasseArt(it, 0) }
     val onyxArt = Cyvasse.TYPES.map { cyvasseArt(it, 1) }
-    // the frame is stretched to the field's shape, so its border is the same share of each side and the tiles stay square
-    Canvas(modifier.aspectRatio(nw.toFloat() / nh).clip(RoundedCornerShape(10.dp)).then(if (onTap != null) Modifier.pointerInput(s) {
+    // The whole canvas is the field: each visible tile is also its full tap target.
+    Canvas(modifier.aspectRatio(nw.toFloat() / nh).then(if (onTap != null) Modifier.pointerInput(s) {
         detectTapGestures { o ->
-            val mx = size.width * 0.101f; val my = size.height * 0.101f
-            val cell = (size.width - 2 * mx) / nw.toFloat()
-            if (o.x < mx || o.y < my || o.x >= size.width - mx || o.y >= size.height - my) return@detectTapGestures
-            val col = ((o.x - mx) / cell).toInt().coerceAtMost(nw - 1); val row = ((o.y - my) / cell).toInt().coerceAtMost(nh - 1)
+            if (o.x < 0f || o.y < 0f || o.x >= size.width || o.y >= size.height) return@detectTapGestures
+            val cell = size.width / nw.toFloat()
+            val col = (o.x / cell).toInt().coerceAtMost(nw - 1)
+            val row = (o.y / cell).toInt().coerceAtMost(nh - 1)
             onTap(v(row * nw + col))
         }
     } else Modifier)) {
-        val margin = size.width * 0.101f
-        val marginY = size.height * 0.101f
-        val boardW = size.width - 2 * margin
+        val margin = 0f
+        val marginY = 0f
+        val boardW = size.width
         val cs = boardW / nw
         val boardH = cs * nh
-        fun rectOf(cell: Int): Rect { val d = v(cell); return Rect(margin + (d % nw) * cs, marginY + (d / nw) * cs, margin + (d % nw + 1) * cs, marginY + (d / nw + 1) * cs) }
-        fun inset(r: Rect, f: Float) = Rect(r.left + r.width * f, r.top + r.height * f, r.right - r.width * f, r.bottom - r.height * f)
-        paintCyvasse(frameArt, Rect(0f, 0f, size.width, size.height))
+        fun rectOf(cell: Int): Rect { val d = v(cell); return Rect((d % nw) * cs, (d / nw) * cs, (d % nw + 1) * cs, (d / nw + 1) * cs) }
         // the rival's half is hidden while setting up
         fun hidden(cell: Int) = setup && !Cyvasse.inHalf(me, cell)
         for (c in 0 until Cyvasse.CELLS) {
@@ -701,7 +699,8 @@ fun CyvasseUi(s: CyvasseSession) {
     // everything here sits on light panels, so text is the theme's ink rather than the backdrop's white
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val big = minOf(maxWidth, 460.dp, ((maxHeight - 220.dp) * (Cyvasse.W.toFloat() / Cyvasse.H)).coerceAtLeast(180.dp))
+        // edge to edge on a phone; on a wide screen (tablet, unfolded foldable) as tall as fits, leaving room for the side rows and the turn banner
+        val big = minOf(maxWidth, ((maxHeight - 150.dp) * (Cyvasse.W.toFloat() / Cyvasse.H)).coerceAtLeast(240.dp))
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             if (setup) {
                 Label(if (s.localTwoPlayer || s.online) "${Cyvasse.sideName(g.placer)}: set up behind the screen" else "You are Alabaster: set up behind the screen")

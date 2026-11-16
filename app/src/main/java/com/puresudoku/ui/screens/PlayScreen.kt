@@ -110,7 +110,7 @@ fun PlayScreen(vm: AppViewModel) {
         val render = if (backdrop != 0) com.puresudoku.platform.rememberBackdropRenderer(backdrop) else null
         com.puresudoku.ui.components.ShadowedText(if (render != null) backdrop else 0, com.puresudoku.platform.screenAspect(), render ?: { _, _, _ -> null }) {
         Column(
-            Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 14.dp),
+            Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = if (session.kind == com.puresudoku.core.GameKind.CYVASSE) 4.dp else 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             com.puresudoku.ui.components.BackdropChrome(enabled = !def.hasHeader) {
@@ -144,7 +144,7 @@ fun PlayScreen(vm: AppViewModel) {
             if (!def.fullBleed) {
                 StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
                 if (actor != null && duel != null) TurnBar(duel.localSide(actor), actor, Modifier.padding(horizontal = 6.dp, vertical = 8.dp), onlineSeat = duel.onlineSeat)
-                else if (session.kind != com.puresudoku.core.GameKind.CRATEBARGE) Text(
+                else if (session.kind != com.puresudoku.core.GameKind.CRATEBARGE && session.kind != com.puresudoku.core.GameKind.CYVASSE) Text(
                     if (duel?.online == true) "Playing a friend online. Leaving the game hands them the win." else if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Take turns and pass the phone to the next player." else def.hint(session.difficulty),
                     fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -377,7 +377,7 @@ private fun Backdrop(res: Int) {
     if (isBitmap) {
         androidx.compose.foundation.Image(
             androidx.compose.ui.graphics.ImageBitmap.imageResource(res), null, Modifier.fillMaxSize(),
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = androidx.compose.ui.graphics.FilterQuality.None,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = if (res == com.puresudoku.R.drawable.cyvasse_background) androidx.compose.ui.graphics.FilterQuality.Medium else androidx.compose.ui.graphics.FilterQuality.None,
         )
     } else {
         androidx.compose.foundation.Image(
