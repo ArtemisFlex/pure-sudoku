@@ -634,7 +634,8 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
     // the Spire and the Colosseum show their own paintings edge to edge; the rest show their set's landscape
     val corner_painting = art.icons[300 + t]
     if (corner && corner_painting != null) drawImage(corner_painting, dstOffset = IntOffset(r.left.toInt(), r.top.toInt()),
-        dstSize = IntSize(kotlin.math.ceil(r.width).toInt(), kotlin.math.ceil(r.height).toInt()), filterQuality = FilterQuality.Medium)
+        dstSize = IntSize(kotlin.math.ceil(r.width).toInt(), kotlin.math.ceil(r.height).toInt()),
+        alpha = if (kind == Deeds.ARENA) 0.5f else 1f, filterQuality = FilterQuality.Medium)
     else landscape(art.land[t], r, 0.5f)
     val c = r.center
     if (corner) {
