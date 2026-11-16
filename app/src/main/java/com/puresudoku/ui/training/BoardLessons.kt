@@ -85,17 +85,17 @@ object BoardLessons {
         ),
         GameKind.CYVASSE to Course(
             listOf(
-                "Behind the screen, set 3 mountains and your keep on your half, then stand pieces on the home tiles round the keep. The rest wait in reserve.",
-                "Each turn, move one piece or bring one out of reserve onto an empty home tile. Land on an enemy piece to take it.",
-                "Hold two of the rival's home tiles and its keep falls with everything in reserve. Take the rival king to win.",
+                "Place 5 water, 6 forests, 6 mountains, one fortress and all ten pieces on your own half.",
+                "Move or attack with one unit; capture equal ranks, lower ranks, the next rank or a king.",
+                "Fortresses absorb attacks; dragons ruin them in one hit. Capture the opposing king to win."
             ),
             listOf(
-                listOf("Tap a piece to read how it moves.", "Never leave your king on an open line."),
-                listOf("Water stops every piece but the dragon.", "Light horses ride round the board's edges: watch the back row."),
-                listOf("Take what's free, but check what can take back.", "Elephants need two attackers: bring a partner."),
-                listOf("Mountains beside your keep leave fewer home tiles to raid.", "Raid with two pieces: two home tiles take the keep."),
-                listOf("A catapult lined up on two pieces takes both.", "The trebuchet shoots over pieces: count its diagonals."),
-                listOf("Keep strong pieces in reserve to answer raids.", "Trade down only when your king is safer than theirs."),
+                listOf("Only dragons may start on mountains.", "No unit may start in a fortress."),
+                listOf("Water stops and delays units.", "Forests reduce movement range."),
+                listOf("Cavalry cannot capture a defending spearman.", "Ranged pieces can attack without moving."),
+                listOf("Crossbowmen, catapults and trebuchets can capture dragons.", "Dragons cannot attack into forests."),
+                listOf("Trebuchets fire in their last movement direction.", "Mountains block ranged attacks through them."),
+                listOf("A fortress protects a king twice against ordinary attacks.", "A dragon ruins any occupied fortress in one attack.")
             ),
         ),
         GameKind.BACKGAMMON to Course(

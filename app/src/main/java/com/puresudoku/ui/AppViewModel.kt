@@ -180,6 +180,11 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         screen = Screen.Online(kind)
     }
 
+    fun joinInvite(invite: com.puresudoku.online.GameInvite) {
+        openOnline(invite.kind)
+        com.puresudoku.online.OnlineMatch.join(invite.code, expectedKind = invite.kind)
+    }
+
     fun closeOnline(kind: GameKind) { com.puresudoku.online.OnlineMatch.leave(); screen = Screen.Menu(kind) }
 
     // Online games run as pass-and-play on both devices. After each of your turns the whole game is

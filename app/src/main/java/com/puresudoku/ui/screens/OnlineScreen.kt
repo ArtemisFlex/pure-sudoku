@@ -83,7 +83,7 @@ fun OnlineScreen(vm: AppViewModel, kind: GameKind) {
 private fun Choose(kind: GameKind) {
     var code by remember { mutableStateOf("") }
     Text(
-        "Play a friend on another phone or computer. One of you hosts and shares a 4-letter code; the other types it in.",
+        "Play a friend on another phone or computer. Host a game and send them your invite link, or join using a room code.",
         textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(24.dp))
@@ -112,6 +112,8 @@ private fun Choose(kind: GameKind) {
 @Composable
 private fun Waiting(code: String, kind: GameKind) {
     val clip = LocalClipboardManager.current
+    val share = com.puresudoku.platform.rememberInviteShare()
+    val url = com.puresudoku.online.GameInvite(kind, code).url()
     var copied by remember { mutableStateOf(false) }
     Text("Your room code", style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(10.dp))
@@ -122,8 +124,9 @@ private fun Waiting(code: String, kind: GameKind) {
         )
     }
     Spacer(Modifier.height(10.dp))
-    TextButton(onClick = { clip.setText(AnnotatedString("Join my PureGames ${kind.title} game: open ${kind.title}, tap Play a friend online and enter $code. puregames.app")); copied = true }) {
-        Text(if (copied) "Copied" else "Copy invite")
+    Button(onClick = { share(url) }, Modifier.fillMaxWidth()) { Text("Share invite link") }
+    TextButton(onClick = { clip.setText(AnnotatedString(url)); copied = true }) {
+        Text(if (copied) "Link copied" else "Copy invite link")
     }
     Spacer(Modifier.height(16.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -133,7 +136,7 @@ private fun Waiting(code: String, kind: GameKind) {
     }
     Spacer(Modifier.height(8.dp))
     Text(
-        "Send them the code by text or any app. They tap Play a friend online in ${kind.title} and type it in. The code works for 15 minutes.",
+        "Your friend opens the link to join this game. The link works while the room is waiting, up to 15 minutes. You can also share the code above.",
         textAlign = TextAlign.Center, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }

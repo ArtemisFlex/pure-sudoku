@@ -44,7 +44,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     GO("Go", "Territory", "Surround more of the board than your rival.", GameCategory.BOARD),
     SHOGI("Shogi", "Strategy", "Japanese chess, where captured pieces fight for you.", GameCategory.BOARD),
     XIANGQI("Xiangqi", "Strategy", "Chinese chess across the river.", GameCategory.BOARD),
-    CYVASSE("Cyvasse", "Strategy", "Set up behind a screen, then storm the rival keep and take its king. The battle game of Westeros.", GameCategory.BOARD),
+    CYVASSE("Cyvasse", "Strategy", "Set your battlefield behind a screen, then capture the rival king.", GameCategory.BOARD),
     BACKGAMMON("Backgammon", "Luck", "Race your checkers home and bear them off.", GameCategory.BOARD),
     MANCALA("Mancala", "Planning", "Sow seeds and capture the most.", GameCategory.BOARD),
     MAHJONG("Mahjong", "Patterns", "Clear the tiles by matching free pairs.", GameCategory.BOARD),

@@ -144,7 +144,7 @@ fun PlayScreen(vm: AppViewModel) {
             if (!def.fullBleed) {
                 StatusBar(session.score, session.middleStat, session.elapsedMs, Modifier.padding(horizontal = 6.dp).padding(top = 10.dp))
                 if (actor != null && duel != null) TurnBar(duel.localSide(actor), actor, Modifier.padding(horizontal = 6.dp, vertical = 8.dp), onlineSeat = duel.onlineSeat)
-                else Text(
+                else if (session.kind != com.puresudoku.core.GameKind.CRATEBARGE) Text(
                     if (duel?.online == true) "Playing a friend online. Leaving the game hands them the win." else if ((session as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) "Take turns and pass the phone to the next player." else def.hint(session.difficulty),
                     fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

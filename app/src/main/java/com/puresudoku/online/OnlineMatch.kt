@@ -73,7 +73,7 @@ object OnlineMatch {
     }
 
     /** Joins the room with [roomCode]. */
-    fun join(roomCode: String) {
+    fun join(roomCode: String, expectedKind: GameKind? = null) {
         reset(); seat = 2
         code = roomCode.trim().uppercase()
         stage = Stage.JOINING
@@ -86,6 +86,9 @@ object OnlineMatch {
                 else -> {
                     kind = GameKind.entries.firstOrNull { it.name == o.optString("kind") }
                     if (kind == null) { fail("That game isn't in this version of the app. Try updating."); return@get }
+                    if (kind !in onlineGames || (expectedKind != null && kind != expectedKind)) {
+                        fail("This invite doesn't match that game. Ask your friend for a new link."); return@get
+                    }
                     listen()
                     val offer = o.getString("offer")
                     if (offer == NO_LINK) onPeer("answer", NO_LINK) else PeerLink.join(offer)

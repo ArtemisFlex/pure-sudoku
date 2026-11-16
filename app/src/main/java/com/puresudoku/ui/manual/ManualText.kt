@@ -626,61 +626,20 @@ object ManualText {
             saving()
         }
         CYVASSE -> m {
-            sec("The goal") {
-                p("Take the rival's king. Cyvasse is the battle game played across Westeros and Essos in A Song of Ice and Fire. George R. R. Martin never wrote down its rules, so PureGames plays the best-known fan rules: Cyvasse, rules adapted by A. Marston Croft (Ill Gotten Games), the version on Tabletopia and BoardGameGeek.")
-            }
-            sec("The armies") {
-                p("Alabaster (light) and Onyx (dark) each have 3 rabble, 3 spearmen, 3 crossbowmen, 3 light horses, 2 heavy horses, 2 elephants, a catapult, a trebuchet, a dragon and a king, plus a keep and 3 mountains. Against the computer you play Alabaster.")
-            }
-            sec("The board") {
-                p("A 10×10 field split into two halves of five rows. Six water tiles and six forest tiles are always in the same places, laid out alike for both sides. (The published rules don't fix a board size or where the water and forests lie, so this board is PureGames' own.)")
-            }
-            sec("Setting up behind the screen") {
-                b("A screen hides each half while it is set up: Alabaster first, then Onyx.",
-                    "Set your 3 mountains anywhere on open grass in your half.",
-                    "Set your keep on open grass in your half, but not in the row next to the screen.",
-                    "The tiles around the keep (not off the board or under a mountain) are your home tiles. Stand any of your pieces on them, one per tile. The rest stay hidden in reserve.",
-                    "Random lays out a sensible setup for you; Clear starts again; Ready lowers your side of the screen.",
-                    "When both sides are ready the screen comes down and a coin decides who moves first.")
-            }
-            sec("Taking turns") {
-                b("Each turn, move one piece, or bring one piece out of reserve onto an empty home tile. You can only bring pieces out while your keep stands, and never onto an enemy piece.",
-                    "Land on an enemy piece to take it.",
-                    "Pieces can't move through other pieces, mountains or a keep.",
-                    "Any piece but the dragon that moves into water stops there.")
-            }
-            sec("The pieces") {
-                b("Rabble: one tile across or along. After moving a rabble you may move a second, different rabble (or tap End turn).",
-                    "Spearman: one tile across or along, or swap places with a friendly piece beside it.",
-                    "Crossbowman: one tile diagonally, or leap straight into any empty forest tile.",
-                    "Light Horse: any distance across or along, and it may ride off one edge of the board and on again from the opposite edge.",
-                    "Heavy Horse: any distance across or along, riding past its own pieces.",
-                    "Elephant: any distance across or along. It can't be taken unless another enemy piece is standing beside it.",
-                    "Catapult: any distance diagonally. It may take two enemy pieces in one move, the first and then the next one in line beyond it.",
-                    "Trebuchet: any distance diagonally. When it captures, it shoots over any pieces in the way (not over mountains, keeps or water).",
-                    "Dragon: any distance in any of the eight directions, flying over mountains and water.",
-                    "King: one tile in any direction.")
-            }
-            sec("The keep") {
-                p("Stand your pieces on two of the rival's home tiles at once and its keep falls. The keep and every piece still in its reserve are captured. If the king was waiting in that reserve, the game is won.")
-            }
-            sec("Winning") {
-                b("Take the rival king on the board, or in the reserve of a fallen keep.",
-                    "A side with no move at all loses.",
-                    "After ${com.puresudoku.core.board.Cyvasse.QUIET_LIMIT} moves in a row without a capture or a piece brought out, the game is drawn.")
-            }
-            sec("Playing on the screen") {
-                b("Tap any piece to read what it does. Tap one of yours to see where it can go: dots are moves, red rings are captures (the catapult's first victim is ringed too), blue rings are spearman swaps.",
-                    "Your reserve is secret: tap Reserve to open it, pick a piece, then tap a gold home tile.",
-                    "On one device, each player sets up with the screen covered between them, and your reserve only opens on your own turn.")
-            }
-            sec("Tips") {
-                b("Hide your king. Any open line to it, even one that wraps round the edge for a light horse, can be a capture on the first move.",
-                    "Mountains beside your keep take away home tiles the enemy could stand on.",
-                    "A king left in reserve is safe until your keep falls, and then it is lost with it.",
-                    "Keep a piece or two near home: two raiders on your home tiles take the keep and everything in it.",
-                    "Pair your attackers: elephants only fall to two pieces working together.")
-            }
+            sec("The goal") { p("Capture the opposing king. There is no turn limit. Rules are based on gameofcyvasse.com with PureGames custom setup and fortress rules.") }
+            sec("Setup") { b("On an 8×8 board, each player secretly arranges their own 8×4 half: 6 mountains, 6 forests, 5 water tiles, 1 fortress, and grass on the rest.",
+                "Place one of each of the ten pieces on your half. Pieces may start on forest or water; only dragons may start on mountains. No piece starts in a fortress.",
+                "Units starting in water must wait through their first turn. Random makes a complete setup; after both players are ready, the screen comes down.") }
+            sec("Movement and terrain") { b("Non-dragons move in any direction and may turn during a move. Rabble, spearmen, crossbowmen, elephants, catapults, trebuchets and kings move one tile; light horse moves three and heavy horse two.",
+                "After setup, entering water ends a non-dragon unit’s movement and it cannot move on its next turn; dragons fly over water without penalty. Crossbowmen, catapults and trebuchets cannot fire from water.",
+                "Each forest entered reduces movement range by one. Mountains block movement by all units except dragons and block ranged attacks through them.",
+                "Dragons move in a straight line across any distance, over terrain and pieces, but cannot pass an opposing dragon or attack a unit in forest.") }
+            sec("Combat") { b("A piece can capture its own rank, any lower rank, the next rank above it, or a king. The ranking is rabble, spearman, crossbowman, light horse, heavy horse, elephant, catapult, trebuchet, dragon, king.",
+                "A king can capture any unit; cavalry cannot capture a defending spearman. Crossbowmen, catapults and trebuchets can capture dragons. Players may attack their own pieces.",
+                "Crossbowmen shoot within one tile, catapults within two, and trebuchets in a line up to three tiles in their last direction of movement. Select ranged or melee when both are possible.") }
+            sec("Fortresses") { b("An occupied intact fortress absorbs an otherwise successful attack and is ruined; the defender survives. A king survives two such attacks before the fortress is ruined.",
+                "A dragon ruins an occupied fortress in one successful attack, even if the king occupies it. The defender survives that attack. A ruined fortress offers no further protection.") }
+            sec("Winning") { p("Capture the king. If a player has no available move or attack, they pass; the game does not end from a turn limit or lack of moves.") }
             saving()
         }
         BACKGAMMON -> m {

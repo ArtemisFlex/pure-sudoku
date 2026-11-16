@@ -1,15 +1,16 @@
 package com.puresudoku.ui.games.board
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +51,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -535,7 +536,6 @@ fun CratebargeGrid(s: CratebargeSession, owner: Int, mine: Boolean, modifier: Mo
 
 // =====================================================================  the screen
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CratebargeUi(s: CratebargeSession) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
@@ -545,84 +545,90 @@ fun CratebargeUi(s: CratebargeSession) {
         return
     }
     val me = s.viewer
+    var ownWaters by remember(s) { mutableStateOf(false) }
+    var showShips by remember(s) { mutableStateOf(false) }
+    var showContracts by remember(s) { mutableStateOf(false) }
+    var showSupplies by remember(s) { mutableStateOf(false) }
+    var showDialogue by remember(s) { mutableStateOf(false) }
     if (!s.localTwoPlayer && !s.profile.introSeen) CrateIntro(s)
     if (!s.localTwoPlayer && s.showShop) CrateShop(s)
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val big = minOf(maxWidth, 420.dp)
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (g.phase == Cratebarge.PLACE) {
-                if (!s.localTwoPlayer) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.cratebarge_logo_v1),
-                        contentDescription = "Cratebarge Sea Battle",
-                        modifier = Modifier.fillMaxWidth().height(120.dp),
-                    )
-                    Label("${s.contractInfo.title} · ${s.profile.dice} Dice")
-                    Text("${s.contractInfo.enemy} · ${s.contractInfo.limit} shots · win ${s.contractInfo.reward} Dice", fontSize = 12.sp, textAlign = TextAlign.Center)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                        for (i in 0..s.profile.unlocked) androidx.compose.material3.TextButton(onClick = { s.selectContract(i) }) { Text("${i + 1}") }
-                        androidx.compose.material3.TextButton(onClick = { s.showShop = true }) { Text("Captain's shop") }
+    if (showShips) CrateShipPicker(s, me) { showShips = false }
+    if (showContracts) CrateContractPicker(s) { showContracts = false }
+    if (showSupplies) CrateSupplyPicker(s, onPick = { item ->
+        s.selectSupply(item)
+        if (item == CrateSupply.PLANKS && s.selectedSupply == item) ownWaters = true
+        else if (item == CrateSupply.BARREL || item == CrateSupply.TELESCOPE) ownWaters = false
+        showSupplies = false
+    }, onDismiss = { showSupplies = false })
+    if (showDialogue) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showDialogue = false }, title = { Text(if (s.localTwoPlayer) "Battle report" else s.contractInfo.enemy) },
+        text = { Text(s.message) }, confirmButton = { androidx.compose.material3.TextButton(onClick = { showDialogue = false }) { Text("Close") } },
+    )
+
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (g.phase == Cratebarge.PLACE) {
+            if (!s.localTwoPlayer) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.TextButton(onClick = { showContracts = true }, modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        Text(s.contractInfo.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Text(s.contractInfo.description, fontSize = 12.sp, textAlign = TextAlign.Center)
-                    Text("Win to unlock the next contract. Losing resets the voyage; your Dice and supplies stay.", fontSize = 11.sp, textAlign = TextAlign.Center)
-                }
-                Label(if (s.localTwoPlayer) "Player ${me + 1}: hide your fleet" else "Hide your fleet")
-                CratebargeGrid(s, owner = me, mine = true, modifier = Modifier.width(big), onTap = { s.tapPlace(it) })
-                Spacer(Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    for (i in g.fleet.indices) {
-                        val placed = g.start[me][i] >= 0
-                        val on = i == s.picked && !placed
-                        Text("${g.name(i)} · ${g.fleet[i]}", Modifier.clip(RoundedCornerShape(50))
-                            .background(if (on) MaterialTheme.colorScheme.primary else if (placed) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
-                            .clickable { s.pick(i) }.padding(horizontal = 12.dp, vertical = 6.dp),
-                            color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontSize = 13.sp,
-                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.FilledTonalButton(onClick = s::rotate) { Text(if (s.vertical) "Down ↓" else "Across →") }
-                    androidx.compose.material3.FilledTonalButton(onClick = s::scatter) { Text("Random") }
-                    androidx.compose.material3.FilledTonalButton(onClick = s::clearFleet) { Text("Clear") }
-                }
-                Spacer(Modifier.height(6.dp))
-                Button(onClick = s::ready, enabled = g.allPlaced(me)) { Text("Ready") }
-            } else {
-                if (!s.localTwoPlayer) {
-                    Label("${s.contractInfo.title} · ${(s.contractInfo.limit - g.shotsBy(0)).coerceAtLeast(0)} shots left")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                        CrateSupply.entries.forEach { item ->
-                            androidx.compose.material3.TextButton(onClick = { s.selectSupply(item) }, enabled = s.supplyCount(item) > 0 && s.myMove) {
-                                Text("${if (s.selectedSupply == item) "✓ " else ""}${item.title} ${s.supplyCount(item)}", fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-                Label("Enemy waters · ${g.shipsLeft(1 - me)} of ${g.fleet.size} ships afloat")
-                CratebargeGrid(s, owner = 1 - me, mine = false, modifier = Modifier.width(big), onTap = { s.fire(it) })
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Label("Your fleet")
-                        CratebargeGrid(s, owner = me, mine = true, modifier = Modifier.fillMaxWidth(), onTap = { s.ownGridTap(it) })
-                    }
-                    Column(Modifier.weight(1f).padding(top = 28.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)).padding(10.dp)) {
-                        for (i in g.fleet.indices) {
-                            val lost = g.sunk(me, i)
-                            Text((if (lost) "✕ " else "● ") + g.name(i) + " (${g.fleet[i]})", fontSize = 13.sp,
-                                color = if (lost) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = if (lost) FontWeight.Normal else FontWeight.SemiBold)
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        val acc = g.hitsBy(me) * 100 / g.shotsBy(me).coerceAtLeast(1)
-                        Text("${g.shotsBy(me)} shots · $acc% hit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    androidx.compose.material3.TextButton(onClick = { s.showShop = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text("Shop · ${s.profile.dice} Dice", maxLines = 1)
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            if (s.message.isNotEmpty()) {
+            val ship = s.picked.coerceIn(g.fleet.indices)
+            androidx.compose.material3.OutlinedButton(onClick = { showShips = true }, modifier = Modifier.fillMaxWidth().height(42.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), RoundedCornerShape(50)),
+                enabled = s.myMove, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                Text("${g.name(ship)} · ${g.fleet[ship]} spaces   (${g.start[me].count { it >= 0 }}/${g.fleet.size} placed)",
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+            }
+            Text(if (s.localTwoPlayer) "Player ${me + 1}: hide your fleet" else "Tap your waters to place the selected ship",
+                fontSize = 12.sp, maxLines = 1, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)).padding(3.dp))
+        } else {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.TextButton(onClick = { ownWaters = false }, modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp)) { Text(if (!ownWaters) "● Enemy" else "Enemy", maxLines = 1) }
+                androidx.compose.material3.TextButton(onClick = { ownWaters = true }, modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp)) { Text(if (ownWaters) "● Your fleet" else "Your fleet", maxLines = 1) }
+                if (!s.localTwoPlayer) androidx.compose.material3.TextButton(onClick = { showSupplies = true },
+                    enabled = s.myMove, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("Supplies", maxLines = 1) }
+            }
+            val detail = if (ownWaters) "Your fleet · ${g.shipsLeft(me)} of ${g.fleet.size} afloat"
+                else "Enemy fleet · ${g.shipsLeft(1 - me)} of ${g.fleet.size} afloat"
+            val remaining = if (!s.localTwoPlayer) " · ${(s.contractInfo.limit - g.shotsBy(0)).coerceAtLeast(0)} shots left" else ""
+            Text(detail + remaining, fontSize = 12.sp, maxLines = 1, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)).padding(3.dp))
+        }
+
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val side = minOf(maxWidth, maxHeight).coerceAtLeast(0.dp)
+            if (g.phase == Cratebarge.PLACE) {
+                CratebargeGrid(s, owner = me, mine = true, modifier = Modifier.size(side), onTap = { s.tapPlace(it) })
+            } else if (ownWaters) {
+                CratebargeGrid(s, owner = me, mine = true, modifier = Modifier.size(side), onTap = { s.ownGridTap(it) })
+            } else {
+                CratebargeGrid(s, owner = 1 - me, mine = false, modifier = Modifier.size(side), onTap = { s.fire(it) })
+            }
+        }
+
+        if (g.phase == Cratebarge.PLACE) {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.TextButton(onClick = s::rotate, modifier = Modifier.weight(1f), enabled = s.myMove,
+                    contentPadding = PaddingValues(0.dp)) { Text(if (s.vertical) "Down ↓" else "Across →", fontSize = 12.sp, maxLines = 1) }
+                androidx.compose.material3.TextButton(onClick = s::scatter, modifier = Modifier.weight(1f), enabled = s.myMove,
+                    contentPadding = PaddingValues(0.dp)) { Text("Random", fontSize = 12.sp, maxLines = 1) }
+                androidx.compose.material3.TextButton(onClick = s::clearFleet, modifier = Modifier.weight(1f), enabled = s.myMove,
+                    contentPadding = PaddingValues(0.dp)) { Text("Clear", fontSize = 12.sp, maxLines = 1) }
+                Button(onClick = s::ready, modifier = Modifier.weight(1f), enabled = s.myMove && g.allPlaced(me),
+                    contentPadding = PaddingValues(0.dp)) { Text("Ready", fontSize = 12.sp, maxLines = 1) }
+            }
+        }
+        if (s.message.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(top = 3.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)).clickable { showDialogue = true }.padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 if (!s.localTwoPlayer && g.phase == Cratebarge.BATTLE && g.lastShot >= 0) {
                     val portrait = when (s.contract) {
                         1 -> com.puresudoku.R.drawable.cratebarge_enemy_fog_corsair_admiral
@@ -632,18 +638,48 @@ fun CratebargeUi(s: CratebargeSession) {
                         5 -> com.puresudoku.R.drawable.cratebarge_enemy_crownless_fleet_warden
                         else -> if (g.lastResult == Cratebarge.R_MISS) com.puresudoku.R.drawable.cratebarge_captain_guarded else com.puresudoku.R.drawable.cratebarge_captain_attack
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp)) {
-                        androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(portrait), contentDescription = s.contractInfo.enemy, modifier = Modifier.size(72.dp))
-                        Text(s.message, textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                    }
-                } else Text(s.message, textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp))
-            }
-            if (s.awaitingPass && !s.online) {
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = s::pass) { Text("Pass to Player ${g.turn + 1}") }
+                    androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(portrait), contentDescription = s.contractInfo.enemy, modifier = Modifier.size(38.dp))
+                }
+                Text(s.message, textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                    lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
             }
         }
+        if (s.awaitingPass && !s.online) Button(onClick = s::pass, modifier = Modifier.height(42.dp)) { Text("Pass to Player ${g.turn + 1}") }
     }
+}
+
+@Composable
+private fun CrateShipPicker(s: CratebargeSession, player: Int, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(onDismissRequest = onDismiss, title = { Text("Choose a ship") },
+        text = { Column { s.g.fleet.indices.forEach { i ->
+            androidx.compose.material3.TextButton(onClick = { s.pick(i); onDismiss() }, modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text("${s.g.name(i)} · ${s.g.fleet[i]} spaces${if (s.g.start[player][i] >= 0) " · placed" else ""}", maxLines = 1)
+            }
+        } } }, confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") } })
+}
+
+@Composable
+private fun CrateContractPicker(s: CratebargeSession, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(onDismissRequest = onDismiss, title = { Text("Choose a voyage") },
+        text = { Column { crateContracts.forEachIndexed { index, contract ->
+            androidx.compose.material3.TextButton(onClick = { s.selectContract(index); onDismiss() }, enabled = index <= s.profile.unlocked,
+                modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text("${contract.title} · ${contract.limit} shots${if (index > s.profile.unlocked) " · locked" else ""}", maxLines = 1)
+            }
+        }; Text("Win to unlock the next voyage. A loss resets progress; Dice and supplies stay.", fontSize = 12.sp) } },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") } })
+}
+
+@Composable
+private fun CrateSupplyPicker(s: CratebargeSession, onPick: (CrateSupply) -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(onDismissRequest = onDismiss, title = { Text("Battle supplies") },
+        text = { Column { CrateSupply.entries.forEach { item ->
+            androidx.compose.material3.TextButton(onClick = { onPick(item) }, enabled = s.supplyCount(item) > 0 && s.myMove,
+                modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Column(Modifier.fillMaxWidth()) { Text("${item.title} · ${s.supplyCount(item)} available", fontWeight = FontWeight.Bold); Text(item.description, fontSize = 12.sp) }
+            }
+        } } }, confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") } })
 }
 
 @Composable
@@ -654,8 +690,8 @@ private fun Label(text: String) {
 @Composable
 private fun CrateShop(s: CratebargeSession) {
     androidx.compose.material3.AlertDialog(onDismissRequest = { s.showShop = false }, title = { Text("Captain Cratebarge's Shop · ${s.profile.dice} Dice") },
-        text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-            Text("Win voyages to earn Dice. Supplies stay with you until used.")
+        text = { Column {
+            Text("Win voyages to earn Dice. Supplies stay until used.", fontSize = 12.sp)
             CrateSupply.entries.forEach { item ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     val icon = when (item) {
@@ -664,10 +700,10 @@ private fun CrateShop(s: CratebargeSession) {
                         CrateSupply.PLANKS -> com.puresudoku.R.drawable.cratebarge_supply_planks
                         CrateSupply.DECOY -> com.puresudoku.R.drawable.cratebarge_supply_decoy
                     }
-                    androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(icon), contentDescription = null, modifier = Modifier.size(48.dp))
+                    androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(icon), contentDescription = null, modifier = Modifier.size(36.dp))
                     Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text("${item.title} · ${item.cost} Dice · owned ${s.profile.stock[item.ordinal]}", fontWeight = FontWeight.Bold)
-                        Text(item.description, fontSize = 12.sp)
+                        Text("${item.title} · ${item.cost} Dice · owned ${s.profile.stock[item.ordinal]}", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.description, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     androidx.compose.material3.TextButton(onClick = { s.buySupply(item) }, enabled = s.profile.dice >= item.cost) { Text("Buy") }
                 }

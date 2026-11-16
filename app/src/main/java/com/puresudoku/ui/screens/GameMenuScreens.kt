@@ -88,9 +88,18 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
             Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            def.Icon(104.dp)
-            Spacer(Modifier.height(16.dp))
-            Text(kind.title, style = MaterialTheme.typography.displayMedium, fontSize = 38.sp)
+            if (kind == com.puresudoku.core.GameKind.CYVASSE) {
+                androidx.compose.foundation.Image(
+                    androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.cyvasse_logo),
+                    contentDescription = kind.title,
+                    modifier = Modifier.fillMaxWidth().height(104.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+            } else {
+                def.Icon(104.dp)
+                Spacer(Modifier.height(16.dp))
+                Text(kind.title, style = MaterialTheme.typography.displayMedium, fontSize = 38.sp)
+            }
             Text(
                 kind.skill.uppercase(), fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,

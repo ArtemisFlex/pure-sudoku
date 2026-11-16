@@ -174,3 +174,82 @@ Validation: all 10 Cyvasse unit tests passed on the final source, including setu
 Remaining: a full human playthrough, browser interaction including worker fallback, live two-player match, physical-phone acceptance and game balance have not been verified. Browser production build and deployment are in progress.
 
 Deployment: the browser production build succeeded (with webpack bundle-size warnings). Vercel deployment dpl_BNoHuuXz3kdgq7FMSPoSqcUTo6sa reached READY and was aliased to https://puregames.app. The live page and service worker returned HTTP 200, and the service worker contained build version 2f8acde544a6d036. A browser smoke check opened the live catalog, Cyvasse, its tutorial and setup board; it did not exercise a full game or online match.
+
+## 2026-11-16 — Painted Cyvasse piece preview
+
+Requested: create one test game piece to preview a painted visual style for Cyvasse.
+Status: generating a standalone dragon piece concept for review; no in-game art replacement requested.
+Completed: generated a standalone painted ivory-and-gold dragon concept for visual review. In-game integration and appearance at board size remain untested.
+
+## 2026-11-16 — Painted Cyvasse chess-piece set
+
+Requested: make the Cyvasse piece set in the style of chess pieces, shown in side profile.
+In progress: generating a matching set of ten individual painted piece concepts for review; in-game integration and readability remain to be tested.
+Completed: generated and saved ten individually named ivory, red and gold side-profile chess-piece concepts in art/cyvasse-painted-concepts. Some outputs include painted backgrounds despite the transparency request; transparent cleanup, consistent sizing, an opposing-color set, board-size readability and in-game integration remain open.
+
+## 2026-11-16 — Cratebarge menu art and play layout
+
+Requested: move the Cratebarge logo from the in-game screen to its menu card, and clean up the game UI so play does not require scrolling. Status: implementing a responsive board and compact controls; preserving existing notes and other work.
+
+## 2026-11-16 — Painted Cyvasse game board
+
+Requested: create a painted game board to accompany the chess-style Cyvasse pieces. In progress: generating a visual concept; gameplay alignment and terrain accuracy will need verification before integration.
+Completed: generated and saved board-concept.png as a painted top-down visual concept. The illustrated terrain does not match the actual game terrain and the generated grid needs precise alignment before in-game use.
+
+## 2026-11-16 — Cyvasse terrain and board preview
+
+Requested: create the terrain tiles the game needs, assemble a board for the app using the painted board as a base, and show the finished board for review before committing to integration.
+
+In progress: producing source tile art and a reviewable board preview based on the real terrain layout; app integration remains pending review.
+Completed: generated grass, river, forest, mountain and keep source tiles, and composed two review previews using the previous board frame and the real six water/six forest coordinates. The example uses legal illustrative mountain and keep placements and sample pieces; its dark side is a temporary color treatment. Assets and the reproducible preview script are in art/cyvasse-painted-concepts. Remaining: user review, artwork cleanup and opposing-color artwork, selection/visibility overlays, runtime integration, and phone/browser gameplay verification.
+Completed: moved the existing logo to the Cratebarge catalog card and removed it from play. Replaced the scrolling setup and battle layout with a board sized to available space, compact voyage/ship/supply selectors, enemy/fleet views, readable control surfaces and tappable dialogue; selecting repairs opens the fleet view. Removed the redundant shared hint for Cratebarge to preserve space.
+Verification: Android debug APK assembly and unit tests passed; the browser development build passed. Local browser visual checks at 390×844 and 320×568 showed the catalog logo and non-scrolling setup and battle layouts; Random, Ready, fleet switching and the supply dialog were exercised. A final compact label change was verified by the Android build. The existing emulator was not restarted; physical-device and live-service validation remain open.
+
+## 2026-11-16 — Fixed Cyvasse opening
+
+Requested: give every new Cyvasse game the same open starting position, like chess, removing the hidden setup phase while retaining compatible movement, reserve and keep rules. In progress: implementing a mirrored opening, updating instructions and checking game modes and existing saves. Painted art remains pending the previously requested review before integration.
+Completed: new games start from one half-turn-mirrored opening with fixed keeps, three mountains per side, eight pieces around each keep, and Alabaster moving first. Preserved movement, reserve deployment, capture and keep rules and retained legacy setup handling for saved games. Updated catalog copy, tutorial, manual, lessons and the painted board preview. Validation: Android debug build and 12 Cyvasse tests passed, including mirrored terrain and pieces, army counts, save round-trip, no immediate king capture, and computer moves from the new opening. Remaining: human strategic balance and first-move advantage, online play and device checks; painted art integration awaits review, with several preview pieces shown as letter markers.
+
+## 2026-11-16 — Fixed Cyvasse opening assessment
+
+Requested: assess whether the fixed starting layout is a good playable board. A temporary probe found 32 legal opening actions per side, no immediate captures, mirrored material and terrain, and no immediate king capture. In 30 same-level AI games each at levels 0, 1 and 2, Alabaster/Onyx wins were 16/14, 15/11 and 11/11; respectively 0, 4 and 8 games had not ended after 400 individual actions. These small samples and the existing AI do not establish human balance or first-move fairness. Remaining: investigate long games, strategic variety, fixed mountain placement and opening balance with humans and stronger opponents before treating the position as final.
+
+## 2026-11-16 — Cyvasse piece cleanup and black set
+
+Requested: finish background cleanup of the ivory pieces, generate individually painted black variants for all ten pieces, and ensure transparent backgrounds. In progress: checking sources and generating assets; in-game integration and board-size review remain open.
+Completed: retained and packaged the ten original ivory designs as transparent PNGs, generated ten independently painted onyx, blue and gold counterparts, and removed near-zero alpha specks from the packaged copies. Verified all 20 PNGs have transparent corners and nonzero subject alpha; visually composited both full sets onto green for review. Updated the fixed-opening board preview to use the real artwork for both sides. The earlier impression of opaque ivory backgrounds was a preview-rendering artifact; the original PNGs were already transparent. Remaining: review edge quality at actual phone size and integrate the art into the app after board approval.
+
+## 2026-11-16 — Cyvasse player setup and painted art
+
+Requested: undo the fixed opening; players place their pieces, mountains, rivers, forests and fortress, and integrate the painted board, tiles and both piece sets. In progress: using three rivers and three forests per side, matching the prior six-per-board terrain counts; retaining the previous hidden setup and old-save compatibility.
+Correction: user specified Cyvasse is an 8x8, 64-tile game and confirmed there are no older games to migrate. Completed: restored hidden player setup on 8x8, including placement and removal of three rivers, three forests, three mountains, the keep and pieces per side; retained reserve, movement, capture and keep rules. Terrain is stored in the match and used by water and forest movement. Integrated the painted frame, tiles, ivory pieces and independently painted onyx-blue pieces. Fixed setup counters and reserve/capture panels to refresh after board changes. Validation: 7 focused Cyvasse unit tests and Android debug assembly passed; browser development build passed. A local browser smoke test placed and counted terrain, restored the test save, used Random, started a battle, selected and moved the dragon, and observed an AI reply. No real phone, online match, full-game balance, release build or production deployment was tested. Three rivers and forests per side were inferred from the previous six of each per board and should be confirmed against the intended rules.
+
+## 2026-11-16 — Combined build and deployment
+
+Requested: once ready, commit all changes from all chats, push, deploy and build. In progress: validating the combined Cyvasse and Cratebarge workspace changes, building Android and browser production artifacts, then recording the push and deployment gates.
+
+## 2026-11-16 — Direct online invitation links
+
+Requested: let hosts share a link that opens the hosted game directly and joins their online room. In progress: adding link creation and launch routing for online games, retaining manual room codes, and testing valid, expired and invalid invitations before the combined deployment.
+Completed: added share and copy actions for direct invite URLs, browser startup routing into the specific game and room, room/game mismatch validation, and room-code fallback. Validation: invite parser tests passed; in a local browser test a chess host created a room, a second tab opened its invite URL and joined directly, and a move synchronized. Missing-room and mismatched-game links showed error messages. Local service used in-memory test storage; Android share sheet and a real two-device production match remain unverified.
+Combined build issue: concurrent Android release and WebAssembly optimization exhausted native memory; the Gradle JVM and wasm optimizer exited. Retrying the builds sequentially with reduced worker concurrency; earlier debug tests and the invite two-client local test passed.
+
+Sequential retry: Android unit tests, release APK assembly and release lint passed with two Gradle workers. Production web optimization is running separately; deployment and hosted checks remain pending.
+
+## 2026-11-16 — Cyvasse custom rules revision
+
+Requested: replace the prior rules with gameofcyvasse.com rules except the user's overrides: unrestricted placement, one of each unit, six mountains, six forests, five water tiles and one fortress per player, no unit starting in a fortress, no turn limit, victory only by capturing the king, and an additional fortress attack for the king. Remove the requirement to place pieces around the fortress. In progress: clarifying placement boundaries and whether the king survives two attacks in total, then updating gameplay, AI, interface, documentation and tests. The invite-enabled deployment dpl_CernUqxF6j69Hx1DCRTLqWFD6HAJ was already in progress and reached production before this revision; it still contains the superseded Cyvasse rules and must be replaced after this revision is validated.
+Clarified: each player places terrain and units anywhere in their own half; a king in an intact fortress survives two successful attacks, with the fortress ruined after the second.
+Clarified: units may start on special terrain when permitted; a unit starting in water must wait its first turn, and only the dragon may start on a mountain. No unit starts in a fortress.
+Final fortress rule requested: a dragon ruins an occupied fortress in one successful attack regardless of its occupant; the occupant survives that fortress hit, as in the base fortress rule.
+Interpretation pending any correction: the user's explicit instruction that units may attack over mountains overrides the source site's line-of-fire restriction; ranged shots can cross mountain tiles. Browser smoke testing found setup actions clipped at 720px; resized the board to available height and added water-delay and trebuchet-direction indicators.
+Browser smoke test: at 1280x720, selected water and confirmed its count; Random produced 5 water, 6 forests, 6 mountains, a fortress and all pieces, Ready began battle, and a catapult move triggered an AI reply. Selected ranged-unit controls exposed another short-screen clipping issue, addressed by making the game panel scrollable. The random test opening allowed an immediate king capture, illustrating that custom setups can be tactically unsafe; human balance is not established.
+Completed: implemented the custom 8x8 hidden setup and one-of-each armies; special-tile starting rules, ranked and ranged combat, water delay, forest movement reduction, dragon movement, fortress damage and dragon override, no turn limit, and king-capture-only victory. Updated tutorial, manual and lessons. If no move or attack is available, a player passes so lack of moves does not end the game. Validation: all 48 Android unit tests passed, release APK assembled and release lint passed; local browser setup, random placement, battle, ranged controls, a move and an AI response were exercised. Short-screen scrolling was added after the smoke test and compiled in the final Android release; its browser rendering and physical-device play remain to be verified. Human balance and real-device online play remain open. Source: https://gameofcyvasse.com/ with the user's stated overrides.
+Correction from user: mountains block ranged attacks. Reverted the earlier provisional interpretation and updated combat, tests, manual and lessons. A ranged unit may still target a dragon on a mountain when no other mountain blocks the shot, per the linked source.
+
+## 2026-11-16 — Cyvasse logo
+
+Requested: create a Cyvasse game logo in a Game of Thrones-inspired medieval fantasy style and add it to the app. In progress: generating and integrating the artwork; visual and build verification pending.
+Generated the transparent CYVASSE wordmark with the built-in image generator (prompt: original medieval fantasy title treatment, weathered gold and silver lettering, dragon, fortress and chess motifs); preserved its source and added an optimized app asset. Integrated it into the game catalog and menu; visual and final build checks remain in progress.
+Verification: the logo rendered legibly on the catalog card and larger game menu in the local browser. At 1280x720, the setup panel scrolled to show all ten piece choices and the setup actions. The production release build and deployment including the logo are pending.
+Release validation: after the mountain correction and logo integration, all 48 Android unit tests passed, release APK assembly and release lint passed, and the production web distribution built successfully (service worker 661c2a9b1f00a7d9). Deployed Vercel production dpl_HUuwmAzQx7xymkMKLoZDmKcCSqr6 to https://puregames.app; the public page and matching service worker returned HTTP 200. The local browser verified the logo, placement controls and scrolling; production two-device online play, Android share sheet, full-game balance and physical-device installation remain unverified. Invite URLs were tested with two local browser clients and in-memory room storage, including a synchronized move and invalid-room errors.

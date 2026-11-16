@@ -287,8 +287,9 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        val logo = com.puresudoku.ui.components.gameLogoRes(g.kind)
-        if (g.kind.category == GameCategory.STRATEGY && logo != 0) {
+        val logo = if (g.kind == com.puresudoku.core.GameKind.CRATEBARGE) com.puresudoku.R.drawable.cratebarge_logo_v1
+            else com.puresudoku.ui.components.gameLogoRes(g.kind)
+        if ((g.kind.category == GameCategory.STRATEGY || g.kind == com.puresudoku.core.GameKind.CRATEBARGE || g.kind == com.puresudoku.core.GameKind.CYVASSE) && logo != 0) {
             // Strategy games are shown by their logo, centred and filling the card, over the skill it trains.
             Column(Modifier.fillMaxWidth().height(180.dp).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 androidx.compose.foundation.Image(

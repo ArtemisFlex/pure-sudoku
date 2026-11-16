@@ -45,6 +45,13 @@ private external fun onVisibility(cb: (Boolean) -> Unit)
 @JsFun("(cb) => window.addEventListener('pagehide', () => cb())")
 private external fun onPageHide(cb: () -> Unit)
 
+@JsFun("() => new URL(window.location.href).searchParams.get('game')")
+private external fun inviteGame(): String?
+@JsFun("() => new URL(window.location.href).searchParams.get('room')")
+private external fun inviteRoom(): String?
+@JsFun("() => { const u = new URL(window.location.href); u.searchParams.delete('game'); u.searchParams.delete('room'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }")
+private external fun consumeInvite()
+
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalResourceApi::class)
 fun main() {
     if (isWorkerContext()) { startAiWorker(); return }
@@ -59,6 +66,8 @@ fun main() {
         WordData.init { name -> text[name] ?: error("Missing word file $name") }
 
         val vm = AppViewModel(WebStore("pg."), WebBackupHost())
+        val invite = com.puresudoku.online.GameInvite.parse(inviteGame(), inviteRoom())
+        if (invite != null) { consumeInvite(); vm.joinInvite(invite) }
         vm.pickBackupFolder = {
             downloadText("puregames-backup-" + com.puresudoku.platform.formatDate(com.puresudoku.platform.nowMillis(), "yyyy-MMM-d") + ".json", vm.exportBackup())
             vm.backupMessage = "Backup file downloaded"
