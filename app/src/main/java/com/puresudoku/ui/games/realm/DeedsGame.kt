@@ -104,7 +104,56 @@ private val DOMAIN_ART = intArrayOf(
 /** A hero piece tinted in its colour (Natural keeps the painted colours). */
 internal fun heroTint(c: Int): ColorFilter? = if (c <= 0) null else ColorFilter.tint(lerp(Color.White, DEED_COLORS[c], 0.42f), BlendMode.Modulate)
 
-private class DeedArt(val heroes: List<ImageBitmap>, val domains: List<ImageBitmap>, val special: Map<Int, ImageBitmap>, val tower: ImageBitmap, val castle: ImageBitmap, val road: ImageBitmap)
+private class DeedArt(val heroes: List<ImageBitmap>, val domains: List<ImageBitmap>, val special: Map<Int, ImageBitmap>, val tower: ImageBitmap, val castle: ImageBitmap, val road: ImageBitmap,
+    /** Each tile's landscape, painted edge to edge behind it. */
+    val land: List<ImageBitmap>)
+
+/** The landscapes behind each domain's lands (a domain's tiles take them in turn). */
+private val DOMAIN_LAND = listOf(
+    intArrayOf(com.puresudoku.R.drawable.rt_ag_swamp, com.puresudoku.R.drawable.rt_timber_3),
+    intArrayOf(com.puresudoku.R.drawable.rt_grain_1, com.puresudoku.R.drawable.rt_ag_plains, com.puresudoku.R.drawable.rt_grain_2),
+    intArrayOf(com.puresudoku.R.drawable.rt_timber_1, com.puresudoku.R.drawable.rt_timber_2, com.puresudoku.R.drawable.rt_timber_4),
+    intArrayOf(com.puresudoku.R.drawable.rt_beasts_5, com.puresudoku.R.drawable.rt_beasts_3),
+    intArrayOf(com.puresudoku.R.drawable.rt_ag_coast, com.puresudoku.R.drawable.rt_mana_3, com.puresudoku.R.drawable.rt_beasts_4),
+    intArrayOf(com.puresudoku.R.drawable.rt_ore_1, com.puresudoku.R.drawable.rt_ore_2),
+    intArrayOf(com.puresudoku.R.drawable.rt_ore_4, com.puresudoku.R.drawable.rt_ag_hills),
+    intArrayOf(com.puresudoku.R.drawable.rt_mana_2, com.puresudoku.R.drawable.rt_beasts_1),
+)
+
+/** The landscape behind tile [t]. */
+private fun landFor(t: Int): Int {
+    val d = Deeds.GROUP[t]
+    if (d >= 0) { val nth = (0 until t).count { Deeds.GROUP[it] == d }; return DOMAIN_LAND[d][nth % DOMAIN_LAND[d].size] }
+    return when (Deeds.KIND[t]) {
+        Deeds.SPIRE -> com.puresudoku.R.drawable.rt_ag_hills
+        Deeds.DUNGEON -> com.puresudoku.R.drawable.rt_af_ash
+        Deeds.ARENA -> com.puresudoku.R.drawable.rt_ag_desert
+        Deeds.SEIZE -> com.puresudoku.R.drawable.rt_af_embers
+        Deeds.BRIDGE -> if (t % 2 == 0) com.puresudoku.R.drawable.rt_beasts_4 else com.puresudoku.R.drawable.rt_ore_4
+        Deeds.MILL -> if (t < 18) com.puresudoku.R.drawable.rt_grain_2 else com.puresudoku.R.drawable.rt_ore_2
+        Deeds.FATE -> com.puresudoku.R.drawable.rt_mana_1
+        Deeds.LOOT -> com.puresudoku.R.drawable.rt_waste_1
+        Deeds.TITHE -> com.puresudoku.R.drawable.rt_ag_plains
+        else -> com.puresudoku.R.drawable.rt_beasts_2
+    }
+}
+
+/**
+ * Fills [r] with the painting inside a hexagonal landscape tile, zoomed so the tile is covered edge to edge:
+ * the largest rectangle of the tile's shape that fits inside the hexagon's gold frame.
+ */
+private fun DrawScope.landscape(img: ImageBitmap, r: Rect) {
+    val w = img.width.toFloat(); val h = img.height.toFloat()
+    val inR = w / 2f * 0.9f                      // half-width inside the frame
+    val outR = inR * 2f / kotlin.math.sqrt(3f)   // centre to top point
+    val k = r.height / r.width
+    val a = minOf(inR, outR / (k + 1f / kotlin.math.sqrt(3f)))
+    val b = a * k
+    val cx = w / 2f; val cy = h / 2f
+    drawImage(img, srcOffset = IntOffset((cx - a).toInt(), (cy - b).toInt()), srcSize = IntSize((2 * a).toInt().coerceAtLeast(1), (2 * b).toInt().coerceAtLeast(1)),
+        dstOffset = IntOffset(r.left.toInt(), r.top.toInt()), dstSize = IntSize(kotlin.math.ceil(r.width).toInt().coerceAtLeast(1), kotlin.math.ceil(r.height).toInt().coerceAtLeast(1)),
+        filterQuality = FilterQuality.Medium)
+}
 
 @Composable
 private fun rememberDeedArt(): DeedArt {
@@ -126,7 +175,9 @@ private fun rememberDeedArt(): DeedArt {
     val tower = img(com.puresudoku.R.drawable.rt_ag_tower)
     val castle = img(com.puresudoku.R.drawable.rt_wonder_citadel)
     val road = img(com.puresudoku.R.drawable.rt_road_neutral)
-    return remember(heroes, domains, tower) { DeedArt(heroes, domains, special, tower, castle, road) }
+    val landIds = remember { List(Deeds.N) { landFor(it) } }
+    val landImgs = landIds.distinct().associateWith { img(it) }
+    return remember(heroes, domains, tower, landImgs) { DeedArt(heroes, domains, special, tower, castle, road, landIds.map { landImgs.getValue(it) }) }
 }
 
 // =====================================================================  session
@@ -456,8 +507,8 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
 private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e: Float) {
     val g = s.g
     val kind = Deeds.KIND[t]
-    drawRect(Brush.verticalGradient(listOf(PARCH_TOP, PARCH_BOT), r.top, r.bottom), r.topLeft, r.size)
-    drawRect(INK.copy(alpha = 0.7f), r.topLeft, r.size, style = Stroke(1.2f))
+    landscape(art.land[t], r)
+    drawRect(INK.copy(alpha = 0.8f), r.topLeft, r.size, style = Stroke(1.5f))
     val sd = side(t)
     val corner = t % 9 == 0
     // the domain band on the board's inner edge
@@ -475,12 +526,10 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
         corner -> art.special[kind]?.let { art(it, r.center, minOf(r.width, r.height) * 0.86f) }
         kind == Deeds.LAND -> {
             drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
-            art(art.domains[Deeds.GROUP[t]], r.center + outer, e * 0.78f)
         }
         kind == Deeds.BRIDGE -> {
             drawRect(Color(0xFF3F6E8C), bandRect.topLeft, bandRect.size)
             val ctr = r.center + outer
-            drawRoundRect(Color(0xFF5B8FB0), Offset(ctr.x - e * 0.38f, ctr.y - e * 0.22f), Size(e * 0.76f, e * 0.44f), CornerRadius(e * 0.08f))
             val vertical = sd == 1 || sd == 3
             rotate(if (vertical) 90f else 0f, ctr) {
                 drawImage(art.road, dstOffset = IntOffset((ctr.x - e * 0.5f).toInt(), (ctr.y - e * 0.1f).toInt()), dstSize = IntSize((e).toInt().coerceAtLeast(1), (e * 0.2f).toInt().coerceAtLeast(1)), filterQuality = FilterQuality.Medium)
