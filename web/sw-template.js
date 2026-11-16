@@ -4,8 +4,9 @@
 //
 // Each build is one cache. A new deploy changes VERSION, so the browser installs the new worker,
 // which downloads the new build into a fresh cache while the old one keeps serving. Once it has
-// everything it takes over straight away (no waiting for every tab to close), so the next open or
-// reload runs the new version; a game already running is never reloaded under the player.
+// everything it takes over straight away and reloads every open window into the new version, so a
+// deploy reaches everyone within minutes. Saves are kept as you play, so a reload carries on. A
+// first visit (no older version) is never reloaded.
 
 const VERSION = '__VERSION__';
 const FILES = __FILES__;
@@ -21,9 +22,14 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('puregames-') && k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.keys().then((keys) => {
+      const old = keys.filter((k) => k.startsWith('puregames-') && k !== CACHE);
+      return Promise.all(old.map((k) => caches.delete(k)))
+        .then(() => self.clients.claim())
+        // an update: bring every open window onto the new version
+        .then(() => old.length === 0 ? null : self.clients.matchAll({ type: 'window' })
+          .then((wins) => Promise.all(wins.map((w) => w.navigate(w.url).catch(() => null)))));
+    })
   );
 });
 

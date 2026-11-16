@@ -149,6 +149,12 @@ fun SettingsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                     if (vm.backupFolderName != null) TextButton(onClick = vm::backupNow) { Text("Back up now") }
                 }
                 TextButton(onClick = { vm.pickBackupFile?.invoke() }) { Text("Restore from a backup file") }
+                Spacer(Modifier.height(14.dp))
+                Text("Updates", fontWeight = FontWeight.SemiBold)
+                Text(com.puresudoku.platform.updateHelp, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                var updateNote by remember { mutableStateOf("") }
+                TextButton(onClick = { updateNote = "Checking…"; com.puresudoku.platform.checkForUpdate { updateNote = it } }) { Text(com.puresudoku.platform.updateButtonLabel) }
+                if (updateNote.isNotEmpty()) Text(updateNote, fontSize = 13.sp)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },

@@ -26,7 +26,15 @@
     <script>
         // Offline play and quick starts: the service worker keeps a copy of the app on this device.
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+            // Look for a new deploy now and then; the service worker downloads it and reloads every
+            // open window into it (see sw-template.js).
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then((reg) => {
+                    const check = () => reg.update().catch(() => {});
+                    setInterval(check, 5 * 60 * 1000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+                }).catch(() => {});
+            });
         }
         // Ask the browser not to clear saves when the device runs low on space.
         if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
