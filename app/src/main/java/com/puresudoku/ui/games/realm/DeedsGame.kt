@@ -158,7 +158,9 @@ private fun rememberDeedArt(): DeedArt {
     val icons = mapOf(
         Deeds.SPIRE to img(com.puresudoku.R.drawable.rt_wonder_sky_temple),
         Deeds.ARENA to img(com.puresudoku.R.drawable.rt_ag_colosseum),
-        Deeds.SEIZE to img(com.puresudoku.R.drawable.rt_black_knight),
+        Deeds.SEIZE to img(com.puresudoku.R.drawable.dd_inquisitor),
+        Deeds.BRIDGE to img(com.puresudoku.R.drawable.dd_bridge),
+        200 to img(com.puresudoku.R.drawable.dd_dungeon),
         Deeds.MARKET to img(com.puresudoku.R.drawable.rt_ag_market),
         Deeds.FATE to img(com.puresudoku.R.drawable.rt_ui_scroll),
         Deeds.LOOT to img(com.puresudoku.R.drawable.rt_ui_relic),
@@ -515,20 +517,6 @@ private fun DrawScope.tag(text: String, c: Offset, h: Float, bg: Color = Color(0
     glyph(text, c, h * 0.72f, Color.White)
 }
 
-/** A solid black bridge: an arched span over three lines of water, centred at [c] in a box [s] across. */
-private fun DrawScope.bridgeSymbol(c: Offset, s: Float) {
-    val u = s / 2
-    val black = Color.Black
-    for (k in 0 until 3) drawLine(black, c + Offset(-0.9f * u, (0.58f + k * 0.17f) * u), c + Offset(0.9f * u, (0.58f + k * 0.17f) * u), u * 0.09f, StrokeCap.Round)
-    drawPath(Path().apply {
-        moveTo(c.x - 0.98f * u, c.y + 0.45f * u); lineTo(c.x - 0.98f * u, c.y - 0.25f * u); lineTo(c.x + 0.98f * u, c.y - 0.25f * u); lineTo(c.x + 0.98f * u, c.y + 0.45f * u)
-        lineTo(c.x + 0.58f * u, c.y + 0.45f * u); quadraticTo(c.x, c.y - 0.35f * u, c.x - 0.58f * u, c.y + 0.45f * u); close()
-    }, black)
-    // the parapet's posts
-    for (k in 0 until 5) drawRect(black, c + Offset((-0.9f + k * 0.42f) * u, -0.48f * u), Size(0.14f * u, 0.25f * u))
-    drawRect(black, c + Offset(-0.98f * u, -0.52f * u), Size(1.96f * u, 0.09f * u))
-}
-
 // =====================================================================  the board
 
 @Composable
@@ -633,7 +621,12 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
     val owner = g.owner[t]
     when {
         corner -> {
-            art.icons[kind]?.let { art(it, r.center - Offset(0f, e * 0.1f), minOf(r.width, r.height) * 0.74f) }
+            val m = minOf(r.width, r.height)
+            if (kind == Deeds.ARENA) {
+                // the Colosseum, with the Dungeon's entrance in front of it
+                art(art.icons.getValue(Deeds.ARENA), r.center + Offset(m * 0.14f, -m * 0.2f), m * 0.6f)
+                art(art.icons.getValue(200), r.center + Offset(-m * 0.15f, m * 0.02f), m * 0.56f)
+            } else art.icons[kind]?.let { art(it, r.center - Offset(0f, e * 0.1f), m * 0.74f) }
             CORNER_LABEL[t]?.let { tag(it, Offset(r.center.x, r.bottom - e * 0.2f), e * 0.26f) }
         }
         kind == Deeds.LAND -> drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
@@ -646,7 +639,6 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
         val at = when { !priced -> field.center; field.width > field.height -> Offset(field.left + field.width * 0.3f, field.center.y); else -> Offset(field.center.x, field.top + field.height * 0.34f) }
         val box = minOf(field.width, field.height) * (if (priced) 0.62f else 0.8f)
         when (kind) {
-            Deeds.BRIDGE -> bridgeSymbol(at, box * 0.85f)
             Deeds.MILL -> art(art.icons.getValue(if (t < 18) 100 else 101), at, box)
             else -> art.icons[kind]?.let { art(it, at, box) }
         }

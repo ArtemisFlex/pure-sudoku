@@ -1,6 +1,7 @@
 package com.puresudoku
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.dp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -327,6 +328,19 @@ class ArtQaActivity : ComponentActivity() {
                     "PASS: ten board games, strategy variants, and three card games handoff/save"
                 }.getOrElse { "FAIL: ${it.stackTraceToString()}" }
                 setContentView(TextView(this).apply { text = result; textSize = 20f }); return
+            }
+            "deeds-board" -> {
+                // a fresh Deed or Dungeon table before anyone has chosen a champion: the bare board, no pieces
+                val g = com.puresudoku.core.board.Deeds.newGame(1, Random(1))
+                g.seats(2, 0); g.ai[0] = 1; g.ai[1] = 1
+                val s = com.puresudoku.ui.games.realm.DeedsSession(Difficulty.MEDIUM, g)
+                setContent { PureSudokuTheme {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.bg_realm_ocean), null,
+                            androidx.compose.ui.Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                        com.puresudoku.ui.games.realm.DeedsUi(s)
+                    }
+                } }; return
             }
             "wisteria-local" -> {
                 val g = Wisteria.newGame(Difficulty.EASY, Random(44))
