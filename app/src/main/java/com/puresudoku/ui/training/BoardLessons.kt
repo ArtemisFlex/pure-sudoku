@@ -83,6 +83,21 @@ object BoardLessons {
                 listOf("Calculate checking sequences; xiangqi mates come fast.", "Coordinate cannon and chariot for unstoppable checks.", "Defend accurately: one loose advisor can lose the game."),
             ),
         ),
+        GameKind.CYVASSE to Course(
+            listOf(
+                "Behind the screen, set 3 mountains and your keep on your half, then stand pieces on the home tiles round the keep. The rest wait in reserve.",
+                "Each turn, move one piece or bring one out of reserve onto an empty home tile. Land on an enemy piece to take it.",
+                "Hold two of the rival's home tiles and its keep falls with everything in reserve. Take the rival king to win.",
+            ),
+            listOf(
+                listOf("Tap a piece to read how it moves.", "Never leave your king on an open line."),
+                listOf("Water stops every piece but the dragon.", "Light horses ride round the board's edges: watch the back row."),
+                listOf("Take what's free, but check what can take back.", "Elephants need two attackers: bring a partner."),
+                listOf("Mountains beside your keep leave fewer home tiles to raid.", "Raid with two pieces: two home tiles take the keep."),
+                listOf("A catapult lined up on two pieces takes both.", "The trebuchet shoots over pieces: count its diagonals."),
+                listOf("Keep strong pieces in reserve to answer raids.", "Trade down only when your king is safer than theirs."),
+            ),
+        ),
         GameKind.BACKGAMMON to Course(
             listOf(
                 "Roll two dice and move your white checkers that many points toward your home (bottom right). Doubles move four times.",

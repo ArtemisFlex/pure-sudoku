@@ -160,3 +160,17 @@ Final verification: debug and release APK assembly, the complete debug unit-test
 Requested: support Pure Games online play in Cratebarge. Implementation in progress: enable the existing room-code two-player flow, retaining solo-only contracts and currency.
 Completed: enabled Cratebarge in Pure Games room-code online play and its hidden-information screen treatment; online uses the classic two-player battle, while Dice and consumables remain solo. Added the original captain expression images and rival portraits to the dialogue and battle presentation. Android debug assembly and unit tests passed, including a two-seat fleet placement and shot synchronization test. Web distribution build is in progress. Online service and physical-device acceptance remain unverified.
 Verification update: the web Kotlin/Wasm source compiled; production optimization is still running. A live online match and real-device play are still unverified. Pure Games exchanges complete game snapshots between peers, so hidden fleets are obscured by the normal UI but are not secret from a modified client. No new domain or hosting changes were made.
+
+## 2026-11-16 — Cyvasse completion and deployment
+
+Requested: check that Cyvasse is complete, commit all changes to the pure-sudoku repository, build the app, and deploy the browser version to Vercel.
+
+In progress: auditing the game and its integration, running the relevant tests and builds, and checking deployment readiness. Results and remaining acceptance work will be recorded here.
+
+Completed: reviewed Claude's Cyvasse implementation and integrated its browser AI with the existing Web Worker search. Fixed the reserve tray staying open across local turns and used the normal terminal-state check after computer moves.
+
+Validation: all 10 Cyvasse unit tests passed on the final source, including setup, movement, special captures, keep capture, AI play and save round trips. Android release assembly and release lint passed. The locally built release APK is app/build/outputs/apk/release/app-release.apk; the pre-existing root PureGames.apk is older and was preserved. Release builds use the local debug signing key, so update compatibility with an installed app is not established.
+
+Remaining: a full human playthrough, browser interaction including worker fallback, live two-player match, physical-phone acceptance and game balance have not been verified. Browser production build and deployment are in progress.
+
+Deployment: the browser production build succeeded (with webpack bundle-size warnings). Vercel deployment dpl_BNoHuuXz3kdgq7FMSPoSqcUTo6sa reached READY and was aliased to https://puregames.app. The live page and service worker returned HTTP 200, and the service worker contained build version 2f8acde544a6d036. A browser smoke check opened the live catalog, Cyvasse, its tutorial and setup board; it did not exercise a full game or online match.

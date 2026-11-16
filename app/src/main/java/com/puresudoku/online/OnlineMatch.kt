@@ -21,6 +21,8 @@ val hiddenInfoGames = setOf(
     // nothing secret here, but the board stays readable (tap tiles) while you wait
     GameKind.DEED_DUNGEON,
     GameKind.SEA_BATTLE, GameKind.CRATEBARGE,
+    // setups behind the screen and reserves are secret; the board stays readable (tap pieces) while you wait
+    GameKind.CYVASSE,
 )
 
 /** Boards with plain round pieces, turned round for the guest so their side is at the bottom. */

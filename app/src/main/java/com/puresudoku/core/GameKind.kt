@@ -44,6 +44,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     GO("Go", "Territory", "Surround more of the board than your rival.", GameCategory.BOARD),
     SHOGI("Shogi", "Strategy", "Japanese chess, where captured pieces fight for you.", GameCategory.BOARD),
     XIANGQI("Xiangqi", "Strategy", "Chinese chess across the river.", GameCategory.BOARD),
+    CYVASSE("Cyvasse", "Strategy", "Set up behind a screen, then storm the rival keep and take its king. The battle game of Westeros.", GameCategory.BOARD),
     BACKGAMMON("Backgammon", "Luck", "Race your checkers home and bear them off.", GameCategory.BOARD),
     MANCALA("Mancala", "Planning", "Sow seeds and capture the most.", GameCategory.BOARD),
     MAHJONG("Mahjong", "Patterns", "Clear the tiles by matching free pairs.", GameCategory.BOARD),
@@ -79,5 +80,5 @@ val localTwoPlayerGames = setOf(
     GameKind.SHOGI, GameKind.XIANGQI, GameKind.MANCALA, GameKind.MORRIS, GameKind.BACKGAMMON,
     GameKind.GO_FISH, GameKind.CRAZY_EIGHTS, GameKind.CUTTLE,
     GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH,
-    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD, GameKind.DEED_DUNGEON, GameKind.SEA_BATTLE, GameKind.CRATEBARGE,
+    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD, GameKind.DEED_DUNGEON, GameKind.SEA_BATTLE, GameKind.CRATEBARGE, GameKind.CYVASSE,
 )

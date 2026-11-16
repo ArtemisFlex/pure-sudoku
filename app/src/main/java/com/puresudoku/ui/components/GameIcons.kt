@@ -104,6 +104,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.MORRIS -> morrisIcon(colors, o, inner)
             GameKind.TIC_TAC_TOE -> tttIcon(colors, o, inner)
             GameKind.SEA_BATTLE, GameKind.CRATEBARGE -> seaIcon(colors, o, inner)
+            GameKind.CYVASSE -> cyvasseIcon(colors, o, inner)
             GameKind.REALMFORGE -> realmIcon(colors, o, inner, 0)
             GameKind.REALM_DRAGON -> realmIcon(colors, o, inner, 1)
             GameKind.REALM_NIGHT -> realmIcon(colors, o, inner, 2)
@@ -524,6 +525,23 @@ private fun DrawScope.seaIcon(c: BoardColors, o: Float, inner: Float) {
     drawLine(c.given, h - Offset(cell * 0.25f, cell * 0.25f), h + Offset(cell * 0.25f, cell * 0.25f), cell * 0.12f, StrokeCap.Round)
     drawLine(c.given, h + Offset(cell * 0.25f, -cell * 0.25f), h - Offset(cell * 0.25f, -cell * 0.25f), cell * 0.12f, StrokeCap.Round)
     drawCircle(c.given, cell * 0.24f, Offset(o + 0.5f * cell, o + 3.5f * cell), style = Stroke(cell * 0.09f))
+}
+
+/** Cyvasse: a mountain and a keep on a grid, with a light and a dark piece facing each other. */
+private fun DrawScope.cyvasseIcon(c: BoardColors, o: Float, inner: Float) {
+    gridLines(c, o, inner, 4)
+    val cell = inner / 4
+    // a mountain
+    drawPath(Path().apply { moveTo(o + cell * 0.1f, o + cell * 1.9f); lineTo(o + cell * 0.95f, o + cell * 0.25f); lineTo(o + cell * 1.9f, o + cell * 1.9f); close() }, c.given)
+    drawPath(Path().apply { moveTo(o + cell * 0.7f, o + cell * 0.75f); lineTo(o + cell * 0.95f, o + cell * 0.25f); lineTo(o + cell * 1.2f, o + cell * 0.75f); close() }, c.boardBg)
+    // a keep with battlements
+    val kx = o + cell * 2.35f; val ky = o + cell * 2.3f
+    drawRect(c.entered, Offset(kx, ky), Size(cell * 1.3f, cell * 1.45f))
+    for (k in 0..2) drawRect(c.entered, Offset(kx + k * cell * 0.5f, ky - cell * 0.3f), Size(cell * 0.3f, cell * 0.32f))
+    drawRect(c.boardBg, Offset(kx + cell * 0.47f, ky + cell * 0.8f), Size(cell * 0.36f, cell * 0.65f))
+    // two pieces
+    drawCircle(c.given, cell * 0.38f, Offset(o + 2.9f * cell, o + 0.9f * cell))
+    drawCircle(c.entered, cell * 0.38f, Offset(o + 0.9f * cell, o + 3.1f * cell), style = Stroke(cell * 0.12f))
 }
 
 /** Street Smarts: a street grid, a blue route and a destination pin. */

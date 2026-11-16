@@ -90,6 +90,7 @@ object Games {
             com.puresudoku.ui.games.board.GoDef,
             com.puresudoku.ui.games.board.ShogiDef,
             com.puresudoku.ui.games.board.XiangqiDef,
+            com.puresudoku.ui.games.board.CyvasseDef,
             com.puresudoku.ui.games.board.BackgammonDef,
             com.puresudoku.ui.games.board.MancalaDef,
             com.puresudoku.ui.games.board.MahjongDef,
