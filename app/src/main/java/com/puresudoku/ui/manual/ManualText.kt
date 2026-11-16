@@ -630,21 +630,24 @@ object ManualText {
             sec("The battlefield") { b("A board 10 tiles wide and 11 tall. Each army holds five rows; the middle row is a river of water tiles.",
                 "Each side has a back row of trebuchet, heavy horse, light horse, spearman, dragon, king, spearman, light horse, heavy horse and catapult, and in front of it an elephant, a crossbowman, six rabble, a crossbowman and an elephant. A fortress, mountains and forests stand between the army and the river. Alabaster moves first.") }
             sec("The pieces") { b("King: one tile any way. It can take any piece.",
-                "Rabble and elephant: one tile any way.",
+                "Rabble: one tile forward or sideways, never back. It takes only one tile diagonally forward.",
+                "Elephant: one tile any way.",
                 "Spearman: up to two tiles any way. It takes only by landing on its victim.",
-                "Crossbowman: one tile straight (not diagonally). It shoots every enemy diagonally beside it at once: when it steps next to them, or, as its move, at enemies that came next to it.",
+                "Crossbowman: one tile straight (not diagonally). As its move, it can shoot one enemy diagonally beside it, staying where it is.",
                 "Light horse: one or two tiles diagonally, leaping over pieces on the way. It takes by landing on its victim.",
-                "Heavy horse: up to three tiles diagonally. Pieces block it; it takes by landing on its victim.",
+                "Heavy horse: up to three tiles diagonally. Pieces block it and water ends its ride; it takes by landing on its victim.",
                 "Catapult: one tile straight. It shoots any distance diagonally, over your own pieces.",
                 "Trebuchet: one tile straight. It shoots any distance straight, over your own pieces.",
-                "Dragon: flies any distance in a straight line over water and forest. Mountains, pieces and fortresses stop it, and it can't attack a piece in a forest.") }
-            sec("Terrain") { b("Mountains can't be entered. Each forest entered costs a walking piece one extra step and ends a horse's ride; siege engines can't shoot from a forest.",
+                "Dragon: flies any distance in a straight line over water and forest. Mountains, pieces and fortresses stop it, and it can't attack a piece in a forest.",
+                "Only the side to move attacks, and only with the one piece it moves: nothing is taken on the other player's turn.") }
+            sec("Terrain") { b("Mountains can't be entered.",
+                "Forests are cover. A piece standing in a forest can't attack at all, and catapults, trebuchets and dragons can't hit a piece in one. Other pieces can still land on it and take it, and a crossbowman can shoot into a forest.",
                 "Entering water ends a move and the piece must wait a turn before moving again.",
                 "Ground units that cross the river can't step back toward their own side, only forward or sideways, unless they've been promoted. Catapults and trebuchets never cross the river.") }
-            sec("Taking pieces") { b("Kings can take any piece. Elephants can be taken only by kings, dragons, heavy horses, elephants, catapults and trebuchets. Heavy horses can be taken by anything except a rabble. Everything else can be taken by any piece.",
+            sec("Taking pieces") { b("Kings can take any piece. Elephants can be taken only by kings, dragons, heavy horses, elephants, catapults and trebuchets. Heavy horses and dragons can be taken by anything except a rabble. Everything else can be taken by any piece.",
                 "Shots stop at the first enemy and at mountains. You can never take your own pieces.") }
             sec("Fortresses") { b("Any unit except a catapult, trebuchet or dragon may stand in an empty fortress, even the enemy's.",
-                "A fortress protects the piece inside from one attack and then falls, becoming a grass tile; the defender survives. With a king inside it withstands two attacks, but a dragon brings it down in one. A dragon may only come down on a fortress to attack the piece inside.",
+                "A fortress protects the piece inside from one attack and then falls, becoming a grass tile; the defender survives. With a king inside it withstands two attacks. A dragon strikes twice at once: it brings the fortress down and takes the piece inside, unless that piece is a king. A dragon may only come down on a fortress to attack the piece inside.",
                 "Bringing down a fortress counts as a piece taken.") }
             sec("Promotion") { p("A rabble that reaches the enemy's back row is promoted to any piece except a king or a rabble. A promoted piece may move backward again after crossing the river.") }
             sec("Check and checkmate") { b("You may never make a move that leaves your king able to be taken, and when your king is in check you must get it out: move it, block, or take the attacker.",

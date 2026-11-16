@@ -233,11 +233,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         val out = HashMap<Int, Int>()
         for (m in g.legalMoves()) {
             if (Cyvasse.aOf(m) != selected) continue
-            when (Cyvasse.kindOf(m)) {
-                // a crossbow volley is aimed by tapping any enemy it would shoot
-                Cyvasse.K_VOLLEY -> for (v in g.victims(m)) out[v] = m
-                Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO -> out.getOrPut(Cyvasse.bOf(m)) { m }
-            }
+            if (Cyvasse.kindOf(m) in intArrayOf(Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO)) out.getOrPut(Cyvasse.bOf(m)) { m }
         }
         return out
     }
@@ -336,7 +332,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         val snap = g.copy()
         return {
             val m = CyvasseAi.best(snap, 3, Random(7))
-            val from = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_VOLLEY, Cyvasse.K_PROMO -> Cyvasse.aOf(m); else -> -1 }
+            val from = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO -> Cyvasse.aOf(m); else -> -1 }
             val to = if (Cyvasse.kindOf(m) == Cyvasse.K_PASS) -1 else Cyvasse.bOf(m)
             Triple("Try this: ${snap.describe(m)}.", from, to)
         }
@@ -383,11 +379,11 @@ object CyvasseDef : GameDef {
             val s = remember { demo() }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("Move and capture", "Move or attack with one piece each turn. Most pieces take by landing on their victim. Kings take anything; only kings, dragons, heavy horses, elephants and siege engines can take an elephant; anything but a rabble can take a heavy horse. Never your own pieces.") { _ ->
+        TutorialStep("Move and capture", "Move or attack with one piece each turn. Most pieces take by landing on their victim. Kings take anything; only kings, dragons, heavy horses, elephants and siege engines can take an elephant; anything but a rabble can take a heavy horse or a dragon. Never your own pieces.") { _ ->
             val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.LIGHT_HORSE) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("The river and the dragon", "Entering water ends a move and holds the piece a turn. Siege engines never cross the river; other ground units that cross it can't step back. Dragons fly over water and forest but mountains, pieces and fortresses stop them. A rabble on the enemy's back row is promoted.") { _ ->
+        TutorialStep("The river and the dragon", "Entering water ends a move and holds the piece a turn. A piece in a forest can't attack, and catapults, trebuchets and dragons can't hit it there. Siege engines never cross the river; other ground units that cross it can't step back. Dragons fly over water and forest but mountains, pieces and fortresses stop them. A rabble on the enemy's back row is promoted.") { _ ->
             val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.DRAGON) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
@@ -614,7 +610,7 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
         // the last move
         if (g.lastMove >= 0 && g.phase != Cyvasse.SETUP) {
             val m = g.lastMove
-            val cells = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO -> listOf(Cyvasse.aOf(m), Cyvasse.bOf(m)); Cyvasse.K_VOLLEY -> listOf(Cyvasse.aOf(m)); Cyvasse.K_DEPLOY -> listOf(Cyvasse.bOf(m)); else -> emptyList() }
+            val cells = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO -> listOf(Cyvasse.aOf(m), Cyvasse.bOf(m)); Cyvasse.K_DEPLOY -> listOf(Cyvasse.bOf(m)); else -> emptyList() }
             for (c in cells) { val r = rectOf(c); drawRect(Color(0xFFF3E08A).copy(alpha = 0.6f), r.topLeft, r.size) }
         }
         if (s.selected >= 0) { val r = rectOf(s.selected); drawRect(Color(0xFF7FB2E5).copy(alpha = 0.55f), r.topLeft, r.size) }

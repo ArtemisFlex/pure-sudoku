@@ -14,7 +14,6 @@ import com.puresudoku.core.board.Cyvasse.Companion.KING
 import com.puresudoku.core.board.Cyvasse.Companion.K_MOVE
 import com.puresudoku.core.board.Cyvasse.Companion.K_PROMO
 import com.puresudoku.core.board.Cyvasse.Companion.K_RANGED
-import com.puresudoku.core.board.Cyvasse.Companion.K_VOLLEY
 import com.puresudoku.core.board.Cyvasse.Companion.LIGHT_HORSE
 import com.puresudoku.core.board.Cyvasse.Companion.MOUNTAIN
 import com.puresudoku.core.board.Cyvasse.Companion.OVER
@@ -132,19 +131,51 @@ class CyvasseTest {
         assertTrue(g.play(g.move(at(8, 3), at(7, 4))!!)); assertEquals(piece(0, SPEARMAN), g.board[at(7, 4)])
     }
 
-    @Test fun crossbowmanStepsStraightAndShootsDiagonalNeighbours() {
+    @Test fun crossbowmanStepsStraightAndShootsOneDiagonalNeighbourAsItsMove() {
         val g = battle(); g.board[at(8, 4)] = piece(0, CROSSBOW)
         assertEquals(setOf(at(7, 4), at(9, 4), at(8, 3), at(8, 5)), g.targets(at(8, 4)))
-        // stepping to e4 puts two enemies diagonally beside it: both are shot
+        // stepping up beside two enemies takes nothing: shooting is a move of its own
         g.board[at(6, 3)] = piece(1, RABBLE); g.board[at(6, 5)] = piece(1, SPEARMAN)
         val m = g.move(at(8, 4), at(7, 4))!!
-        assertEquals(setOf(at(6, 3), at(6, 5)), g.victims(m).toSet())
-        assertTrue(g.play(m)); assertEquals(0, g.board[at(6, 3)]); assertEquals(0, g.board[at(6, 5)])
-        // an enemy that lands diagonally beside it can be shot where it stands
-        val h = battle(); h.board[at(8, 4)] = piece(0, CROSSBOW); h.board[at(7, 5)] = piece(1, RABBLE); h.board[at(7, 4)] = piece(1, RABBLE)
-        val volley = h.legalMoves().first { kindOf(it) == K_VOLLEY && aOf(it) == at(8, 4) }
-        assertEquals(listOf(at(7, 5)), h.victims(volley))
-        assertTrue(h.play(volley)); assertEquals(0, h.board[at(7, 5)]); assertEquals(piece(1, RABBLE), h.board[at(7, 4)])
+        assertTrue(g.victims(m).isEmpty())
+        assertTrue(g.play(m)); assertEquals(piece(1, RABBLE), g.board[at(6, 3)]); assertEquals(piece(1, SPEARMAN), g.board[at(6, 5)])
+        // on its next turn it may shoot one of them, the one its player picks, and stays where it is
+        g.turn = 0
+        assertNotNull(g.move(at(7, 4), at(6, 3), K_RANGED)); assertNotNull(g.move(at(7, 4), at(6, 5), K_RANGED))
+        assertTrue(g.play(g.move(at(7, 4), at(6, 5), K_RANGED)!!))
+        assertEquals(0, g.board[at(6, 5)]); assertEquals(piece(1, RABBLE), g.board[at(6, 3)]); assertEquals(piece(0, CROSSBOW), g.board[at(7, 4)])
+        // never straight ahead, and nothing on the other player's turn
+        val h = battle(); h.board[at(8, 4)] = piece(0, CROSSBOW); h.board[at(7, 4)] = piece(1, RABBLE)
+        assertNull(h.move(at(8, 4), at(7, 4), K_RANGED)); assertNull(h.move(at(8, 4), at(7, 4)))
+    }
+
+    @Test fun rabbleStepsForwardOrSidewaysAndTakesDiagonallyForward() {
+        val g = battle(); g.board[at(8, 4)] = piece(0, RABBLE)
+        assertEquals(setOf(at(7, 4), at(8, 3), at(8, 5)), g.targets(at(8, 4)))
+        g.board[at(7, 4)] = piece(1, SPEARMAN); g.board[at(7, 5)] = piece(1, SPEARMAN); g.board[at(9, 3)] = piece(1, SPEARMAN)
+        assertNull(g.move(at(8, 4), at(7, 4)))                     // not straight ahead
+        assertNotNull(g.move(at(8, 4), at(7, 5)))                  // diagonally forward
+        assertNull(g.move(at(8, 4), at(9, 3)))                     // never back
+    }
+
+    @Test fun forestsAreCover() {
+        // a piece in a forest can't attack
+        val g = battle(); g.board[at(8, 4)] = piece(0, SPEARMAN); g.terrain[at(8, 4)] = FOREST; g.board[at(7, 4)] = piece(1, RABBLE)
+        assertNull(g.move(at(8, 4), at(7, 4)))
+        val x = battle(); x.board[at(8, 4)] = piece(0, CROSSBOW); x.terrain[at(8, 4)] = FOREST; x.board[at(7, 5)] = piece(1, RABBLE)
+        assertNull(x.move(at(8, 4), at(7, 5), K_RANGED))
+        // siege engines and dragons can't hit a piece in a forest; others can land on it, and a crossbowman can shoot into it
+        val t = battle(); t.board[at(10, 2)] = piece(0, TREBUCHET); t.board[at(4, 2)] = piece(1, RABBLE); t.terrain[at(4, 2)] = FOREST
+        assertNull(t.move(at(10, 2), at(4, 2), K_RANGED))
+        val d = battle(); d.board[at(8, 2)] = piece(0, DRAGON); d.board[at(4, 2)] = piece(1, RABBLE); d.terrain[at(4, 2)] = FOREST
+        assertNull(d.move(at(8, 2), at(4, 2)))
+        val s = battle(); s.board[at(6, 2)] = piece(0, SPEARMAN); s.board[at(4, 2)] = piece(1, RABBLE); s.terrain[at(4, 2)] = FOREST
+        assertNotNull(s.move(at(6, 2), at(4, 2)))
+        val c = battle(); c.board[at(5, 3)] = piece(0, CROSSBOW); c.board[at(4, 2)] = piece(1, RABBLE); c.terrain[at(4, 2)] = FOREST
+        assertNotNull(c.move(at(5, 3), at(4, 2), K_RANGED))
+        // no extra step for entering one
+        val w = battle(); w.board[at(8, 4)] = piece(0, SPEARMAN); w.terrain[at(7, 4)] = FOREST
+        assertTrue(at(6, 4) in w.targets(at(8, 4)))
     }
 
     @Test fun lightHorseLeapsAndHeavyHorseIsBlocked() {
@@ -162,7 +193,7 @@ class CyvasseTest {
         assertTrue(Cyvasse.beats(KING, ELEPHANT)); assertTrue(Cyvasse.beats(CATAPULT, ELEPHANT)); assertTrue(Cyvasse.beats(HEAVY_HORSE, ELEPHANT))
         assertFalse(Cyvasse.beats(SPEARMAN, ELEPHANT)); assertFalse(Cyvasse.beats(LIGHT_HORSE, ELEPHANT)); assertFalse(Cyvasse.beats(CROSSBOW, ELEPHANT)); assertFalse(Cyvasse.beats(RABBLE, ELEPHANT))
         assertFalse(Cyvasse.beats(RABBLE, HEAVY_HORSE)); assertTrue(Cyvasse.beats(SPEARMAN, HEAVY_HORSE))
-        assertTrue(Cyvasse.beats(RABBLE, DRAGON))
+        assertFalse(Cyvasse.beats(RABBLE, DRAGON)); assertTrue(Cyvasse.beats(SPEARMAN, DRAGON))
         val g = battle(); g.board[at(8, 4)] = piece(0, RABBLE); g.board[at(7, 4)] = piece(1, ELEPHANT); g.board[at(7, 5)] = piece(1, HEAVY_HORSE)
         assertNull(g.move(at(8, 4), at(7, 4))); assertNull(g.move(at(8, 4), at(7, 5)))
     }
@@ -180,7 +211,11 @@ class CyvasseTest {
         // ...but a dragon brings it down at once
         val d = battle(); d.board[at(0, 0)] = 0; d.keepAt[1] = at(3, 3); d.block[at(3, 3)] = KEEP; d.board[at(3, 3)] = piece(1, KING)
         d.board[at(8, 3)] = piece(0, DRAGON); assertTrue(d.play(d.move(at(8, 3), at(3, 3))!!))
-        assertTrue(d.keepGone[1]); assertEquals(piece(1, KING), d.board[at(3, 3)])
+        assertTrue(d.keepGone[1]); assertEquals(piece(1, KING), d.board[at(3, 3)]); assertEquals(piece(0, DRAGON), d.board[at(4, 3)])
+        // a dragon's double blow takes any other piece inside along with the fortress, and lands there
+        val e = battle(); e.keepAt[1] = at(3, 3); e.block[at(3, 3)] = KEEP; e.board[at(3, 3)] = piece(1, ELEPHANT)
+        e.board[at(8, 3)] = piece(0, DRAGON); assertTrue(e.play(e.move(at(8, 3), at(3, 3))!!))
+        assertTrue(e.keepGone[1]); assertEquals(piece(0, DRAGON), e.board[at(3, 3)]); assertEquals(1, e.captured[0][ELEPHANT])
     }
 
     @Test fun dragonIsBlockedByMountainsPiecesAndEmptyFortresses() {
