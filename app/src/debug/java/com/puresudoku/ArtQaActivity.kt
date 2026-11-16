@@ -329,10 +329,15 @@ class ArtQaActivity : ComponentActivity() {
                 }.getOrElse { "FAIL: ${it.stackTraceToString()}" }
                 setContentView(TextView(this).apply { text = result; textSize = 20f }); return
             }
-            "deeds-board" -> {
+            "deeds-board", "deeds-dungeon" -> {
                 // a fresh Deed or Dungeon table before anyone has chosen a champion: the bare board, no pieces
+                // (deeds-dungeon: one lord locked in the Dungeon and one visiting the Colosseum)
                 val g = com.puresudoku.core.board.Deeds.newGame(1, Random(1))
-                g.seats(2, 0); g.ai[0] = 1; g.ai[1] = 1
+                if (intent.getStringExtra("mode") == "deeds-dungeon") {
+                    g.seats(3, 0); g.choose(1, 1); g.choose(0, 2); g.choose(2, 3)
+                    g.pos[0] = 18; g.jail[0] = 1; g.pos[1] = 18; g.pos[2] = 5; g.actor = 2
+                    g.ai[0] = 1; g.ai[1] = 1; g.ai[2] = 1
+                } else { g.seats(2, 0); g.ai[0] = 1; g.ai[1] = 1 }
                 val s = com.puresudoku.ui.games.realm.DeedsSession(Difficulty.MEDIUM, g)
                 setContent { PureSudokuTheme {
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {

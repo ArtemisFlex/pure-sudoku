@@ -564,17 +564,26 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
                 if (s.selected >= 0) { val r = tileRect(s.selected, w); drawRect(Color(0xFFFFD54F), r.topLeft, r.size, style = Stroke(e * 0.12f)) }
                 // the pieces, each on a white radiance
                 val here = (0 until g.n).filter { g.hero[it] >= 0 && g.out[it] == 0 }
-                for (p in here) {
+                // on the Colosseum corner, prisoners stand in the Dungeon's cell and visitors outside it
+                fun spot(p: Int) = if (shown[p] == Deeds.DUNGEON_TILE) (if (g.jail[p] >= 0) 1 else 2) else 0
+                fun anchor(p: Int): Offset {
                     val r = tileRect(shown[p], w)
-                    val mates = here.filter { shown[it] == shown[p] }
+                    return when (spot(p)) {
+                        1 -> dungeonCell(r).center
+                        2 -> Offset(r.right - r.width * 0.16f, r.top + r.height * 0.42f)
+                        else -> r.center
+                    }
+                }
+                for (p in here) {
+                    val mates = here.filter { shown[it] == shown[p] && spot(it) == spot(p) }
                     val k = mates.indexOf(p); val m = mates.size
                     val off = when (m) {
                         1 -> Offset.Zero
                         2 -> Offset((if (k == 0) -1 else 1) * e * 0.24f, 0f)
                         else -> Offset((if (k % 2 == 0) -1 else 1) * e * 0.24f, (if (k < 2) -1 else 1) * e * 0.26f)
                     }
-                    val box = e * when (m) { 1 -> 1.0f; 2 -> 0.78f; else -> 0.62f }
-                    val ctr = r.center + off
+                    val box = e * when (m) { 1 -> 1.0f; 2 -> 0.78f; else -> 0.62f } * (if (spot(p) == 2) 0.6f else if (spot(p) == 1) 0.85f else 1f)
+                    val ctr = anchor(p) + off * (if (spot(p) != 0) 0.75f else 1f)
                     // a bright white halo with a soft edge, so the piece reads on any painting
                     val gr = box * 0.7f
                     drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0f), Color.Black.copy(alpha = 0f), Color.Black.copy(alpha = 0.35f), Color.Black.copy(alpha = 0f)), ctr, gr * 1.15f), gr * 1.15f, ctr)
@@ -600,6 +609,12 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
 
 private val CORNER_LABEL = mapOf(0 to "SPIRE", 9 to "INQUISITOR", 18 to "COLOSSEUM", 27 to "MARKET")
 
+/** The Dungeon's cell inside the Colosseum corner [r]: the part toward the middle of the board. */
+private fun dungeonCell(r: Rect): Rect {
+    val m = minOf(r.width, r.height)
+    return Rect(r.left + m * 0.05f, r.top + m * 0.05f, r.left + m * 0.7f, r.top + m * 0.72f)
+}
+
 /**
  * How far a tile's contents turn so they face the edge of the board, like a printed board:
  * the bottom row reads upright, the top row upside down, the sides sideways, and the corners on the diagonal.
@@ -624,17 +639,22 @@ private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e
     val c = r.center
     if (corner) {
         val m = minOf(r.width, r.height)
-        clipRect(r.left, r.top, r.right, r.bottom) {
-            rotate(tileAngle(t), c) {
-                when (kind) {
-                    // the Colosseum's painting, with the Dungeon's entrance over it
-                    Deeds.ARENA -> { art(art.icons.getValue(200), c - Offset(0f, m * 0.06f), m * 0.58f); tag("DUNGEON", c + Offset(0f, m * 0.24f), e * 0.22f) }
-                    Deeds.SPIRE -> tag("SPIRE", c + Offset(0f, m * 0.24f), e * 0.22f)
-                    else -> {
-                        art.icons[kind]?.let { art(it, c - Offset(0f, m * 0.08f), m * 0.62f) }
-                        CORNER_LABEL[t]?.let { tag(it, c + Offset(0f, m * 0.22f), e * 0.22f) }
-                    }
-                }
+        // corners stay upright
+        when (kind) {
+            Deeds.ARENA -> {
+                // the Dungeon in its own cell, toward the middle of the board; visitors to the Colosseum stand outside it
+                val cell = dungeonCell(r)
+                drawRoundRect(Color(0xE61B140C), cell.topLeft, cell.size, CornerRadius(m * 0.05f))
+                art(art.icons.getValue(200), Offset(cell.center.x, cell.top + cell.height * 0.44f), cell.width * 0.86f)
+                drawRoundRect(Color(0xFF1B140C), cell.topLeft, cell.size, CornerRadius(m * 0.05f), style = Stroke(m * 0.035f))
+                drawRoundRect(Color(0xFFE0B23A), cell.topLeft, cell.size, CornerRadius(m * 0.05f), style = Stroke(m * 0.014f))
+                tag("DUNGEON", Offset(cell.center.x, cell.bottom - m * 0.075f), e * 0.2f)
+                tag("COLOSSEUM", Offset(r.center.x, r.bottom - m * 0.1f), e * 0.2f)
+            }
+            Deeds.SPIRE -> tag("SPIRE", Offset(c.x, r.bottom - m * 0.13f), e * 0.24f)
+            else -> {
+                art.icons[kind]?.let { art(it, c - Offset(0f, m * 0.08f), m * 0.66f) }
+                CORNER_LABEL[t]?.let { tag(it, Offset(c.x, r.bottom - m * 0.13f), e * 0.24f) }
             }
         }
         drawRect(Color(0xFF6E5636), r.topLeft, r.size, style = Stroke(1.5f))
