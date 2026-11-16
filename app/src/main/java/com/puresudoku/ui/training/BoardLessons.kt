@@ -85,17 +85,17 @@ object BoardLessons {
         ),
         GameKind.CYVASSE to Course(
             listOf(
-                "Place 5 water, 6 forests, 6 mountains, one fortress and all ten pieces on your own half.",
-                "Move or attack with one unit; capture equal ranks, lower ranks, the next rank or a king.",
-                "Fortresses absorb attacks; dragons ruin them in one hit. Capture the opposing king to win."
+                "Both sides start from the same mirrored layout. Move or attack with one piece a turn.",
+                "Capture your own rank, lower ranks, the next rank up or a king; never your own pieces.",
+                "Like chess, never leave your king in check. Checkmate wins; stalemate draws."
             ),
             listOf(
-                listOf("Only dragons may start on mountains.", "No unit may start in a fortress."),
-                listOf("Water stops and delays units.", "Forests reduce movement range."),
-                listOf("Cavalry cannot capture a defending spearman.", "Ranged pieces can attack without moving."),
-                listOf("Crossbowmen, catapults and trebuchets can capture dragons.", "Dragons cannot attack into forests."),
-                listOf("Trebuchets fire in their last movement direction.", "Mountains block ranged attacks through them."),
-                listOf("A fortress protects a king twice against ordinary attacks.", "A dragon ruins any occupied fortress in one attack.")
+                listOf("Get your horses and dragon out early.", "Keep your king behind its own pieces."),
+                listOf("Siege engines stay on your side of the river: use their range.", "Spearmen attack only diagonally."),
+                listOf("Horses can't take spearmen.", "Catapults and trebuchets fire over your own pieces."),
+                listOf("Dragons can't fly over mountains or pieces: open lines for yours, close them against theirs.", "Ruining a fortress scores a piece."),
+                listOf("Push a rabble to the back row and promote it to a dragon.", "Units across the river can't retreat: commit with care."),
+                listOf("Check with tempo: force the king to move while you gain ground.", "A king in its fortress is shielded: pull it out first.")
             ),
         ),
         GameKind.BACKGAMMON to Course(

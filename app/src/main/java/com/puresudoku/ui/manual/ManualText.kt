@@ -626,20 +626,22 @@ object ManualText {
             saving()
         }
         CYVASSE -> m {
-            sec("The goal") { p("Capture the opposing king. There is no turn limit. Rules are based on gameofcyvasse.com with PureGames custom setup and fortress rules.") }
-            sec("Setup") { b("On an 8×8 board, each player secretly arranges their own 8×4 half: 6 mountains, 6 forests, 5 water tiles, 1 fortress, and grass on the rest.",
-                "Place one of each of the ten pieces on your half. Pieces may start on forest or water; only dragons may start on mountains. No piece starts in a fortress.",
-                "Units starting in water must wait through their first turn. Random makes a complete setup; after both players are ready, the screen comes down.") }
-            sec("Movement and terrain") { b("Non-dragons move in any direction and may turn during a move. Rabble, spearmen, crossbowmen, elephants, catapults, trebuchets and kings move one tile; light horse moves three and heavy horse two.",
-                "After setup, entering water ends a non-dragon unit’s movement and it cannot move on its next turn; dragons fly over water without penalty. Crossbowmen, catapults and trebuchets cannot fire from water.",
-                "Each forest entered reduces movement range by one. Mountains block movement by all units except dragons and block ranged attacks through them.",
-                "Dragons move in a straight line across any distance, over terrain and pieces, but cannot pass an opposing dragon or attack a unit in forest.") }
-            sec("Combat") { b("A piece can capture its own rank, any lower rank, the next rank above it, or a king. The ranking is rabble, spearman, crossbowman, light horse, heavy horse, elephant, catapult, trebuchet, dragon, king.",
-                "A king can capture any unit; cavalry cannot capture a defending spearman. Crossbowmen, catapults and trebuchets can capture dragons. Players may attack their own pieces.",
-                "Crossbowmen shoot within one tile, catapults within two, and trebuchets in a line up to three tiles in their last direction of movement. Select ranged or melee when both are possible.") }
-            sec("Fortresses") { b("An occupied intact fortress absorbs an otherwise successful attack and is ruined; the defender survives. A king survives two such attacks before the fortress is ruined.",
-                "A dragon ruins an occupied fortress in one successful attack, even if the king occupies it. The defender survives that attack. A ruined fortress offers no further protection.") }
-            sec("Winning") { p("Capture the king. If a player has no available move or attack, they pass; the game does not end from a turn limit or lack of moves.") }
+            sec("The goal") { p("Checkmate the rival king. This is PureGames' standard Cyvasse: both sides start from the same layout, and the king follows chess rules for check.") }
+            sec("The battlefield") { b("An 8×8 board. Each side's half holds, from the middle back: mountains on a, d, e and h; forests on a, b, d, e, g and h; a fortress on a with a crossbowman beside it and the elephant on h; and the back row catapult, spearman, light horse, dragon, king, heavy horse, rabble, trebuchet.",
+                "Onyx's half mirrors Alabaster's across the river that runs between them. Alabaster moves first.") }
+            sec("Moving") { b("Move or attack with one piece a turn. Ground pieces may turn as they move but never pass through another piece. Rabble, crossbowmen, elephants, catapults, trebuchets and kings move one tile; spearmen and heavy horse two; light horse three.",
+                "Each forest entered costs one extra step. Mountains can't be entered.",
+                "Ground units that cross the river can't step back toward their own side, only forward or sideways, unless they've been promoted. Catapults and trebuchets never cross the river.",
+                "Dragons fly any distance in a straight line over water and forest. Mountains, pieces and fortresses stop them, and they can't attack a piece in a forest.") }
+            sec("Combat") { b("A piece can capture its own rank, any lower rank, the next rank up, or a king. The ranks run rabble, spearman, crossbowman, light horse, heavy horse, elephant, catapult, trebuchet, dragon, king. You can never capture your own pieces.",
+                "Spearmen attack only diagonally, one tile; horses can't capture spearmen.",
+                "Crossbowmen shoot one tile, catapults up to four and trebuchets up to three, in straight lines. Catapult and trebuchet shots pass over your own pieces; any shot stops at the first enemy and at mountains. None of them can fire from a forest. Crossbowmen, catapults and trebuchets can capture dragons.") }
+            sec("Fortresses") { b("Any unit except a catapult, trebuchet or dragon may stand in an empty fortress, even the enemy's.",
+                "An occupied fortress absorbs an attack and is ruined; the defender survives. A king inside survives two attacks before it falls, but a dragon ruins it in one. A dragon may only come down on a fortress to attack the piece inside.",
+                "Ruining a fortress counts as a piece taken.") }
+            sec("Promotion") { p("A rabble that reaches the enemy's back row is promoted to any piece except a king or a rabble. A promoted piece may move backward again after crossing the river.") }
+            sec("Check and checkmate") { b("You may never make a move that leaves your king able to be taken, and when your king is in check you must get it out: move it, block, or take the attacker.",
+                "No legal move while in check is checkmate and loses. No legal move otherwise is stalemate, a draw.") }
             saving()
         }
         BACKGAMMON -> m {

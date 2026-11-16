@@ -105,6 +105,8 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
     var showReserve by mutableStateOf(false)
     var moveId by mutableIntStateOf(0); private set
     var rangedMode by mutableStateOf(true)
+    /** A rabble about to reach the enemy's back row: the player picks what it becomes. (from, to) */
+    var promoting by mutableStateOf<Pair<Int, Int>?>(null)
 
     val currentPlayer: Int get() = if (g.phase == Cyvasse.SETUP) g.placer else g.turn
     override val tableSeat: Int? get() = if (localTwoPlayer) currentPlayer + 1 else null
@@ -121,10 +123,11 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
 
     override val middleStat get() = MiddleStat.Counter("Taken", "${g.captured[0].sum()}")
     override val progress: Float get() = (g.captured[0].sum() / 20f).coerceAtMost(0.95f)
-    override val wonTitle get() = if (localTwoPlayer) "Alabaster wins!" else "The rival king falls!"
-    override val lostTitle get() = if (localTwoPlayer) "Onyx wins!" else "Your king is taken"
-    override val lostMessage get() = "The rival took your king. This game's save slot has been cleared."
-    override val drawMessage get() = "The game ended."
+    override val wonTitle get() = if (localTwoPlayer) "Checkmate: Alabaster wins!" else "Checkmate!"
+    override val lostTitle get() = if (localTwoPlayer) "Checkmate: Onyx wins!" else "Your king is checkmated"
+    override val lostMessage get() = "The rival checkmated your king. This game's save slot has been cleared."
+    override val drawTitle get() = "Stalemate"
+    override val drawMessage get() = "The side to move had no legal move but wasn't in check: a draw."
 
     val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != Cyvasse.OVER &&
         (localTwoPlayer || currentPlayer == 0) && (!localTwoPlayer || online || !handoffPending) && myOnlineTurn
@@ -136,7 +139,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         else -> "The rival"
     }
 
-    init { message = if (g.phase == Cyvasse.SETUP) "Place 5 waters, 6 forests, 6 mountains, a fortress and all 10 pieces" else "Your move" }
+    init { message = if (g.phase == Cyvasse.SETUP) "Place 5 waters, 6 forests, 6 mountains, a fortress and all 10 pieces" else if (localTwoPlayer) "Alabaster moves first" else "You are Alabaster: your move" }
 
     fun acceptHandoff() { handoffPending = false; bump(); changed() }
     override fun skipHandoff() { handoffPending = false; bump() }
@@ -228,7 +231,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         if (g.phase != Cyvasse.BATTLE) return emptyMap()
         if (selected < 0 || Cyvasse.ownerOf(g.board[selected]) != g.turn) return emptyMap()
         val out = HashMap<Int, Int>()
-        for (m in g.legalMoves()) if (Cyvasse.kindOf(m) == Cyvasse.K_MOVE || Cyvasse.kindOf(m) == Cyvasse.K_RANGED) {
+        for (m in g.legalMoves()) if (Cyvasse.kindOf(m) == Cyvasse.K_MOVE || Cyvasse.kindOf(m) == Cyvasse.K_RANGED || Cyvasse.kindOf(m) == Cyvasse.K_PROMO) {
             if (Cyvasse.aOf(m) == selected) {
                 val t = Cyvasse.bOf(m); val old = out[t]
                 if (old == null || (rangedMode && Cyvasse.kindOf(m) == Cyvasse.K_RANGED) || (!rangedMode && Cyvasse.kindOf(m) == Cyvasse.K_MOVE)) out[t] = m
@@ -243,7 +246,10 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         if (g.phase != Cyvasse.BATTLE) return
         val mine = myMove
         if (mine) {
-            targets()[c]?.let { play(it); return }
+            targets()[c]?.let { m ->
+                if (Cyvasse.kindOf(m) == Cyvasse.K_PROMO) { promoting = Cyvasse.aOf(m) to Cyvasse.bOf(m); bump() } else play(m)
+                return
+            }
         }
         if (pickType > 0) { pickType = 0 }
         val v = g.board[c]
@@ -261,6 +267,14 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         if (g.phase == Cyvasse.SETUP) { if (myMove) { chooseTool(TOOL_PIECES); pickType = t; bump() }; return }
         return
     }
+
+    /** The player chose what their rabble becomes. */
+    fun promote(type: Int) {
+        val (a, b) = promoting ?: return
+        promoting = null
+        play(Cyvasse.mv(Cyvasse.K_PROMO, a, b, type))
+    }
+    fun cancelPromotion() { promoting = null; bump() }
 
     fun endBonus() { if (myMove && g.isLegal(Cyvasse.PASS)) play(Cyvasse.PASS) }
 
@@ -293,8 +307,9 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
             message = "The rival ${g.lastText}"
             bump(); changed()
             when {
-                Cyvasse.KING in took -> Unit
+                g.phase == Cyvasse.OVER -> Unit
                 g.keepFell >= 0 -> announce("Fortress ruined", "The defender survives the attack.", 1800, false)
+                g.inCheck(0) -> announce("Check!", "Your king is under attack: move it, block, or take the attacker.", 1600, false)
                 took.isNotEmpty() -> announce("The rival takes your ${took.joinToString(" and ") { Cyvasse.NAMES[it] }}", g.lastText.replaceFirstChar { it.uppercase() }, 1500, false)
             }
             if (g.phase == Cyvasse.OVER) { whenQuiet { finishGame() }; return@computerSearch }
@@ -309,6 +324,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
                 win(listOf(BonusLine("Army left: $left", left * rules.basePoints / 2), BonusLine(if (g.keepStands(0)) "Keep standing" else "Keep fallen", if (g.keepStands(0)) rules.basePoints * 3 else 0)))
             }
             1 -> lose()
+            Cyvasse.DRAWN -> draw()
             else -> Unit
         }
     }
@@ -317,7 +333,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         if (localTwoPlayer || g.phase != Cyvasse.BATTLE || g.turn != 0) return null
         val snap = g.copy()
         return {
-            val m = CyvasseAi.best(snap, 4, Random(7))
+            val m = CyvasseAi.best(snap, 3, Random(7))
             val from = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED -> Cyvasse.aOf(m); else -> -1 }
             val to = if (Cyvasse.kindOf(m) == Cyvasse.K_PASS) -1 else Cyvasse.bOf(m)
             Triple("Try this: ${snap.describe(m)}.", from, to)
@@ -338,9 +354,9 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
 
 object CyvasseDef : GameDef {
     override val kind = GameKind.CYVASSE
-    override fun generate(d: Difficulty): Session = CyvasseSession(d, Cyvasse.newSetup())
+    override fun generate(d: Difficulty): Session = CyvasseSession(d, Cyvasse.standard())
     override fun restore(o: JSONObject): Session = CyvasseSession.restore(o).also { it.resume() }
-    override fun hint(d: Difficulty) = "Set your terrain, keep and pieces behind the screen; then take the rival king."
+    override fun hint(d: Difficulty) = "Both armies start from the same mirrored field. Checkmate the rival king."
     override fun levelInfo(d: Difficulty) = CyvasseAi.depthFor(d.ordinal).let { "Rival looks $it move${if (it > 1) "s" else ""} ahead" }
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A green lordling: wild moves."
@@ -355,31 +371,25 @@ object CyvasseDef : GameDef {
 
     /** The shared opening, for the how-to-play cards. */
     private fun demo(select: Int = -1): CyvasseSession {
-        val g = Cyvasse.newSetup()
-        g.randomSetup(0, Random(11), 4); g.ready(0, false); g.randomSetup(1, Random(5), 4); g.ready(1, false)
-        val s = CyvasseSession(Difficulty.MEDIUM, g)
+        val s = CyvasseSession(Difficulty.MEDIUM, Cyvasse.standard())
         if (select >= 0) s.tap(select)
         return s
     }
 
     override val tutorial: List<TutorialStep> get() = listOf(
-        TutorialStep("Behind the screen", "Place 5 water, 6 forest, 6 mountain and a fortress tile, then all ten pieces on your half. Only a dragon may start on a mountain; no piece starts in a fortress.") { _ ->
+        TutorialStep("The battlefield", "Both armies start from the same layout, mirrored across the river: mountains in front, forests behind them, a fortress, and ten pieces. Alabaster moves first.") { _ ->
             val s = remember { demo() }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("Move and capture", "Move or attack with one piece each turn. Pieces can capture their own rank, the next rank above, or any lower rank; every piece can capture a king.") { _ ->
-            val s = remember {
-                demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.DRAGON) }?.let { d.tap(it) } }
-            }
+        TutorialStep("Move and capture", "Move or attack with one piece each turn. A piece takes its own rank, any lower rank or the next rank up, never your own pieces. Nothing passes through another piece except catapult and trebuchet shots over your own.") { _ ->
+            val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.LIGHT_HORSE) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("Every piece is different", "Horses can turn as they move. Crossbowmen, catapults and trebuchets can fire; water stops a unit and keeps it still next turn. Forest reduces movement range by one.") { _ ->
-            val s = remember {
-                demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.LIGHT_HORSE) }?.let { d.tap(it) } }
-            }
+        TutorialStep("The river and the dragon", "Siege engines never cross the river; other ground units that cross it can't step back. Dragons fly over water and forest but mountains, pieces and fortresses stop them. A rabble on the enemy's back row is promoted.") { _ ->
+            val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.DRAGON) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("Keep and king", "A fortress absorbs one successful attack for an occupant, or two for a king, before it is ruined. Capture the king to win; there is no turn limit.") { _ ->
+        TutorialStep("Check and checkmate", "Like chess: you may never leave your king in check, and you must get out of check at once. No legal move while in check is checkmate; no legal move otherwise is a stalemate draw.") { _ ->
             val s = remember { demo() }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
@@ -598,15 +608,20 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
             drawLine(Color.Black.copy(alpha = 0.35f), Offset(margin + k * cs, margin), Offset(margin + k * cs, margin + boardSize), 1f)
             drawLine(Color.Black.copy(alpha = 0.35f), Offset(margin, margin + k * cs), Offset(margin + boardSize, margin + k * cs), 1f)
         }
-        // the line between the halves
-        drawLine(Color(0xFF8C7A55).copy(alpha = 0.5f), Offset(margin, margin + n / 2 * cs), Offset(margin + boardSize, margin + n / 2 * cs), cs * 0.03f)
+        // the river between the halves
+        drawLine(Color(0xFF3F86B5), Offset(margin, margin + n / 2 * cs), Offset(margin + boardSize, margin + n / 2 * cs), cs * 0.09f)
+        drawLine(Color.White.copy(alpha = 0.55f), Offset(margin, margin + n / 2 * cs), Offset(margin + boardSize, margin + n / 2 * cs), cs * 0.02f)
         // the last move
         if (g.lastMove >= 0 && g.phase != Cyvasse.SETUP) {
             val m = g.lastMove
-            val cells = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED -> listOf(Cyvasse.aOf(m), Cyvasse.bOf(m)); Cyvasse.K_DEPLOY -> listOf(Cyvasse.bOf(m)); else -> emptyList() }
+            val cells = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO -> listOf(Cyvasse.aOf(m), Cyvasse.bOf(m)); Cyvasse.K_DEPLOY -> listOf(Cyvasse.bOf(m)); else -> emptyList() }
             for (c in cells) { val r = rectOf(c); drawRect(Color(0xFFF3E08A).copy(alpha = 0.6f), r.topLeft, r.size) }
         }
         if (s.selected >= 0) { val r = rectOf(s.selected); drawRect(Color(0xFF7FB2E5).copy(alpha = 0.55f), r.topLeft, r.size) }
+        // a king in check
+        if (g.phase == Cyvasse.BATTLE && g.inCheck(g.turn)) (0 until Cyvasse.CELLS).firstOrNull { g.board[it] == Cyvasse.piece(g.turn, Cyvasse.KING) }?.let {
+            val r = rectOf(it); drawRect(Color(0xFFD9443A).copy(alpha = 0.55f), r.topLeft, r.size)
+        }
         // keeps
         for (side in 0..1) {
             val k = g.keepAt[side]
@@ -622,7 +637,7 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
             val pc = g.board[c]
             if (pc == 0 || hidden(c)) continue
             var center = rectOf(c).center
-            if (anim.value < 1f && lm >= 0 && Cyvasse.kindOf(lm) == Cyvasse.K_MOVE && Cyvasse.bOf(lm) == c) {
+            if (anim.value < 1f && lm >= 0 && (Cyvasse.kindOf(lm) == Cyvasse.K_MOVE || Cyvasse.kindOf(lm) == Cyvasse.K_PROMO) && Cyvasse.bOf(lm) == c) {
                 val from = rectOf(Cyvasse.aOf(lm)).center
                 // a light horse that rode round the edge just appears
                 if (kotlin.math.abs(from.x - center.x) < size.width / 2 && kotlin.math.abs(from.y - center.y) < size.height / 2) center = from + (center - from) * anim.value
@@ -635,12 +650,12 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
         for ((t, m) in targets) {
             val c = rectOf(t).center
             when {
-                Cyvasse.kindOf(m) == Cyvasse.K_SWAP -> drawCircle(Color(0xFF4A86C5), cs * 0.46f, c, style = Stroke(cs * 0.07f))
+                Cyvasse.kindOf(m) == Cyvasse.K_SWAP || Cyvasse.kindOf(m) == Cyvasse.K_PROMO -> drawCircle(Color(0xFFE0A93A), cs * 0.46f, c, style = Stroke(cs * 0.07f))
                 g.victims(m).isNotEmpty() -> {
                     drawCircle(Color(0xFFC94A3F), cs * 0.46f, c, style = Stroke(cs * 0.07f))
 
                 }
-                else -> drawCircle(Color.Black.copy(alpha = 0.28f), cs * 0.13f, c)
+                else -> { drawCircle(Color.White.copy(alpha = 0.85f), cs * 0.15f, c); drawCircle(Color.Black.copy(alpha = 0.45f), cs * 0.11f, c) }
             }
         }
         coachRings(listOf(s.coachFrom, s.coachTo).filter { it >= 0 }.map { rectOf(it).center }, cs * 0.47f)
@@ -706,16 +721,6 @@ fun CyvasseUi(s: CyvasseSession) {
             if (about != null) {
                 Text("${Cyvasse.NAMES[about]}: ${Cyvasse.MOVES_TEXT[about]}", fontSize = 13.sp, textAlign = TextAlign.Center,
                     modifier = Modifier.width(big).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)).padding(horizontal = 10.dp, vertical = 6.dp))
-                if (!setup && sel != null && Cyvasse.typeOf(sel) == Cyvasse.TREBUCHET) {
-                    val dir = g.facing[s.selected] - 1
-                    val arrow = if (dir in Cyvasse.ALL8.indices) {
-                        val d = Cyvasse.ALL8[dir]; when (d[0] to d[1]) {
-                            -1 to 0 -> "↑"; 1 to 0 -> "↓"; 0 to -1 -> "←"; 0 to 1 -> "→"
-                            -1 to -1 -> "↖"; -1 to 1 -> "↗"; 1 to -1 -> "↙"; else -> "↘"
-                        }
-                    } else "not aimed yet"
-                    Text("Trebuchet direction: $arrow", fontSize = 12.sp)
-                }
                 Spacer(Modifier.height(4.dp))
             }
             if (setup) SetupControls(s, Modifier.width(big))
@@ -724,9 +729,20 @@ fun CyvasseUi(s: CyvasseSession) {
             }
             Spacer(Modifier.height(6.dp))
             TurnBanner(if (s.thinking) (if (setup) "The rival is setting up…" else "The rival is thinking…") else s.message.ifEmpty { "Your move" }, s.thinking)
-            if (!setup && s.myMove && g.legalMoves().contentEquals(intArrayOf(Cyvasse.PASS))) {
+            s.promoting?.let { (_, to) ->
                 Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = s::endBonus) { Text("Pass turn (no available moves)") }
+                Column(Modifier.width(big).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Your rabble reaches ${Cyvasse.coord(to)}: promote it to", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (t in Cyvasse.PROMOTIONS) Column(Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+                            .clickable { s.promote(t) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            PieceChip(t, g.turn, 40.dp)
+                            Text(Cyvasse.NAMES[t], fontSize = 10.sp)
+                        }
+                    }
+                    androidx.compose.material3.TextButton(onClick = s::cancelPromotion) { Text("Choose another move") }
+                }
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -746,7 +762,7 @@ private fun SideRow(s: CyvasseSession, side: Int, modifier: Modifier) {
         val turn = g.phase == Cyvasse.BATTLE && g.turn == side
         Text((if (turn) "▶ " else "") + name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         Spacer(Modifier.width(6.dp))
-        Text(if (!g.keepStands(side)) "fortress ruined" else if (g.fortHits[side] > 0) "fortress weakened" else "fortress intact", fontSize = 12.sp,
+        Text(if (g.phase == Cyvasse.BATTLE && g.turn == side && g.inCheck(side)) "check!" else if (!g.keepStands(side)) "fortress ruined" else if (g.fortHits[side] > 0) "fortress weakened" else "fortress intact", fontSize = 12.sp,
             color = if (g.keepStands(side)) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
         Spacer(Modifier.weight(1f))
         // what this side has taken
@@ -758,6 +774,7 @@ private fun SideRow(s: CyvasseSession, side: Int, modifier: Modifier) {
             }
             if (taken.size > 6) Text("+", fontSize = 11.sp)
         }
+        if (g.captured[side][0] > 0) { Spacer(Modifier.width(4.dp)); Text("+ fortress", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
     }
 }
 
