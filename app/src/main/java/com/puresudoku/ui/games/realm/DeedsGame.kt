@@ -102,57 +102,17 @@ private val HERO_ART = intArrayOf(com.puresudoku.R.drawable.dd_piece_dragon, com
 /** The light grey parts of each piece (cloak, banner, trim) that take the player's colour. */
 private val HERO_MASK = intArrayOf(com.puresudoku.R.drawable.dd_piece_dragon_mask, com.puresudoku.R.drawable.dd_piece_knight_mask, com.puresudoku.R.drawable.dd_piece_thief_mask, com.puresudoku.R.drawable.dd_piece_black_knight_mask)
 private val HERO_PORTRAIT = intArrayOf(com.puresudoku.R.drawable.dd_portrait_dragon, com.puresudoku.R.drawable.dd_portrait_knight, com.puresudoku.R.drawable.dd_portrait_thief, com.puresudoku.R.drawable.dd_portrait_black_knight)
-/** Each tile's painting, Spire first, clockwise. */
-private val TILE_ART = intArrayOf(
-    com.puresudoku.R.drawable.dd_tile_spire, com.puresudoku.R.drawable.dd_tile_pigsty_hollow, com.puresudoku.R.drawable.dd_tile_loot,
-    com.puresudoku.R.drawable.dd_tile_turnip_row, com.puresudoku.R.drawable.dd_tile_ferrymans_bridge, com.puresudoku.R.drawable.dd_tile_millbrook,
-    com.puresudoku.R.drawable.dd_tile_fate, com.puresudoku.R.drawable.dd_tile_thatchwick, com.puresudoku.R.drawable.dd_tile_ploughmead,
-    com.puresudoku.R.drawable.dd_tile_inquisitor, com.puresudoku.R.drawable.dd_tile_wolfden, com.puresudoku.R.drawable.dd_tile_windmill,
-    com.puresudoku.R.drawable.dd_tile_old_oakhurst, com.puresudoku.R.drawable.dd_tile_thornwick, com.puresudoku.R.drawable.dd_tile_troll_bridge,
-    com.puresudoku.R.drawable.dd_tile_gallows_hill, com.puresudoku.R.drawable.dd_tile_loot, com.puresudoku.R.drawable.dd_tile_ravenscar,
-    com.puresudoku.R.drawable.dd_tile_colosseum, com.puresudoku.R.drawable.dd_tile_harbour_keep, com.puresudoku.R.drawable.dd_tile_fate,
-    com.puresudoku.R.drawable.dd_tile_fishwife_quay, com.puresudoku.R.drawable.dd_tile_tidewatch, com.puresudoku.R.drawable.dd_tile_old_stone_bridge,
-    com.puresudoku.R.drawable.dd_tile_quarry_gate, com.puresudoku.R.drawable.dd_tile_silver_mine, com.puresudoku.R.drawable.dd_tile_ironforge,
-    com.puresudoku.R.drawable.dd_tile_market, com.puresudoku.R.drawable.dd_tile_bishops_close, com.puresudoku.R.drawable.dd_tile_tithe,
-    com.puresudoku.R.drawable.dd_tile_cathedral_square, com.puresudoku.R.drawable.dd_tile_kingsbridge, com.puresudoku.R.drawable.dd_tile_fate,
-    com.puresudoku.R.drawable.dd_tile_throne_hill, com.puresudoku.R.drawable.dd_tile_levy, com.puresudoku.R.drawable.dd_tile_golden_keep,
-)
-
 /** A hero piece tinted in its colour (Natural keeps the painted colours). */
 internal fun heroTint(c: Int): ColorFilter? = if (c <= 0) null else ColorFilter.tint(lerp(Color.White, DEED_COLORS[c], 0.85f), BlendMode.Modulate)
 
-private class DeedArt(val heroes: List<ImageBitmap>, val masks: List<ImageBitmap>, val tower: ImageBitmap, val castle: ImageBitmap,
-    val coinCrown: ImageBitmap, val coinBlade: ImageBitmap,
-    /** Each tile's painting, drawn edge to edge. */
-    val land: List<ImageBitmap>)
-
-/**
- * Fills [r] with a square painting, zoomed so the tile is covered edge to edge: the centre of the painting,
- * cropped to the tile's shape.
- */
-private fun DrawScope.landscape(img: ImageBitmap, r: Rect) {
-    val w = img.width.toFloat(); val h = img.height.toFloat()
-    val k = r.height / r.width
-    // the biggest rectangle of the tile's shape inside the painting, trimmed a little so the subject fills it
-    var a = w / 2f * 0.94f; var b = a * k
-    if (b > h / 2f * 0.94f) { b = h / 2f * 0.94f; a = b / k }
-    val cx = w / 2f; val cy = h / 2f
-    drawImage(img, srcOffset = IntOffset((cx - a).toInt(), (cy - b).toInt()), srcSize = IntSize((2 * a).toInt().coerceAtLeast(1), (2 * b).toInt().coerceAtLeast(1)),
-        dstOffset = IntOffset(r.left.toInt(), r.top.toInt()), dstSize = IntSize(kotlin.math.ceil(r.width).toInt().coerceAtLeast(1), kotlin.math.ceil(r.height).toInt().coerceAtLeast(1)),
-        filterQuality = FilterQuality.Medium)
-}
+private class DeedArt(val heroes: List<ImageBitmap>, val masks: List<ImageBitmap>)
 
 @Composable
 private fun rememberDeedArt(): DeedArt {
     @Composable fun img(id: Int) = ImageBitmap.imageResource(id)
     val heroes = HERO_ART.map { img(it) }
     val masks = HERO_MASK.map { img(it) }
-    val tower = img(com.puresudoku.R.drawable.dd_tower)
-    val castle = img(com.puresudoku.R.drawable.dd_castle)
-    val crown = img(com.puresudoku.R.drawable.dd_coin_crown)
-    val blade = img(com.puresudoku.R.drawable.dd_coin_blade)
-    val landImgs = TILE_ART.distinct().associateWith { img(it) }
-    return remember(heroes, tower, landImgs) { DeedArt(heroes, masks, tower, castle, crown, blade, TILE_ART.map { landImgs.getValue(it) }) }
+    return remember(heroes, masks) { DeedArt(heroes, masks) }
 }
 
 // =====================================================================  session
@@ -434,13 +394,143 @@ private fun DrawScope.radiance(c: Offset, r: Float, strength: Float = 1f) {
     drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.95f * strength), Color.White.copy(alpha = 0.55f * strength), Color.White.copy(alpha = 0f)), c, r), r, c)
 }
 
-/** The two-sided coin: the painted crown or blade coin, ringed in white and the owner's colour. */
-private fun DrawScope.deedCoin(art: DeedArt, c: Offset, r: Float, face: Int, owner: Color, dim: Boolean = false) {
+/** The two-sided coin, drawn flat: a crown on gold, or a sword on red, ringed in white and the owner's colour. */
+private fun DrawScope.deedCoin(c: Offset, r: Float, face: Int, owner: Color, dim: Boolean = false) {
     val a = if (dim) 0.45f else 1f
-    drawCircle(Color.Black.copy(alpha = 0.45f * a), r * 1.16f, c + Offset(0f, r * 0.14f))
-    drawCircle(Color.White.copy(alpha = a), r * 1.14f, c)
-    drawCircle(owner.copy(alpha = a), r * 1.06f, c)
-    art(if (face == Deeds.COIN_CROWN) art.coinCrown else art.coinBlade, c, r * 2f, alpha = a)
+    drawCircle(Color.Black.copy(alpha = 0.3f * a), r * 1.14f, c + Offset(0f, r * 0.12f))
+    drawCircle(Color.White.copy(alpha = a), r * 1.12f, c)
+    drawCircle(owner.copy(alpha = a), r, c)
+    val inner = r * 0.74f
+    drawCircle((if (face == Deeds.COIN_CROWN) Color(0xFFF2C14E) else Color(0xFFC62828)).copy(alpha = a), inner, c)
+    drawCircle(INK.copy(alpha = 0.55f * a), inner, c, style = Stroke(r * 0.08f))
+    if (face == Deeds.COIN_CROWN) {
+        val u = inner * 0.62f
+        val p = Path().apply {
+            moveTo(c.x - u, c.y + u * 0.55f); lineTo(c.x - u, c.y - u * 0.35f); lineTo(c.x - u * 0.5f, c.y + u * 0.05f); lineTo(c.x, c.y - u * 0.65f)
+            lineTo(c.x + u * 0.5f, c.y + u * 0.05f); lineTo(c.x + u, c.y - u * 0.35f); lineTo(c.x + u, c.y + u * 0.55f); close()
+        }
+        drawPath(p, Color(0xFF7A4A0C).copy(alpha = a))
+    } else {
+        val u = inner * 0.72f
+        rotate(-45f, c) {
+            drawLine(Color.White.copy(alpha = a), c - Offset(0f, u), c + Offset(0f, u * 0.5f), u * 0.26f, StrokeCap.Round)
+            drawLine(Color(0xFFFFD54F).copy(alpha = a), c + Offset(-u * 0.45f, u * 0.42f), c + Offset(u * 0.45f, u * 0.42f), u * 0.22f, StrokeCap.Round)
+            drawLine(Color(0xFFFFD54F).copy(alpha = a), c + Offset(0f, u * 0.5f), c + Offset(0f, u * 0.85f), u * 0.2f, StrokeCap.Round)
+        }
+    }
+}
+
+/** A plain tower in the owner's colour: [b] is the middle of its foot, [h] its height. */
+private fun DrawScope.flatTower(b: Offset, h: Float, color: Color) {
+    val w = h * 0.5f
+    val outline = Color(0xFF1B140C)
+    val body = Path().apply {
+        val l = b.x - w / 2; val r = b.x + w / 2; val top = b.y - h
+        val m = w / 5f
+        moveTo(l, b.y); lineTo(l, top)
+        lineTo(l + m, top); lineTo(l + m, top + m); lineTo(l + 2 * m, top + m); lineTo(l + 2 * m, top)
+        lineTo(l + 3 * m, top); lineTo(l + 3 * m, top + m); lineTo(l + 4 * m, top + m); lineTo(l + 4 * m, top)
+        lineTo(r, top); lineTo(r, b.y); close()
+    }
+    drawPath(body, Color.Black.copy(alpha = 0.25f), style = Stroke(h * 0.14f))
+    drawPath(body, color)
+    drawRect(Color.White.copy(alpha = 0.28f), Offset(b.x - w / 2, b.y - h + w / 5f), Size(w * 0.22f, h - w / 5f))
+    drawPath(body, outline, style = Stroke(h * 0.06f))
+    // the door
+    val dw = w * 0.36f; val dh = h * 0.3f
+    drawRoundRect(outline, Offset(b.x - dw / 2, b.y - dh), Size(dw, dh), CornerRadius(dw / 2, dw / 2))
+}
+
+/** A plain castle in the owner's colour: two towers and a taller keep behind a wall, with a gold pennant. */
+private fun DrawScope.flatCastle(b: Offset, h: Float, color: Color) {
+    flatTower(b + Offset(-h * 0.38f, 0f), h * 0.72f, color)
+    flatTower(b + Offset(h * 0.38f, 0f), h * 0.72f, color)
+    flatTower(b, h, color)
+    val top = b.y - h
+    drawLine(Color(0xFF1B140C), Offset(b.x, top), Offset(b.x, top - h * 0.3f), h * 0.05f)
+    drawPath(Path().apply { moveTo(b.x, top - h * 0.3f); lineTo(b.x + h * 0.26f, top - h * 0.23f); lineTo(b.x, top - h * 0.15f); close() }, Color(0xFFF2C14E))
+}
+
+/** The simple drawn symbol for a special tile, centred at [c] in a box [s] across. */
+private fun DrawScope.tileSymbol(t: Int, c: Offset, s: Float) {
+    val u = s / 2
+    val ink = Color(0xFF3A2A18); val gold = Color(0xFFE0A93A); val red = Color(0xFFB3262E); val stone = Color(0xFFA39C8F); val blue = Color(0xFF3F6E8C)
+    val sw = u * 0.08f
+    fun poly(p: List<Offset>) = Path().apply { p.forEachIndexed { i, o -> if (i == 0) moveTo(c.x + o.x * u, c.y + o.y * u) else lineTo(c.x + o.x * u, c.y + o.y * u) }; close() }
+    fun fillLine(p: Path, fill: Color) { drawPath(p, fill); drawPath(p, ink, style = Stroke(sw)) }
+    when (Deeds.KIND[t]) {
+        Deeds.SPIRE -> {
+            fillLine(poly(listOf(Offset(-0.35f, 0.9f), Offset(-0.35f, -0.1f), Offset(0.35f, -0.1f), Offset(0.35f, 0.9f))), Color(0xFFF3E7C6))
+            fillLine(poly(listOf(Offset(-0.45f, -0.1f), Offset(0f, -0.9f), Offset(0.45f, -0.1f))), gold)
+            drawLine(ink, c + Offset(0f, -0.9f * u), c + Offset(0f, -1.15f * u), sw)
+            fillLine(poly(listOf(Offset(0f, -1.15f), Offset(0.4f, -1.05f), Offset(0f, -0.95f))), red)
+            drawRoundRect(ink, c + Offset(-0.12f * u, 0.5f * u), Size(0.24f * u, 0.4f * u), CornerRadius(0.12f * u))
+        }
+        Deeds.SEIZE -> {   // the Inquisitor: a hood with two eyes
+            fillLine(Path().apply {
+                moveTo(c.x - 0.75f * u, c.y + 0.9f * u); quadraticTo(c.x - 0.7f * u, c.y - 0.95f * u, c.x, c.y - 0.95f * u)
+                quadraticTo(c.x + 0.7f * u, c.y - 0.95f * u, c.x + 0.75f * u, c.y + 0.9f * u); close()
+            }, Color(0xFF6B1F24))
+            drawOval(Color(0xFF1B140C), c + Offset(-0.38f * u, -0.45f * u), Size(0.76f * u, 0.8f * u))
+            drawCircle(Color(0xFFFFD54F), 0.08f * u, c + Offset(-0.15f * u, -0.08f * u)); drawCircle(Color(0xFFFFD54F), 0.08f * u, c + Offset(0.15f * u, -0.08f * u))
+        }
+        Deeds.ARENA -> {   // the Colosseum, with the Dungeon's bars beneath
+            fillLine(poly(listOf(Offset(-0.95f, 0.15f), Offset(-0.95f, -0.6f), Offset(0.95f, -0.6f), Offset(0.95f, 0.15f))), stone)
+            for (k in 0 until 4) drawRoundRect(Color(0xFF4A3A2A), c + Offset((-0.78f + k * 0.42f) * u, -0.42f * u), Size(0.28f * u, 0.5f * u), CornerRadius(0.14f * u, 0.14f * u))
+            fillLine(poly(listOf(Offset(-0.7f, 0.95f), Offset(-0.7f, 0.3f), Offset(0.7f, 0.3f), Offset(0.7f, 0.95f))), Color(0xFF2A2018))
+            for (k in 0 until 5) drawLine(Color(0xFF9E9E9E), c + Offset((-0.52f + k * 0.26f) * u, 0.3f * u), c + Offset((-0.52f + k * 0.26f) * u, 0.95f * u), sw * 1.2f)
+        }
+        Deeds.MARKET -> {
+            fillLine(poly(listOf(Offset(-0.8f, 0.9f), Offset(-0.8f, 0.2f), Offset(0.8f, 0.2f), Offset(0.8f, 0.9f))), Color(0xFFC89B62))
+            for (k in 0 until 4) {
+                val x0 = -0.9f + k * 0.45f
+                fillLine(poly(listOf(Offset(x0, -0.5f), Offset(x0 + 0.45f, -0.5f), Offset(x0 + 0.45f, 0.1f), Offset(x0, 0.1f))), if (k % 2 == 0) red else Color(0xFFF7EEDC))
+            }
+            drawCircle(Color(0xFF2E9E57), 0.13f * u, c + Offset(-0.4f * u, 0.45f * u)); drawCircle(gold, 0.13f * u, c + Offset(0f, 0.45f * u)); drawCircle(Color(0xFF2E7BD6), 0.13f * u, c + Offset(0.4f * u, 0.45f * u))
+        }
+        Deeds.FATE -> {
+            rotate(-10f, c) {
+                fillLine(poly(listOf(Offset(-0.55f, -0.85f), Offset(0.55f, -0.85f), Offset(0.55f, 0.85f), Offset(-0.55f, 0.85f))), Color(0xFF5B3A8E))
+                val st = Path().apply { for (k in 0 until 10) { val a = -kotlin.math.PI / 2 + k * kotlin.math.PI / 5; val rr = if (k % 2 == 0) 0.42f else 0.18f; val x = c.x + kotlin.math.cos(a).toFloat() * rr * u; val y = c.y + kotlin.math.sin(a).toFloat() * rr * u; if (k == 0) moveTo(x, y) else lineTo(x, y) }; close() }
+                drawPath(st, gold)
+            }
+        }
+        Deeds.LOOT -> {
+            fillLine(poly(listOf(Offset(-0.8f, 0.75f), Offset(-0.8f, -0.05f), Offset(0.8f, -0.05f), Offset(0.8f, 0.75f))), Color(0xFF8B5A2B))
+            fillLine(Path().apply { moveTo(c.x - 0.8f * u, c.y - 0.05f * u); quadraticTo(c.x, c.y - 0.85f * u, c.x + 0.8f * u, c.y - 0.05f * u); close() }, Color(0xFFA06A35))
+            drawLine(gold, c + Offset(-0.45f * u, -0.35f * u), c + Offset(-0.45f * u, 0.75f * u), sw * 1.6f); drawLine(gold, c + Offset(0.45f * u, -0.35f * u), c + Offset(0.45f * u, 0.75f * u), sw * 1.6f)
+            drawRect(gold, c + Offset(-0.13f * u, -0.05f * u), Size(0.26f * u, 0.3f * u))
+        }
+        Deeds.TITHE -> {   // the Abbey
+            fillLine(poly(listOf(Offset(-0.7f, 0.9f), Offset(-0.7f, -0.05f), Offset(0f, -0.6f), Offset(0.7f, -0.05f), Offset(0.7f, 0.9f))), Color(0xFFF3E7C6))
+            drawLine(ink, c + Offset(0f, -0.6f * u), c + Offset(0f, -1.05f * u), sw * 1.4f); drawLine(ink, c + Offset(-0.18f * u, -0.88f * u), c + Offset(0.18f * u, -0.88f * u), sw * 1.4f)
+            drawRoundRect(ink, c + Offset(-0.16f * u, 0.4f * u), Size(0.32f * u, 0.5f * u), CornerRadius(0.16f * u, 0.16f * u))
+        }
+        Deeds.LEVY -> {   // a crown over a stack of coins
+            for (k in 0 until 3) fillLine(Path().apply { addOval(Rect(c.x - 0.6f * u, c.y + (0.55f - k * 0.2f) * u, c.x + 0.6f * u, c.y + (0.85f - k * 0.2f) * u)) }, gold)
+            fillLine(poly(listOf(Offset(-0.6f, 0.1f), Offset(-0.6f, -0.6f), Offset(-0.3f, -0.25f), Offset(0f, -0.75f), Offset(0.3f, -0.25f), Offset(0.6f, -0.6f), Offset(0.6f, 0.1f))), gold)
+            drawCircle(red, 0.1f * u, c + Offset(0f, -0.15f * u))
+        }
+        Deeds.BRIDGE -> {
+            for (k in 0 until 3) drawLine(blue, c + Offset(-0.9f * u, (0.55f + k * 0.18f) * u), c + Offset(0.9f * u, (0.55f + k * 0.18f) * u), sw)
+            fillLine(Path().apply {
+                moveTo(c.x - 0.95f * u, c.y + 0.6f * u); lineTo(c.x - 0.95f * u, c.y - 0.2f * u); lineTo(c.x + 0.95f * u, c.y - 0.2f * u); lineTo(c.x + 0.95f * u, c.y + 0.6f * u)
+                lineTo(c.x + 0.55f * u, c.y + 0.6f * u); quadraticTo(c.x, c.y - 0.2f * u, c.x - 0.55f * u, c.y + 0.6f * u); close()
+            }, stone)
+        }
+        Deeds.MILL -> if (t < 18) {   // the Windmill
+            fillLine(poly(listOf(Offset(-0.3f, 0.9f), Offset(-0.18f, -0.2f), Offset(0.18f, -0.2f), Offset(0.3f, 0.9f))), Color(0xFFF3E7C6))
+            val hub = c + Offset(0f, -0.25f * u)
+            for (k in 0 until 4) rotate(45f + k * 90f, hub) { fillLine(Path().apply { addRect(Rect(hub.x - 0.1f * u, hub.y - 0.85f * u, hub.x + 0.1f * u, hub.y - 0.1f * u)) }, red) }
+            drawCircle(ink, 0.08f * u, hub)
+        } else {   // the Silver Mine: a pickaxe over silver
+            rotate(-35f, c) {
+                drawLine(Color(0xFF8B5A2B), c + Offset(0f, -0.7f * u), c + Offset(0f, 0.8f * u), sw * 2f, StrokeCap.Round)
+                fillLine(Path().apply { moveTo(c.x - 0.75f * u, c.y - 0.45f * u); quadraticTo(c.x, c.y - 0.95f * u, c.x + 0.75f * u, c.y - 0.45f * u); quadraticTo(c.x, c.y - 0.7f * u, c.x - 0.75f * u, c.y - 0.45f * u); close() }, Color(0xFFB0BEC5))
+            }
+            drawCircle(Color(0xFFE0E0E0), 0.16f * u, c + Offset(0.45f * u, 0.6f * u)); drawCircle(INK, 0.16f * u, c + Offset(0.45f * u, 0.6f * u), style = Stroke(sw))
+        }
+    }
 }
 
 /** A small dark label with white writing, for prices and corner names. */
@@ -483,7 +573,7 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
                 val w = size.width
                 val e = w / 11f; val c = e * 1.5f
                 drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF2E4A2B), Color(0xFF1C3320))), Offset(c, c), Size(w - 2 * c, w - 2 * c), CornerRadius(e * 0.2f))
-                for (t in 0 until Deeds.N) drawTile(s, art, t, tileRect(t, w), e)
+                for (t in 0 until Deeds.N) drawTile(s, t, tileRect(t, w), e)
                 if (g.phase != Deeds.SETUP && g.phase != Deeds.LOBBY && g.phase != Deeds.OVER) {
                     val r = tileRect(shown[g.actor], w)
                     drawRect(Color.White, r.topLeft, r.size, style = Stroke(e * 0.12f))
@@ -529,50 +619,77 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
 
 private val CORNER_LABEL = mapOf(0 to "SPIRE", 9 to "INQUISITOR", 18 to "COLOSSEUM", 27 to "MARKET")
 
-private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e: Float) {
+private fun DrawScope.drawTile(s: DeedsSession, t: Int, r: Rect, e: Float) {
     val g = s.g
     val kind = Deeds.KIND[t]
-    landscape(art.land[t], r)
-    val ie = innerEdge(t)
     val corner = t % 9 == 0
-    val band = e * 0.28f
+    // plain parchment, so the pieces and towers stand out
+    drawRect(Brush.verticalGradient(listOf(Color(0xFFFBF3E0), Color(0xFFF0E2C2)), r.top, r.bottom), r.topLeft, r.size)
+    if (corner) drawRect(Color(0xFFE8D6AE), r.topLeft, r.size)
+    val ie = innerEdge(t)
+    val band = e * 0.26f
     val bandRect = when (ie) {
         0 -> Rect(r.left, r.top, r.right, r.top + band)
         1 -> Rect(r.right - band, r.top, r.right, r.bottom)
         2 -> Rect(r.left, r.bottom - band, r.right, r.bottom)
         else -> Rect(r.left, r.top, r.left + band, r.bottom)
     }
-    // the outer part of the tile, away from the band, where the price or icon sits
-    val outer = when (ie) { 0 -> Offset(0f, e * 0.16f); 1 -> Offset(-e * 0.16f, 0f); 2 -> Offset(0f, -e * 0.16f); else -> Offset(e * 0.16f, 0f) }
+    // the part of the tile away from the band
+    val field = when (ie) {
+        0 -> Rect(r.left, r.top + band, r.right, r.bottom)
+        1 -> Rect(r.left, r.top, r.right - band, r.bottom)
+        2 -> Rect(r.left, r.top, r.right, r.bottom - band)
+        else -> Rect(r.left + band, r.top, r.right, r.bottom)
+    }
     val owner = g.owner[t]
     when {
-        corner -> CORNER_LABEL[t]?.let { tag(it, Offset(r.center.x, r.bottom - e * 0.2f), e * 0.26f) }
-        kind == Deeds.LAND -> drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
+        corner -> {
+            tileSymbol(t, r.center - Offset(0f, e * 0.12f), e * 0.8f)
+            CORNER_LABEL[t]?.let { tag(it, Offset(r.center.x, r.bottom - e * 0.2f), e * 0.26f) }
+        }
+        kind == Deeds.LAND -> {
+            drawRect(DOMAIN_COLORS[Deeds.GROUP[t]].copy(alpha = 0.10f), field.topLeft, field.size)
+            drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
+        }
         kind == Deeds.BRIDGE -> drawRect(Color(0xFF3F6E8C), bandRect.topLeft, bandRect.size)
         kind == Deeds.MILL -> drawRect(Color(0xFF6D4C41), bandRect.topLeft, bandRect.size)
     }
-    if (!corner) drawLine(Color.White.copy(alpha = 0.7f), when (ie) { 0 -> Offset(r.left, r.top + band); 1 -> Offset(r.right - band, r.top); 2 -> Offset(r.left, r.bottom - band); else -> Offset(r.left + band, r.top) },
-        when (ie) { 0 -> Offset(r.right, r.top + band); 1 -> Offset(r.right - band, r.bottom); 2 -> Offset(r.right, r.bottom - band); else -> Offset(r.left + band, r.bottom) }, 2f)
-    drawRect(Color(0xFF1B140C), r.topLeft, r.size, style = Stroke(2.5f))
+    // symbols for bridges, mill, mine and the card and tax tiles (faint once a lord owns the tile, so the owner's marks lead)
+    if (!corner && kind != Deeds.LAND) {
+        val faded = owner >= 0
+        if (faded) drawContext.canvas.saveLayer(r, androidx.compose.ui.graphics.Paint().apply { alpha = 0.35f })
+        val priced = g.isDeed(t) && owner < 0
+        // with a price to show, the symbol takes the first part of the tile and the price the rest
+        val at = when { !priced -> field.center; field.width > field.height -> Offset(field.left + field.width * 0.3f, field.center.y); else -> Offset(field.center.x, field.top + field.height * 0.32f) }
+        tileSymbol(t, at, minOf(field.width, field.height) * (if (priced) 0.5f else 0.6f))
+        if (faded) drawContext.canvas.restore()
+    }
+    drawRect(Color(0xFF6E5636), r.topLeft, r.size, style = Stroke(1.5f))
     if (g.isDeed(t) && owner < 0) {
-        // unclaimed: the price, at the outer edge
-        tag("${Deeds.PRICE[t]}", r.center + outer * 1.6f, e * 0.3f)
+        // the price: in the middle of a land, beside or below the symbol on a bridge, mill or mine
+        val at = when { kind == Deeds.LAND -> field.center; field.width > field.height -> Offset(field.left + field.width * 0.72f, field.center.y); else -> Offset(field.center.x, field.top + field.height * 0.76f) }
+        tag("${Deeds.PRICE[t]}", at, e * 0.3f)
     }
     if (owner >= 0) {
         val oc = s.seatColor(owner)
-        if (g.pawned[t] == 1) drawRect(Color.Black.copy(alpha = 0.45f), r.topLeft, r.size)
-        // the owner's colour round the whole tile, the towers on the band, the coin beside them
-        drawRect(oc, Offset(r.left + e * 0.05f, r.top + e * 0.05f), Size(r.width - e * 0.1f, r.height - e * 0.1f), style = Stroke(e * 0.09f))
-        val bc = bandRect.center
+        // the owner's colour round the tile
+        drawRect(oc, Offset(r.left + e * 0.04f, r.top + e * 0.04f), Size(r.width - e * 0.08f, r.height - e * 0.08f), style = Stroke(e * 0.08f))
         val n = g.towers[t]
-        if (n == 4) art(art.castle, bc, e * 0.5f)
-        else if (n > 0) for (k in 0 until n) {
-            val f = (k - (n - 1) / 2f) * e * 0.28f
-            art(art.tower, bc + if (ie == 0 || ie == 2) Offset(f, 0f) else Offset(0f, f), e * 0.34f)
+        val wide = field.width > field.height
+        val coinAt: Offset; val foot: Offset
+        if (n == 0) { coinAt = field.center; foot = field.center }
+        else if (wide) { coinAt = Offset(field.left + field.width * 0.22f, field.center.y); foot = Offset(field.left + field.width * 0.62f, field.center.y + field.height * 0.3f) }
+        else { coinAt = Offset(field.center.x, field.top + field.height * 0.24f); foot = Offset(field.center.x, field.bottom - field.height * 0.1f) }
+        // as tall as fits, but a row of towers (or a castle) must stay inside the tile
+        val span = if (n == 4) 1.3f else 0.5f + (n - 1).coerceAtLeast(0) * 0.56f
+        val th = minOf(field.height * (if (wide) 0.62f else 0.5f), e * 0.5f, (if (wide) field.width * 0.55f else field.width * 0.82f) / span)
+        if (n == 4) flatCastle(foot, th * 1.05f, oc)
+        else for (k in 0 until n) flatTower(foot + Offset((k - (n - 1) / 2f) * th * 0.56f, 0f), th, oc)
+        deedCoin(coinAt, e * 0.2f, g.face(t), oc, dim = g.pawned[t] == 1)
+        if (g.pawned[t] == 1) {
+            drawRect(Color.Black.copy(alpha = 0.25f), r.topLeft, r.size)
+            tag("PAWNED", Offset(r.center.x, coinAt.y + e * 0.3f), e * 0.2f)
         }
-        val coinAt = r.center + outer * 0.9f
-        deedCoin(art, coinAt, e * 0.24f, g.face(t), oc, dim = g.pawned[t] == 1)
-        if (g.pawned[t] == 1) tag("PAWNED", Offset(r.center.x, coinAt.y + e * 0.34f), e * 0.2f)
     }
 }
 
@@ -1171,7 +1288,8 @@ private fun deedsDemo(): DeedsSession {
     for (t in listOf(19, 21, 22, 25, 31)) g.owner[t] = 1
     for (t in listOf(28, 30)) g.owner[t] = 2
     g.towers[5] = 1; g.towers[7] = 1; g.towers[8] = 2
-    g.towers[19] = 2; g.towers[21] = 2; g.towers[22] = 2
+    g.towers[19] = 3; g.towers[21] = 3; g.towers[22] = 4
+    g.pawned[14] = 1
     g.coin[19] = Deeds.COIN_BLADE; g.coin[21] = Deeds.COIN_BLADE; g.coin[3] = Deeds.COIN_BLADE
     g.pos[0] = 6; g.pos[1] = 20; g.pos[2] = 33; g.d1 = 4; g.d2 = 2; g.rollId = 1
     g.log.clear()
