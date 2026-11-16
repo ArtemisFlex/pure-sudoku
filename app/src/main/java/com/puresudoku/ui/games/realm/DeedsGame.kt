@@ -587,11 +587,6 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
                     // a bright white halo with a soft edge, so the piece reads on any painting
                     val gr = box * 0.7f
                     drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0f), Color.Black.copy(alpha = 0f), Color.Black.copy(alpha = 0.35f), Color.Black.copy(alpha = 0f)), ctr, gr * 1.15f), gr * 1.15f, ctr)
-                    for (k in 0 until 12) {
-                        val ang = k * kotlin.math.PI.toFloat() / 6f
-                        val dir = Offset(kotlin.math.cos(ang), kotlin.math.sin(ang))
-                        drawLine(Color.White.copy(alpha = 0.9f), ctr + dir * (gr * 0.55f), ctr + dir * (gr * (if (k % 2 == 0) 1.05f else 0.85f)), e * 0.035f, StrokeCap.Round)
-                    }
                     drawCircle(Brush.radialGradient(listOf(Color.White, Color.White, Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0f)), ctr, gr), gr, ctr)
                     drawOval(Color.Black.copy(alpha = 0.35f), Offset(ctr.x - box * 0.3f, ctr.y + box * 0.3f), Size(box * 0.6f, box * 0.16f))
                     drawCircle(s.seatColor(p), box * 0.32f, ctr + Offset(0f, box * 0.3f), style = Stroke(e * 0.06f))
