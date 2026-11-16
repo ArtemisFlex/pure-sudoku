@@ -103,6 +103,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.MAHJONG -> mahjongIcon(colors, tm, o, inner)
             GameKind.MORRIS -> morrisIcon(colors, o, inner)
             GameKind.TIC_TAC_TOE -> tttIcon(colors, o, inner)
+            GameKind.SEA_BATTLE, GameKind.CRATEBARGE -> seaIcon(colors, o, inner)
             GameKind.REALMFORGE -> realmIcon(colors, o, inner, 0)
             GameKind.REALM_DRAGON -> realmIcon(colors, o, inner, 1)
             GameKind.REALM_NIGHT -> realmIcon(colors, o, inner, 2)
@@ -504,6 +505,25 @@ private fun DrawScope.tttIcon(c: BoardColors, o: Float, inner: Float) {
     x(0, 0, c.entered); x(1, 1, c.entered); x(2, 2, c.entered)
     drawCircle(c.given, cell * 0.26f, Offset(o + 2.5f * cell, o + 0.5f * cell), style = Stroke(cell * 0.1f))
     drawCircle(c.given, cell * 0.26f, Offset(o + 0.5f * cell, o + 2.5f * cell), style = Stroke(cell * 0.1f))
+}
+
+/** Sea Battle: a ship on a grid of water, one shot hit and one missed. */
+private fun DrawScope.seaIcon(c: BoardColors, o: Float, inner: Float) {
+    gridLines(c, o, inner, 4)
+    val cell = inner / 4
+    val y = o + 1.5f * cell
+    val hull = Path().apply {
+        moveTo(o + cell * 0.25f, y - cell * 0.3f); lineTo(o + cell * 2.4f, y - cell * 0.3f)
+        quadraticTo(o + cell * 2.9f, y - cell * 0.2f, o + cell * 2.95f, y); quadraticTo(o + cell * 2.9f, y + cell * 0.2f, o + cell * 2.4f, y + cell * 0.3f)
+        lineTo(o + cell * 0.25f, y + cell * 0.3f); close()
+    }
+    drawPath(hull, c.entered)
+    for (k in 0..1) drawCircle(c.boardBg, cell * 0.13f, Offset(o + (k + 0.6f) * cell, y))
+    // a hit (cross) and a miss (ring)
+    val h = Offset(o + 2.5f * cell, o + 3f * cell)
+    drawLine(c.given, h - Offset(cell * 0.25f, cell * 0.25f), h + Offset(cell * 0.25f, cell * 0.25f), cell * 0.12f, StrokeCap.Round)
+    drawLine(c.given, h + Offset(cell * 0.25f, -cell * 0.25f), h - Offset(cell * 0.25f, -cell * 0.25f), cell * 0.12f, StrokeCap.Round)
+    drawCircle(c.given, cell * 0.24f, Offset(o + 0.5f * cell, o + 3.5f * cell), style = Stroke(cell * 0.09f))
 }
 
 /** Street Smarts: a street grid, a blue route and a destination pin. */

@@ -706,6 +706,39 @@ object ManualText {
             }
             saving()
         }
+        CRATEBARGE -> m {
+            sec("The goal") { p("Place your six ships on a 10 by 10 sea. Take turns firing; sink the whole rival fleet first.") }
+            sec("Your fleet") { p("Crownwake Flagbarge (5), Ironbelly Cargo Ark (4), Thornplate Ferry (3), Moonhook Skiff (3), Pipknife Cutter (2), and Barrelbug Dinghy (2).") }
+            sec("Playing") { p("Pick a ship, rotate it and tap your grid to place it, or use Random. Once both fleets are ready, tap the enemy grid to fire. Hits and misses are marked; a ship sinks when all its spaces are hit.") }
+            sec("Two players") { p("Use pass-and-play to hide each player's fleet and take turns on one device.") }
+            saving()
+        }
+        SEA_BATTLE -> m {
+            sec("The goal") { p("Sink every ship in the rival's fleet before they sink yours.") }
+            sec("Hiding your fleet") {
+                b("Pick a ship, then tap the square where it starts. Across / Down turns it before you place it.",
+                    "Tap a placed ship to pick it back up. Random scatters your whole fleet; Clear starts again.",
+                    "Ships can't overlap or hang off the edge. Press Ready when every ship is placed.")
+            }
+            sec("Firing") {
+                b("Take turns firing at one square of the enemy's waters.",
+                    "A white ring is a miss; fire is a hit. When every square of a ship is hit, it sinks and is shown.",
+                    "Your own grid shows where the rival has fired at you.")
+            }
+            sec("The fleet") {
+                b("Easy: an 8×8 sea with a Battleship (4), Cruiser (3), Submarine (3) and Destroyer (2).",
+                    "Medium and up: a 10×10 sea with a Carrier (5), Battleship (4), Cruiser (3), Submarine (3) and Destroyer (2).")
+            }
+            sec("Two players") {
+                p("On one device, each player hides their fleet in turn with the screen covered between. After each shot you see the result, then pass the phone. Online, each player sees only their own fleet.")
+            }
+            sec("Tips") {
+                b("After a hit, try the squares around it; after two, follow the line.",
+                    "While hunting, fire on every other square like a chessboard: no ship can slip between.",
+                    "Don't line your ships up along the edges or pack them together: that's where good rivals look.")
+            }
+            saving()
+        }
         DEED_DUNGEON -> m {
             sec("The goal") {
                 p("Become King of Eiseria. Hold enough whole domains (four with two lords, three with more) and you are crowned at once. Vanquish every other lord and the crown is yours. Otherwise the old King dies at the end of the last round, and the lord with the most renown (gold, plus deeds and towers at their cost) takes the throne.")

@@ -12,7 +12,7 @@ import com.puresudoku.platform.onMainLater
 import org.json.JSONObject
 
 /** Games that can be played online with a room code: every game with two-player pass-and-play. */
-val onlineGames get() = com.puresudoku.core.localTwoPlayerGames
+val onlineGames get() = com.puresudoku.core.localTwoPlayerGames - GameKind.CRATEBARGE
 
 /** Games where each player has cards or plans the other mustn't see: covered during the other's turn. */
 val hiddenInfoGames = setOf(
@@ -20,6 +20,7 @@ val hiddenInfoGames = setOf(
     GameKind.REALM_ASH, GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD,
     // nothing secret here, but the board stays readable (tap tiles) while you wait
     GameKind.DEED_DUNGEON,
+    GameKind.SEA_BATTLE,
 )
 
 /** Boards with plain round pieces, turned round for the guest so their side is at the bottom. */

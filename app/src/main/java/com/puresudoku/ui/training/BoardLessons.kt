@@ -158,6 +158,21 @@ object BoardLessons {
                 listOf("Read placement deeply: it decides the game.", "Create unstoppable double threats.", "Never give Black a free mill."),
             ),
         ),
+        GameKind.SEA_BATTLE to Course(
+            listOf(
+                "Hide your fleet, then take turns firing at one square of the rival's waters.",
+                "White rings are misses, fire is a hit. Hit every square of a ship to sink it.",
+                "Sink the whole rival fleet first to win.",
+            ),
+            listOf(
+                listOf("Spread your shots out to find ships.", "After a hit, try the four squares around it."),
+                listOf("Once you have two hits in a row, keep going along that line.", "Finish a ship before hunting for the next."),
+                listOf("Hunt on every other square, like a chessboard.", "Scatter your ships: don't line them up."),
+                listOf("Think about where the remaining ships could still fit.", "Keep ships off the edges where hunters look first."),
+                listOf("Big gaps between misses hide big ships.", "The rival keeps its ships apart: a sunk ship clears the squares around it."),
+                listOf("Every shot should be where the most ships could hide.", "Vary your fleet layout every game."),
+            ),
+        ),
         GameKind.TIC_TAC_TOE to Course(
             listOf(
                 "Take turns marking squares; you are X.",

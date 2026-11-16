@@ -96,6 +96,8 @@ object Games {
             com.puresudoku.ui.games.board.GomokuDef,
             com.puresudoku.ui.games.board.MorrisDef,
             com.puresudoku.ui.games.board.TicTacToeDef,
+            com.puresudoku.ui.games.board.SeaBattleDef,
+            com.puresudoku.ui.games.board.CratebargeDef,
             com.puresudoku.ui.games.realm.RealmforgeDef,
             com.puresudoku.ui.games.realm.RealmDragonDef,
             com.puresudoku.ui.games.realm.RealmNightDef,

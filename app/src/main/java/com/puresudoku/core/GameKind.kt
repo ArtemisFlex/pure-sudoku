@@ -50,6 +50,8 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     GOMOKU("Gomoku", "Patterns", "Five stones in a row wins.", GameCategory.BOARD),
     MORRIS("Nine Men's Morris", "Tactics", "Form mills to take your rival's men.", GameCategory.BOARD),
     TIC_TAC_TOE("Tic-Tac-Toe", "Tactics", "Three in a row, best of five rounds.", GameCategory.BOARD),
+    CRATEBARGE("Cratebarge", "Deduction", "Hide your fleet and sink the rival ships.", GameCategory.BOARD),
+    SEA_BATTLE("Sea Battle", "Deduction", "Hide your fleet and hunt the rival's. Sink every ship to win.", GameCategory.BOARD),
     REALMFORGE("Eiseria", "Exploration", "Settle a fog-covered fantasy realm before your rival does.", GameCategory.STRATEGY),
     REALM_DRAGON("Eiseria: Wyrmrise", "Risk", "Build your realm while a growing dragon hunts the leader.", GameCategory.STRATEGY),
     REALM_NIGHT("Eiseria: Nightfall", "Timing", "Day and night turn the realm. The night belongs to the dragon.", GameCategory.STRATEGY),
@@ -77,5 +79,5 @@ val localTwoPlayerGames = setOf(
     GameKind.SHOGI, GameKind.XIANGQI, GameKind.MANCALA, GameKind.MORRIS, GameKind.BACKGAMMON,
     GameKind.GO_FISH, GameKind.CRAZY_EIGHTS, GameKind.CUTTLE,
     GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH,
-    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD, GameKind.DEED_DUNGEON,
+    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD, GameKind.DEED_DUNGEON, GameKind.SEA_BATTLE, GameKind.CRATEBARGE,
 )
