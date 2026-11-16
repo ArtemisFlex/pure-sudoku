@@ -84,6 +84,14 @@ class SaveRepository(private val prefs: KeyValueStore) {
 
     private fun slotKey(kind: GameKind, slot: Int) = "save_${kind.name}_$slot"
 
+    fun crateProfile(): JSONObject? = runCatching { prefs.getString("cratebarge_profile", null)?.let { JSONObject(it) } }.getOrNull()
+    fun saveCratebarge(slot: Int, game: JSONObject, profile: JSONObject) {
+        prefs.edit().putString(slotKey(GameKind.CRATEBARGE, slot), game.toString()).putString("cratebarge_profile", profile.toString()).commit()
+    }
+    fun finishCratebarge(slot: Int, profile: JSONObject) {
+        prefs.edit().remove(slotKey(GameKind.CRATEBARGE, slot)).putString("cratebarge_profile", profile.toString()).commit()
+    }
+
     // ---------------- records ----------------
 
     /** Sudoku keeps its original key names so existing records carry over. */

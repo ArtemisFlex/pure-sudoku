@@ -710,7 +710,8 @@ object ManualText {
             sec("The goal") { p("Place your six ships on a 10 by 10 sea. Take turns firing; sink the whole rival fleet first.") }
             sec("Your fleet") { p("Crownwake Flagbarge (5), Ironbelly Cargo Ark (4), Thornplate Ferry (3), Moonhook Skiff (3), Pipknife Cutter (2), and Barrelbug Dinghy (2).") }
             sec("Playing") { p("Pick a ship, rotate it and tap your grid to place it, or use Random. Once both fleets are ready, tap the enemy grid to fire. Hits and misses are marked; a ship sinks when all its spaces are hit.") }
-            sec("Two players") { p("Use pass-and-play to hide each player's fleet and take turns on one device.") }
+            sec("Voyages and shop") { p("Win contracts to earn Cratebarge Dice and unlock the next challenge. A loss resets voyage progression, but your Dice and purchased supplies remain. The Captain's shop sells a Bomb Barrel, Telescope, Patchwork Planks and Decoy Buoy. Contract-issued supplies last only for that battle.") }
+            sec("Two players") { p("Use pass-and-play on one device or play online using a room code. Each player places a fleet and takes turns firing. Contracts, Dice and supplies are for solo voyages.") }
             saving()
         }
         SEA_BATTLE -> m {

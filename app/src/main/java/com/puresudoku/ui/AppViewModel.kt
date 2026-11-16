@@ -384,6 +384,7 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
     }
 
     private fun attach(s: Session, slot: Int) {
+        (s as? com.puresudoku.ui.games.board.CratebargeSession)?.loadProfile(repo.crateProfile())
         s.onChanged = ::persist
         s.onFinished = ::onFinished
         session = s
@@ -397,6 +398,7 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
             tutorialFor = s.kind
         }
         updateTimer()
+        (s as? com.puresudoku.ui.games.board.CratebargeSession)?.resume()
     }
 
     fun playAgain() {
@@ -429,7 +431,10 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
             endedRemotely = false
             return
         }
-        repo.clear(s.kind, activeSlot)
+        if (s is com.puresudoku.ui.games.board.CratebargeSession && !s.localTwoPlayer) {
+            s.settleVoyage(outcome)
+            repo.finishCratebarge(activeSlot, s.profile.toJson())
+        } else repo.clear(s.kind, activeSlot)
         if ((s as? com.puresudoku.ui.games.board.DuelSession)?.localTwoPlayer == true) { refreshMeta(); autoBackup(); return }
         if (outcome == Outcome.WON) {
             repo.addKeepsakes(s.kind, s.keepsakes)
@@ -504,7 +509,9 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
     private fun persist() {
         val s = session ?: return
         if (activeSlot < 0 || s.outcome != Outcome.PLAYING) return
-        repo.save(s.kind, activeSlot, s.toJson())
+        if (s is com.puresudoku.ui.games.board.CratebargeSession && !s.localTwoPlayer)
+            repo.saveCratebarge(activeSlot, s.toJson(), s.profile.toJson())
+        else repo.save(s.kind, activeSlot, s.toJson())
     }
 
     private fun refreshMeta() {
