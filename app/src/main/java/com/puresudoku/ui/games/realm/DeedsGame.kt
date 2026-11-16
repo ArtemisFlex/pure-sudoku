@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -524,7 +525,8 @@ private fun DrawScope.tag(text: String, c: Offset, h: Float, bg: Color = Color(0
 // =====================================================================  the board
 
 @Composable
-private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interactive: Boolean = true) {
+/** [infoInside]: show tile details in the middle of the board (the how-to-play demos); the game shows a taller card instead. */
+private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interactive: Boolean = true, infoInside: Boolean = true) {
     @Suppress("UNUSED_VARIABLE") val ver = s.version
     val g = s.g
     val art = rememberDeedArt()
@@ -596,7 +598,7 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
             }
             val inner = sideDp / 11f * 1.5f
             Box(Modifier.offset(inner, inner).size(sideDp - inner * 2).padding(6.dp)) {
-                if (s.selected >= 0) TileInfo(s, s.selected, Modifier.fillMaxSize()) else CentrePanel(s, Modifier.fillMaxSize())
+                if (s.selected >= 0 && infoInside) TileInfo(s, s.selected, Modifier.fillMaxSize()) else CentrePanel(s, Modifier.fillMaxSize())
             }
         }
     }
@@ -916,9 +918,17 @@ fun DeedsUi(s: DeedsSession) {
                 val board = minOf(maxWidth - 8.dp, maxHeight - 56.dp).coerceAtLeast(160.dp)
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                     // table mode turns the words to face Player 2; the board stays put on the table
-                    DeedsBoard(s, Modifier.size(board).tableUpright())
+                    DeedsBoard(s, Modifier.size(board).tableUpright(), infoInside = false)
                     Spacer(Modifier.height(4.dp))
                     Chronicle(s, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp))
+                }
+                // a tile's details: a tall portrait card from just inside the board's top row down over the chronicle
+                if (s.selected >= 0) {
+                    val inset = board / 11f * 1.5f
+                    val cardW = minOf(board - inset * 2 + 24.dp, 340.dp)
+                    val cardH = minOf(maxHeight - inset - 8.dp, cardW * 1.9f)
+                    TileInfo(s, s.selected, Modifier.align(Alignment.TopCenter).offset(y = inset).width(cardW).heightIn(min = minOf(cardW * 1.2f, cardH), max = cardH)
+                        .shadow(10.dp, RoundedCornerShape(10.dp)))
                 }
             }
             Spacer(Modifier.height(4.dp))
