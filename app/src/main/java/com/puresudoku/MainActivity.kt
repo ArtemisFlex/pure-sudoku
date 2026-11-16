@@ -48,7 +48,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.puresudoku.platform.PeerLink.init(applicationContext)
-        com.puresudoku.platform.AppUpdate.init(applicationContext)
         com.puresudoku.core.words.WordData.init { name -> assets.open("words/$name").reader().use { it.readText() } }
         Thread { runCatching { com.puresudoku.core.words.WordData.lexicon; com.puresudoku.core.words.WordData.clues } }.start()
         enableEdgeToEdge()

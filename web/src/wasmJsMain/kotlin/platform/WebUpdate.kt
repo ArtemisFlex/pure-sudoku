@@ -20,7 +20,7 @@ package com.puresudoku.platform
 private external fun swUpdate(done: (String) -> Unit)
 
 /** What the Settings button says. */
-val updateButtonLabel: String get() = "Check for updates"
+val updateButtonLabel: String? get() = "Check for updates"
 
 /** A line under the button explaining what it does. */
 val updateHelp: String get() = "PureGames checks for a new version by itself and reloads when one is ready. Your saves stay."
