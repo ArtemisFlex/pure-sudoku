@@ -627,18 +627,25 @@ object ManualText {
         }
         CYVASSE -> m {
             sec("The goal") { p("Checkmate the rival king. This is PureGames' standard Cyvasse: both sides start from the same layout, and the king follows chess rules for check.") }
-            sec("The battlefield") { b("An 8×8 board. Each side's half holds, from the middle back: mountains on a, d, e and h; forests on a, b, d, e, g and h; a fortress on a with a crossbowman beside it and the elephant on h; and the back row catapult, spearman, light horse, dragon, king, heavy horse, rabble, trebuchet.",
-                "Onyx's half mirrors Alabaster's across the river that runs between them. Alabaster moves first.") }
-            sec("Moving") { b("Move or attack with one piece a turn. Ground pieces may turn as they move but never pass through another piece. Rabble, crossbowmen, elephants, catapults, trebuchets and kings move one tile; spearmen and heavy horse two; light horse three.",
-                "Each forest entered costs one extra step. Mountains can't be entered.",
-                "Ground units that cross the river can't step back toward their own side, only forward or sideways, unless they've been promoted. Catapults and trebuchets never cross the river.",
-                "Dragons fly any distance in a straight line over water and forest. Mountains, pieces and fortresses stop them, and they can't attack a piece in a forest.") }
-            sec("Combat") { b("A piece can capture its own rank, any lower rank, the next rank up, or a king. The ranks run rabble, spearman, crossbowman, light horse, heavy horse, elephant, catapult, trebuchet, dragon, king. You can never capture your own pieces.",
-                "Spearmen attack only diagonally, one tile; horses can't capture spearmen.",
-                "Crossbowmen shoot one tile, catapults up to four and trebuchets up to three, in straight lines. Catapult and trebuchet shots pass over your own pieces; any shot stops at the first enemy and at mountains. None of them can fire from a forest. Crossbowmen, catapults and trebuchets can capture dragons.") }
+            sec("The battlefield") { b("A board 10 tiles wide and 11 tall. Each army holds five rows; the middle row is a river of water tiles.",
+                "Each side has a back row of trebuchet, heavy horse, light horse, spearman, dragon, king, spearman, light horse, heavy horse and catapult, and in front of it an elephant, a crossbowman, six rabble, a crossbowman and an elephant. A fortress, mountains and forests stand between the army and the river. Alabaster moves first.") }
+            sec("The pieces") { b("King: one tile any way. It can take any piece.",
+                "Rabble and elephant: one tile any way.",
+                "Spearman: up to two tiles any way. It takes only by landing on its victim.",
+                "Crossbowman: one tile straight (not diagonally). It shoots every enemy diagonally beside it at once: when it steps next to them, or, as its move, at enemies that came next to it.",
+                "Light horse: one or two tiles diagonally, leaping over pieces on the way. It takes by landing on its victim.",
+                "Heavy horse: up to three tiles diagonally. Pieces block it; it takes by landing on its victim.",
+                "Catapult: one tile straight. It shoots any distance diagonally, over your own pieces.",
+                "Trebuchet: one tile straight. It shoots any distance straight, over your own pieces.",
+                "Dragon: flies any distance in a straight line over water and forest. Mountains, pieces and fortresses stop it, and it can't attack a piece in a forest.") }
+            sec("Terrain") { b("Mountains can't be entered. Each forest entered costs a walking piece one extra step and ends a horse's ride; siege engines can't shoot from a forest.",
+                "Entering water ends a move and the piece must wait a turn before moving again.",
+                "Ground units that cross the river can't step back toward their own side, only forward or sideways, unless they've been promoted. Catapults and trebuchets never cross the river.") }
+            sec("Taking pieces") { b("Kings can take any piece. Elephants can be taken only by kings, dragons, heavy horses, elephants, catapults and trebuchets. Heavy horses can be taken by anything except a rabble. Everything else can be taken by any piece.",
+                "Shots stop at the first enemy and at mountains. You can never take your own pieces.") }
             sec("Fortresses") { b("Any unit except a catapult, trebuchet or dragon may stand in an empty fortress, even the enemy's.",
-                "An occupied fortress absorbs an attack and is ruined; the defender survives. A king inside survives two attacks before it falls, but a dragon ruins it in one. A dragon may only come down on a fortress to attack the piece inside.",
-                "Ruining a fortress counts as a piece taken.") }
+                "A fortress protects the piece inside from one attack and then falls, becoming a grass tile; the defender survives. With a king inside it withstands two attacks, but a dragon brings it down in one. A dragon may only come down on a fortress to attack the piece inside.",
+                "Bringing down a fortress counts as a piece taken.") }
             sec("Promotion") { p("A rabble that reaches the enemy's back row is promoted to any piece except a king or a rabble. A promoted piece may move backward again after crossing the river.") }
             sec("Check and checkmate") { b("You may never make a move that leaves your king able to be taken, and when your king is in check you must get it out: move it, block, or take the attacker.",
                 "No legal move while in check is checkmate and loses. No legal move otherwise is stalemate, a draw.") }

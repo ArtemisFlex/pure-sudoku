@@ -5,15 +5,19 @@ import org.json.JSONObject
 import kotlin.random.Random
 
 /**
- * Cyvasse, PureGames' standard version: both sides start from the same mirrored layout of mountains, forests, a fortress
- * and ten pieces. Kings are in check like chess (no move may leave your own king attackable; no legal move while in
- * check is checkmate). The line between the halves is a river: siege engines never cross it, and other ground units
+ * Cyvasse, PureGames' standard version, on a 10 by 11 field. Each army holds five rows; the middle row is a river of
+ * water tiles. Both sides start from the same layout. Kings are in check like chess (no move may leave your own king
+ * attackable; no legal move while in check is checkmate). Siege engines never cross the river, and other ground units
  * that have crossed it cannot step back until promoted. A rabble reaching the enemy's back row is promoted.
  */
 class Cyvasse {
     companion object {
-        const val N = 8
-        const val CELLS = N * N
+        /** Columns and rows. */
+        const val W = 10
+        const val H = 11
+        const val CELLS = W * H
+        /** The river row between the halves. */
+        const val RIVER = H / 2
         const val SETUP = 0; const val BATTLE = 1; const val OVER = 2
         /** [winner] when the game ends without a victor. */
         const val DRAWN = 2
@@ -25,53 +29,72 @@ class Cyvasse {
         const val ELEPHANT = 6; const val CATAPULT = 7; const val TREBUCHET = 8; const val DRAGON = 9; const val KING = 10
         val TYPES = RABBLE..KING
         /** How many of each piece a side has (index = type). */
-        val ARMY = intArrayOf(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-        const val MOUNTAINS = 6
-        const val WATERS = 5; const val FORESTS_PER_SIDE = 6
+        val ARMY = intArrayOf(0, 6, 2, 2, 2, 2, 2, 1, 1, 1, 1)
+        val ARMY_SIZE = ARMY.sum()
+        const val MOUNTAINS = 3
+        const val WATERS = 5; const val FORESTS_PER_SIDE = 5
         /** Moves without a capture or a piece brought out before the game is drawn. */
         const val QUIET_LIMIT = 160
 
         val NAMES = arrayOf("", "Rabble", "Spearman", "Crossbowman", "Light Horse", "Heavy Horse", "Elephant", "Catapult", "Trebuchet", "Dragon", "King")
         val PLURALS = arrayOf("", "Rabble", "Spearmen", "Crossbowmen", "Light Horses", "Heavy Horses", "Elephants", "Catapults", "Trebuchets", "Dragons", "Kings")
-        val MOVES_TEXT = arrayOf("", "Moves one tile. Promoted on the enemy's back row.",
-            "Moves up to two tiles but attacks only diagonally; cavalry cannot capture it.",
-            "Moves one tile; shoots one tile and can capture dragons.", "Moves up to three tiles.",
-            "Moves up to two tiles.", "Moves one tile.",
-            "Moves one tile; shoots up to four tiles in a line, over your own pieces, and can capture dragons. Never crosses the river or enters a fortress.",
-            "Moves one tile; shoots up to three tiles in a line, over your own pieces, and can capture dragons. Never crosses the river or enters a fortress.",
+        val MOVES_TEXT = arrayOf("", "Moves one tile any way and takes by landing. Promoted on the enemy's back row.",
+            "Moves up to two tiles any way and takes only by landing on its victim.",
+            "Steps one tile straight. Shoots every enemy diagonally beside it: one it lands beside, or one that lands beside it.",
+            "Leaps one or two tiles diagonally, over pieces, and takes by landing.",
+            "Rides up to three tiles diagonally; pieces block it. Anything but a rabble can take it.",
+            "Moves one tile any way. Only kings, dragons, heavy horses, elephants, catapults and trebuchets can take it.",
+            "Steps one tile straight. Shoots any distance diagonally, over your own pieces. Never crosses the river or enters a fortress.",
+            "Steps one tile straight. Shoots any distance straight, over your own pieces. Never crosses the river or enters a fortress.",
             "Flies any distance in a line over water and forest; mountains, pieces and fortresses stop it. Cannot attack into forests.",
-            "Moves one tile. It can never be left in check; checkmate ends the game.")
+            "Moves one tile any way and can take any piece. It can never be left in check; checkmate ends the game.")
         /** Rough worth of each piece, for the computer and the coach. */
-        val VALUE = intArrayOf(0, 10, 16, 20, 30, 32, 36, 40, 44, 90, 0)
+        val VALUE = intArrayOf(0, 10, 22, 26, 28, 34, 40, 44, 46, 90, 0)
 
-        /** Default symmetric terrain for fixtures; new games start empty for player placement. */
-        val TERRAIN: IntArray = IntArray(CELLS).also { t ->
-            for (c in intArrayOf(8, 19, 27, 36, 44, 55)) t[c] = WATER
-            for (c in intArrayOf(10, 17, 30, 33, 46, 53)) t[c] = FOREST
-        }
-        val FORESTS: IntArray = (0 until CELLS).filter { TERRAIN[it] == FOREST }.toIntArray()
+        /** New games start on plain grass. */
+        val TERRAIN: IntArray = IntArray(CELLS)
 
         fun newSetup(): Cyvasse = Cyvasse().also { it.terrain.fill(PLAIN) }
 
         /**
-         * The standard opening. Alabaster's half, from the river back: mountains on a, d, e and h; forests on a, b, d, e, g
-         * and h; the fortress on a with a crossbowman beside it and the elephant on h; and the back row catapult, spearman,
-         * light horse, dragon, king, heavy horse, rabble, trebuchet. Onyx's half mirrors it across the river.
+         * The standard field, top (Onyx's back row) to bottom (Alabaster's). Pieces: T trebuchet, H heavy horse,
+         * L light horse, S spearman, D dragon, K king, C catapult, E elephant, X crossbowman, R rabble (rows above the
+         * river are Onyx's). Terrain: f forest, ~ water, M mountain, F fortress, . grass.
          */
+        val LAYOUT = arrayOf(
+            "T H L S D K S L H C",
+            "E X R R R R R R X E",
+            ". . . . . . . . . .",
+            "F . . . . . . . . f",
+            "M f . . M f . . . f",
+            "~ ~ ~ ~ ~ ~ ~ ~ ~ ~",
+            "f f . . f M . . . M",
+            "F . . . . . . . . f",
+            ". . . . . . . . . .",
+            "E X R R R R R R X E",
+            "T H L S D K S L H C")
+        private val LETTERS = mapOf('R' to RABBLE, 'S' to SPEARMAN, 'X' to CROSSBOW, 'L' to LIGHT_HORSE, 'H' to HEAVY_HORSE,
+            'E' to ELEPHANT, 'C' to CATAPULT, 'T' to TREBUCHET, 'D' to DRAGON, 'K' to KING)
+
         fun standard(): Cyvasse {
             val g = Cyvasse()
             g.terrain.fill(PLAIN)
-            for (side in 0..1) {
-                // Alabaster's rows are 4 (by the river) to 7 (the back row); Onyx's mirror them
-                fun at(r: Int, c: Int) = (if (side == 0) r else N - 1 - r) * N + c
-                for (c in intArrayOf(0, 3, 4, 7)) g.block[at(4, c)] = MOUNTAIN
-                for (c in intArrayOf(0, 1, 3, 4, 6, 7)) g.terrain[at(5, c)] = FOREST
-                g.keepAt[side] = at(6, 0); g.block[at(6, 0)] = KEEP
-                g.board[at(6, 1)] = piece(side, CROSSBOW); g.board[at(6, 7)] = piece(side, ELEPHANT)
-                val back = intArrayOf(CATAPULT, SPEARMAN, LIGHT_HORSE, DRAGON, KING, HEAVY_HORSE, RABBLE, TREBUCHET)
-                for (c in 0 until N) g.board[at(7, c)] = piece(side, back[c])
-                g.reserve[side].fill(0)
+            for (r in 0 until H) {
+                val cells = LAYOUT[r].split(' ')
+                for (c in 0 until W) {
+                    val i = r * W + c
+                    val side = if (r < RIVER) 1 else 0
+                    when (val ch = cells[c][0]) {
+                        'f' -> g.terrain[i] = FOREST
+                        '~' -> g.terrain[i] = WATER
+                        'M' -> g.block[i] = MOUNTAIN
+                        'F' -> { g.block[i] = KEEP; g.keepAt[side] = i }
+                        '.' -> Unit
+                        else -> g.board[i] = piece(side, LETTERS.getValue(ch))
+                    }
+                }
             }
+            for (s in 0..1) g.reserve[s].fill(0)
             g.phase = BATTLE; g.turn = 0; g.first = 0
             return g
         }
@@ -79,13 +102,12 @@ class Cyvasse {
         fun piece(side: Int, type: Int) = side * 10 + type
         fun ownerOf(v: Int) = if (v == 0) -1 else (v - 1) / 10
         fun typeOf(v: Int) = if (v == 0) 0 else (v - 1) % 10 + 1
-        fun row(c: Int) = c / N
-        fun col(c: Int) = c % N
-        /** Alabaster (0) holds rows 4-7, Onyx (1) rows 0-3. */
-        fun inHalf(side: Int, c: Int) = if (side == 0) row(c) >= N / 2 else row(c) < N / 2
-        /** The row by the screen, where no keep may stand. */
-        fun frontRow(side: Int) = if (side == 0) N / 2 else N / 2 - 1
-        fun coord(c: Int) = "${'a' + col(c)}${N - row(c)}"
+        fun row(c: Int) = c / W
+        fun col(c: Int) = c % W
+        fun on(r: Int, c: Int) = r in 0 until H && c in 0 until W
+        /** Alabaster (0) holds the rows below the river, Onyx (1) those above it; the river row is no one's. */
+        fun inHalf(side: Int, c: Int) = if (side == 0) row(c) > RIVER else row(c) < RIVER
+        fun coord(c: Int) = "${'a' + col(c)}${H - row(c)}"
         fun sideName(side: Int) = if (side == 0) "Alabaster" else "Onyx"
 
         val ORTHO = arrayOf(intArrayOf(-1, 0), intArrayOf(1, 0), intArrayOf(0, -1), intArrayOf(0, 1))
@@ -95,18 +117,31 @@ class Cyvasse {
         fun neighbours(c: Int): List<Int> {
             val r = row(c); val k = col(c)
             val out = ArrayList<Int>(8)
-            for (d in ALL8) { val nr = r + d[0]; val nc = k + d[1]; if (nr in 0 until N && nc in 0 until N) out += nr * N + nc }
+            for (d in ALL8) { val nr = r + d[0]; val nc = k + d[1]; if (on(nr, nc)) out += nr * W + nc }
             return out
         }
         val NEIGHBOURS: Array<IntArray> = Array(CELLS) { neighbours(it).toIntArray() }
+        /** The four diagonal neighbours: where a crossbowman shoots. */
+        val DIAGONALS: Array<IntArray> = Array(CELLS) { c -> DIAG.mapNotNull { d -> (row(c) + d[0] to col(c) + d[1]).takeIf { on(it.first, it.second) }?.let { it.first * W + it.second } }.toIntArray() }
+
+        /** Whether a piece of [attacker]'s type may take one of [defender]'s (sides aside). */
+        fun beats(attacker: Int, defender: Int): Boolean = when {
+            attacker == 0 || defender == 0 -> false
+            attacker == KING -> true
+            defender == ELEPHANT -> attacker in intArrayOf(DRAGON, HEAVY_HORSE, ELEPHANT, TREBUCHET, CATAPULT)
+            defender == HEAVY_HORSE -> attacker != RABBLE
+            else -> true
+        }
 
         // ---- moves, packed in one Int: kind | a | b | via ----
         const val K_MOVE = 0; const val K_DEPLOY = 1; const val K_SWAP = 2; const val K_PASS = 3; const val K_RANGED = 4
         /** A rabble's move onto the enemy's back row; [via] holds the piece it becomes. */
         const val K_PROMO = 5
+        /** A crossbowman shooting, where it stands, at every enemy diagonally beside it ([a] = [b] = its tile). */
+        const val K_VOLLEY = 6
         /** What a rabble may become: anything but a king or another rabble. */
         val PROMOTIONS = SPEARMAN..DRAGON
-        /** [a] is the start (or the piece type when bringing one out), [b] the end, [via] a catapult's first victim. */
+        /** [a] is the start (or the piece type when bringing one out), [b] the end, [via] the last tile before it. */
         fun mv(kind: Int, a: Int, b: Int, via: Int = -1) = (kind shl 24) or (a shl 16) or (b shl 8) or (via + 1)
         fun kindOf(m: Int) = m ushr 24
         fun aOf(m: Int) = (m ushr 16) and 0xFF
@@ -115,6 +150,8 @@ class Cyvasse {
         val PASS = mv(K_PASS, 0, 0)
 
         fun fromJson(o: JSONObject): Cyvasse {
+            // a game saved on the old 8 by 8 board can't carry over: start the new field instead
+            if (o.optJSONArray("board")?.length() != CELLS) return standard()
             fun ia(k: String, n: Int) = o.optJSONArray(k)?.let { a -> IntArray(a.length()) { a.getInt(it) } } ?: IntArray(n)
             val g = Cyvasse()
             ia("board", CELLS).copyInto(g.board); ia("block", CELLS).copyInto(g.block)
@@ -142,7 +179,7 @@ class Cyvasse {
     val terrain = TERRAIN.copyOf()
     val keepAt = intArrayOf(-1, -1)
     val keepGone = BooleanArray(2)
-    /** Water delay and trebuchet direction travel with the piece at each cell. */
+    /** Water delay travels with the piece at each cell. */
     val waterWait = IntArray(CELLS)
     val facing = IntArray(CELLS)
     val fortHits = IntArray(2)
@@ -195,14 +232,6 @@ class Cyvasse {
 
     fun keepStands(side: Int) = keepAt[side] >= 0 && !keepGone[side]
 
-    /** The tiles round [side]'s keep where its pieces enter the board (and which the enemy must take). */
-    fun homeTiles(side: Int): IntArray {
-        if (!keepStands(side)) return IntArray(0)
-        return NEIGHBOURS[keepAt[side]].filter { block[it] == 0 }.toIntArray()
-    }
-
-    fun isHome(side: Int, c: Int) = keepStands(side) && block[c] == 0 && c in NEIGHBOURS[keepAt[side]]
-
     fun mountainsPlaced(side: Int) = (0 until CELLS).count { block[it] == MOUNTAIN && inHalf(side, it) }
     fun terrainPlaced(side: Int, type: Int) = (0 until CELLS).count { inHalf(side, it) && terrain[it] == type }
 
@@ -220,20 +249,19 @@ class Cyvasse {
 
     /**
      * How many of the eight lines out from [side]'s king are open to attack: they reach an enemy piece, or the
-     * enemy's half, before anything of its own (or a mountain or keep) blocks them. Lines across and along wrap
-     * round the edges, the way light horses ride. A king in reserve has none.
+     * enemy's half, before anything of its own (or a mountain or keep) blocks them. A king in reserve has none.
      */
     fun openLines(side: Int): Int {
         val k = (0 until CELLS).firstOrNull { board[it] == piece(side, KING) } ?: return 0
         var open = 0
         for (d in ALL8) {
             var r = row(k); var c = col(k)
-            for (step in 1 until N) {
+            while (true) {
                 r += d[0]; c += d[1]
-                if (r !in 0 until N || c !in 0 until N) break
-                val t = r * N + c
+                if (!on(r, c)) break
+                val t = r * W + c
                 if (block[t] != 0 || ownerOf(board[t]) == side) break
-                if (ownerOf(board[t]) == 1 - side || !inHalf(side, t)) { open++; break }
+                if (ownerOf(board[t]) == 1 - side || inHalf(1 - side, t)) { open++; break }
             }
         }
         return open
@@ -256,7 +284,7 @@ class Cyvasse {
     fun canKeep(side: Int, c: Int) = phase == SETUP && side == placer && c in 0 until CELLS && inHalf(side, c) &&
         terrain[c] == PLAIN && block[c] == 0 && board[c] == 0
 
-    /** Sets (or moves) the keep. Pieces left off the new home tiles go back to reserve. */
+    /** Sets (or moves) the keep. */
     fun placeKeep(side: Int, c: Int): Boolean {
         if (!canKeep(side, c)) return false
         if (keepAt[side] >= 0) block[keepAt[side]] = 0
@@ -287,7 +315,7 @@ class Cyvasse {
     fun setupDone(side: Int) = keepAt[side] >= 0 && mountainsPlaced(side) == MOUNTAINS &&
         terrainPlaced(side, WATER) == WATERS && terrainPlaced(side, FOREST) == FORESTS_PER_SIDE && reserveCount(side) == 0
 
-    /** Random complete setup, including all ten pieces. */
+    /** Random complete setup, including the whole army. */
     fun randomSetup(side: Int, rnd: Random, level: Int = 3) {
         val old = placer; placer = side; clearSetup(side)
         val cells = (0 until CELLS).filter { inHalf(side, it) }.shuffled(rnd)
@@ -296,9 +324,9 @@ class Cyvasse {
         repeat(FORESTS_PER_SIDE) { toggleTerrain(side, FOREST, cells[i++]) }
         repeat(MOUNTAINS) { toggleMountain(side, cells[i++]) }
         placeKeep(side, cells[i++])
-        // Avoid crippling a random army even though manual placement permits it.
         val open = cells.filter { block[it] != MOUNTAIN && block[it] != KEEP }.shuffled(rnd)
-        for ((t, c) in TYPES.zip(open)) standPiece(side, t, c)
+        val army = TYPES.flatMap { t -> List(ARMY[t]) { t } }
+        for ((t, c) in army.zip(open)) standPiece(side, t, c)
         placer = old
     }
 
@@ -315,23 +343,23 @@ class Cyvasse {
     /** A standing (not ruined) fortress on [c], or -1. */
     fun fortAt(c: Int): Int = (0..1).firstOrNull { keepAt[it] == c && !keepGone[it] } ?: -1
 
-    /** How far [side] has advanced on [c]'s row: 0 on its own back row, 7 on the enemy's. */
-    fun progress(side: Int, c: Int) = if (side == 0) N - 1 - row(c) else row(c)
+    /** How far [side] has advanced on [c]'s row: 0 on its own back row, [H] - 1 on the enemy's. */
+    fun progress(side: Int, c: Int) = if (side == 0) H - 1 - row(c) else row(c)
 
     /** The enemy's back row, where a rabble is promoted. */
-    fun promotionRow(side: Int) = if (side == 0) 0 else N - 1
+    fun promotionRow(side: Int) = if (side == 0) 0 else H - 1
 
     private fun isSiege(type: Int) = type == CATAPULT || type == TREBUCHET
 
     /** Whether the piece on [from] may capture the piece on [target]. Never your own. */
     fun canTake(from: Int, target: Int): Boolean {
-        val attacker = typeOf(board[from]); val defender = typeOf(board[target])
-        if (defender == 0 || attacker == 0 || ownerOf(board[from]) == ownerOf(board[target])) return false
-        if (attacker == KING || defender == KING) return true
-        if (defender == SPEARMAN && attacker in LIGHT_HORSE..HEAVY_HORSE) return false
-        if (defender == DRAGON && attacker in intArrayOf(CROSSBOW, CATAPULT, TREBUCHET)) return true
-        return defender <= attacker + 1
+        if (board[from] == 0 || board[target] == 0 || ownerOf(board[from]) == ownerOf(board[target])) return false
+        return beats(typeOf(board[from]), typeOf(board[target]))
     }
+
+    /** The enemies a crossbowman of [side] standing on [cell] would shoot: every one diagonally beside it that it can take. */
+    fun volleyTargets(cell: Int, side: Int): List<Int> =
+        DIAGONALS[cell].filter { t -> board[t] != 0 && ownerOf(board[t]) != side && beats(CROSSBOW, typeOf(board[t])) }
 
     /** Every move and attack the side to move could make, ignoring whether it leaves its own king in check. */
     fun pseudoMoves(side: Int = turn): IntArray {
@@ -359,90 +387,138 @@ class Cyvasse {
         val enemy = 1 - side
         val out = IntList()
         for (c in 0 until CELLS) if (ownerOf(board[c]) == enemy && waterWait[c] == 0) pieceMoves(c, out)
-        for (i in 0 until out.size) { val m = out[i]; if (bOf(m) == k && kindOf(m) != K_PASS) return true }
+        for (i in 0 until out.size) {
+            val m = out[i]
+            val kind = kindOf(m)
+            if (kind == K_PASS) continue
+            if (kind != K_VOLLEY && bOf(m) == k) return true
+            if (typeOf(board[aOf(m)]) == CROSSBOW && k in DIAGONALS[bOf(m)] && beats(CROSSBOW, KING)) return true
+        }
         return false
     }
 
     fun pieceMoves(from: Int, out: IntList) {
         val type = typeOf(board[from]); if (type == 0 || waterWait[from] > 0) return
         val side = ownerOf(board[from])
-        if (type == DRAGON) {
-            // straight lines, over water and forest; mountains, pieces and fortresses stop it
-            for (d in ALL8) {
-                var r = row(from); var c = col(from); var lastEmpty = from
-                while (true) {
-                    r += d[0]; c += d[1]
-                    if (r !in 0 until N || c !in 0 until N) break
-                    val t = r * N + c
+        // once across the river, a ground unit only goes forward or sideways (until promoted)
+        val lock = type != DRAGON && crossed[from] == 1 && promoted[from] == 0
+        fun back(t: Int) = lock && progress(side, t) < progress(side, from)
+        val r0 = row(from); val c0 = col(from)
+        when (type) {
+            DRAGON -> {
+                // straight lines, over water and forest; mountains, pieces and fortresses stop it
+                for (d in ALL8) {
+                    var r = r0; var c = c0; var lastEmpty = from
+                    while (true) {
+                        r += d[0]; c += d[1]
+                        if (!on(r, c)) break
+                        val t = r * W + c
+                        if (block[t] == MOUNTAIN) break
+                        val v = board[t]
+                        if (fortAt(t) >= 0) {
+                            // it may only come down on a fortress to attack the piece inside
+                            if (v != 0 && canTake(from, t)) out.add(mv(K_MOVE, from, t, lastEmpty))
+                            break
+                        }
+                        if (v != 0) {
+                            if (terrain[t] != FOREST && canTake(from, t)) out.add(mv(K_MOVE, from, t, lastEmpty))
+                            break
+                        }
+                        out.add(mv(K_MOVE, from, t, lastEmpty)); lastEmpty = t
+                    }
+                }
+            }
+            LIGHT_HORSE -> for (d in DIAG) {
+                // one or two tiles diagonally, leaping whatever stands on the first, except a mountain or fortress
+                var lastEmpty = from
+                for (dist in 1..2) {
+                    val r = r0 + d[0] * dist; val c = c0 + d[1] * dist
+                    if (!on(r, c)) break
+                    val t = r * W + c
                     if (block[t] == MOUNTAIN) break
-                    val v = board[t]
-                    if (fortAt(t) >= 0) {
-                        // it may only come down on a fortress to attack the piece inside
-                        if (v != 0 && canTake(from, t)) out.add(mv(K_MOVE, from, t, lastEmpty))
-                        break
+                    if (!back(t)) {
+                        if (board[t] == 0) out.add(mv(K_MOVE, from, t, lastEmpty))
+                        else if (canTake(from, t)) out.add(mv(K_MOVE, from, t, lastEmpty))
                     }
-                    if (v != 0) {
-                        if (terrain[t] != FOREST && canTake(from, t)) out.add(mv(K_MOVE, from, t, lastEmpty))
-                        break
-                    }
-                    out.add(mv(K_MOVE, from, t, lastEmpty)); lastEmpty = t
+                    if (fortAt(t) >= 0) break
+                    if (board[t] == 0) lastEmpty = t
                 }
             }
-            return
-        }
-        val crossedLock = crossed[from] == 1 && promoted[from] == 0
-        val limit = when (type) { LIGHT_HORSE -> 3; HEAVY_HORSE, SPEARMAN -> 2; else -> 1 }
-        data class Step(val cell: Int, val left: Int)
-        val queue = ArrayDeque<Step>(); queue.add(Step(from, limit))
-        val best = IntArray(CELLS) { -1 }; best[from] = limit
-        val seen = HashSet<Int>()
-        fun emit(m: Int) { if (seen.add(m)) out.add(m) }
-        while (queue.isNotEmpty()) {
-            val step = queue.removeFirst()
-            if (step.left <= 0) continue
-            for (t in NEIGHBOURS[step.cell]) {
-                if (t == from || block[t] == MOUNTAIN) continue
-                // once across the river, a ground unit only goes forward or sideways (until promoted)
-                if (crossedLock && progress(side, t) < progress(side, step.cell)) continue
-                // siege engines never cross water, the river between the halves included
-                if (isSiege(type) && (terrain[t] == WATER || !inHalf(side, t))) continue
-                val fort = fortAt(t) >= 0
-                if (fort && isSiege(type)) continue
-                val left = step.left - 1 - if (terrain[t] == FOREST) 1 else 0
-                if (board[t] != 0) {
-                    // a spearman attacks only diagonally, next to where it stands
-                    if (type == SPEARMAN) continue
-                    if (canTake(from, t)) emitArrival(from, t, step.cell, type, side, ::emit)
-                } else {
-                    emitArrival(from, t, step.cell, type, side, ::emit)
-                    // a fortress or water ends the move
-                    if (!fort && terrain[t] != WATER && left > 0 && left > best[t]) { best[t] = left; queue.add(Step(t, left)) }
+            HEAVY_HORSE -> for (d in DIAG) {
+                // up to three tiles diagonally; it can't pass a piece, and water, forest or a fortress ends the ride
+                var lastEmpty = from
+                for (dist in 1..3) {
+                    val r = r0 + d[0] * dist; val c = c0 + d[1] * dist
+                    if (!on(r, c)) break
+                    val t = r * W + c
+                    if (block[t] == MOUNTAIN) break
+                    if (board[t] != 0) { if (!back(t) && canTake(from, t)) out.add(mv(K_MOVE, from, t, lastEmpty)); break }
+                    if (!back(t)) out.add(mv(K_MOVE, from, t, lastEmpty))
+                    if (fortAt(t) >= 0 || terrain[t] != PLAIN) break
+                    lastEmpty = t
                 }
             }
-        }
-        if (type == SPEARMAN) for (d in DIAG) {
-            val r = row(from) + d[0]; val c = col(from) + d[1]
-            if (r !in 0 until N || c !in 0 until N) continue
-            val t = r * N + c
-            if (block[t] == MOUNTAIN || board[t] == 0 || !canTake(from, t)) continue
-            if (crossedLock && progress(side, t) < progress(side, from)) continue
-            emitArrival(from, t, from, type, side, ::emit)
-        }
-        // shooting: not from water or forest; straight lines; catapults and trebuchets fire over their own pieces
-        if (type !in intArrayOf(CROSSBOW, CATAPULT, TREBUCHET) || terrain[from] == WATER || terrain[from] == FOREST) return
-        val range = when (type) { CROSSBOW -> 1; CATAPULT -> 4; else -> 3 }
-        for (d in ALL8) {
-            var r = row(from); var c = col(from)
-            for (dist in 1..range) {
-                r += d[0]; c += d[1]
-                if (r !in 0 until N || c !in 0 until N) break
-                val t = r * N + c
-                if (block[t] == MOUNTAIN) break
-                val v = board[t]
-                if (v == 0) { if (fortAt(t) >= 0) break else continue }
-                if (ownerOf(v) == side) { if (isSiege(type)) continue else break }
-                if (canTake(from, t)) out.add(mv(K_RANGED, from, t))
-                break
+            CROSSBOW -> {
+                for (d in ORTHO) {
+                    val r = r0 + d[0]; val c = c0 + d[1]
+                    if (!on(r, c)) continue
+                    val t = r * W + c
+                    if (block[t] == MOUNTAIN || board[t] != 0 || back(t)) continue
+                    out.add(mv(K_MOVE, from, t, from))
+                }
+                if (volleyTargets(from, side).isNotEmpty()) out.add(mv(K_VOLLEY, from, from))
+            }
+            CATAPULT, TREBUCHET -> {
+                // one step straight, on dry land in its own half, never into a fortress
+                for (d in ORTHO) {
+                    val r = r0 + d[0]; val c = c0 + d[1]
+                    if (!on(r, c)) continue
+                    val t = r * W + c
+                    if (block[t] != 0 || board[t] != 0 || terrain[t] == WATER || !inHalf(side, t)) continue
+                    out.add(mv(K_MOVE, from, t, from))
+                }
+                // shots: any distance, diagonally (catapult) or straight (trebuchet), over its own pieces; not from a forest
+                if (terrain[from] == FOREST) return
+                for (d in if (type == CATAPULT) DIAG else ORTHO) {
+                    var r = r0; var c = c0
+                    while (true) {
+                        r += d[0]; c += d[1]
+                        if (!on(r, c)) break
+                        val t = r * W + c
+                        if (block[t] == MOUNTAIN) break
+                        val v = board[t]
+                        if (v == 0) { if (fortAt(t) >= 0) break else continue }
+                        if (ownerOf(v) == side) continue
+                        if (canTake(from, t)) out.add(mv(K_RANGED, from, t))
+                        break
+                    }
+                }
+            }
+            else -> {
+                // rabble, elephant and king walk one tile any way; a spearman up to two. Forests cost an extra step.
+                val limit = if (type == SPEARMAN) 2 else 1
+                data class Step(val cell: Int, val left: Int)
+                val queue = ArrayDeque<Step>(); queue.add(Step(from, limit))
+                val best = IntArray(CELLS) { -1 }; best[from] = limit
+                val seen = HashSet<Int>()
+                fun emit(m: Int) { if (seen.add(m)) out.add(m) }
+                while (queue.isNotEmpty()) {
+                    val step = queue.removeFirst()
+                    if (step.left <= 0) continue
+                    for (t in NEIGHBOURS[step.cell]) {
+                        if (t == from || block[t] == MOUNTAIN) continue
+                        if (lock && progress(side, t) < progress(side, step.cell)) continue
+                        val fort = fortAt(t) >= 0
+                        val left = step.left - 1 - if (terrain[t] == FOREST) 1 else 0
+                        if (board[t] != 0) {
+                            if (canTake(from, t)) emitArrival(from, t, step.cell, type, side, ::emit)
+                        } else {
+                            emitArrival(from, t, step.cell, type, side, ::emit)
+                            // a fortress or water ends the move
+                            if (!fort && terrain[t] != WATER && left > 0 && left > best[t]) { best[t] = left; queue.add(Step(t, left)) }
+                        }
+                    }
+                }
             }
         }
     }
@@ -455,7 +531,41 @@ class Cyvasse {
     }
 
     fun isLegal(m: Int) = legalMoves().contains(m)
-    fun victims(m: Int): List<Int> = if (kindOf(m) in intArrayOf(K_MOVE, K_RANGED, K_PROMO) && board[bOf(m)] != 0 && ownerOf(board[bOf(m)]) != ownerOf(board[aOf(m)])) listOf(bOf(m)) else emptyList()
+
+    /** The enemy pieces [m] attacks (a piece in a fortress is attacked, though the fortress may save it). */
+    fun victims(m: Int): List<Int> {
+        val kind = kindOf(m); val a = aOf(m); val b = bOf(m)
+        if (kind !in intArrayOf(K_MOVE, K_RANGED, K_PROMO, K_VOLLEY) || board[a] == 0) return emptyList()
+        val side = ownerOf(board[a])
+        if (kind == K_VOLLEY) return volleyTargets(a, side)
+        val out = ArrayList<Int>(4)
+        if (board[b] != 0 && ownerOf(board[b]) != side) out += b
+        // a crossbowman that steps up shoots everything diagonally beside where it lands
+        if (kind == K_MOVE && typeOf(board[a]) == CROSSBOW) out += volleyTargets(b, side)
+        return out
+    }
+
+    /** An attack on [b]: a standing fortress takes the blow (and may fall); otherwise the piece there is taken. Returns true when a fortress took it. */
+    private fun strike(s: Int, attackerType: Int, b: Int): Boolean {
+        val victim = board[b]
+        val fort = fortAt(b)
+        if (fort >= 0) {
+            fortHits[fort]++
+            // a fortress holds against one attack; with a king inside, two (but a dragon ruins it at once)
+            val hitsNeeded = if (typeOf(victim) == KING && attackerType != DRAGON) 2 else 1
+            if (fortHits[fort] >= hitsNeeded) {
+                keepGone[fort] = true; keepFell = fort; block[b] = 0; terrain[b] = PLAIN
+                // a ruined fortress counts as a piece taken
+                captured[s][0]++
+                lastText += "; the fortress at ${coord(b)} falls and the defender survives"
+            } else lastText += "; the fortress at ${coord(b)} holds"
+            return true
+        }
+        val capturedSide = ownerOf(victim); val t = typeOf(victim)
+        captured[1 - capturedSide][t]++; clearCell(b)
+        if (t == KING) winner = 1 - capturedSide
+        return false
+    }
 
     /**
      * Plays [m]. With [settle], checks afterwards whether the side now to move is checkmated (the mover wins) or
@@ -467,34 +577,21 @@ class Cyvasse {
         lastText = describe(m); keepFell = -1
         // A unit that entered water on its previous turn is free after this turn.
         for (c in 0 until CELLS) if (ownerOf(board[c]) == s && waterWait[c] > 0) waterWait[c]--
-        if (kind == K_MOVE || kind == K_RANGED || kind == K_PROMO) {
-            val victim = board[b]
-            val fort = fortAt(b)
-            var repelled = false
-            if (victim != 0 && fort >= 0) {
-                fortHits[fort]++
-                val hitsNeeded = if (typeOf(victim) == KING && typeOf(board[a]) != DRAGON) 2 else 1
-                if (fortHits[fort] >= hitsNeeded) {
-                    keepGone[fort] = true; keepFell = fort; block[b] = 0
-                    // a ruined fortress counts as a piece taken
-                    captured[s][0]++
-                }
-                repelled = true
-                lastText += if (keepGone[fort]) "; the fortress is ruined and the defender survives" else "; the fortress absorbs the attack"
-            } else if (victim != 0) {
-                val capturedSide = ownerOf(victim); val t = typeOf(victim)
-                captured[1 - capturedSide][t]++; clearCell(b)
-                if (t == KING) winner = 1 - capturedSide
-            }
-            if (kind != K_RANGED) {
+        val moverType = typeOf(board[a])
+        when (kind) {
+            K_VOLLEY -> for (t in volleyTargets(a, s)) strike(s, CROSSBOW, t)
+            K_RANGED -> if (board[b] != 0) strike(s, moverType, b)
+            K_MOVE, K_PROMO -> {
+                val repelled = board[b] != 0 && strike(s, moverType, b)
                 val destination = if (repelled) viaOf(m).takeIf { it >= 0 && kind == K_MOVE } ?: a else b
                 if (destination != a) {
                     val moving = board[a]; val wasCrossed = crossed[a]; val wasPromoted = promoted[a]
                     clearCell(a)
                     board[destination] = if (kind == K_PROMO) piece(s, viaOf(m)) else moving
                     promoted[destination] = if (kind == K_PROMO) 1 else wasPromoted
-                    crossed[destination] = if (wasCrossed == 1 || !inHalf(s, destination)) 1 else 0
+                    crossed[destination] = if (wasCrossed == 1 || inHalf(1 - s, destination)) 1 else 0
                     waterWait[destination] = if (terrain[destination] == WATER && typeOf(moving) != DRAGON) 1 else 0
+                    if (typeOf(moving) == CROSSBOW && kind == K_MOVE) for (t in volleyTargets(destination, s)) strike(s, CROSSBOW, t)
                 }
             }
         }
@@ -510,11 +607,17 @@ class Cyvasse {
 
     private fun clearCell(c: Int) { board[c] = 0; waterWait[c] = 0; facing[c] = 0; crossed[c] = 0; promoted[c] = 0 }
 
-    fun describe(m: Int): String = when (kindOf(m)) {
-        K_PASS -> "passes because no unit can move or attack"
-        K_RANGED -> "fires a ${NAMES[typeOf(board[aOf(m)])]} at ${coord(bOf(m))}"
-        K_PROMO -> "moves a Rabble from ${coord(aOf(m))} to ${coord(bOf(m))} and promotes it to a ${NAMES[viaOf(m)]}"
-        else -> "moves a ${NAMES[typeOf(board[aOf(m)])]} from ${coord(aOf(m))} to ${coord(bOf(m))}"
+    fun describe(m: Int): String {
+        val name = NAMES[typeOf(board[aOf(m)])]
+        val shots = if (kindOf(m) == K_VOLLEY || (kindOf(m) == K_MOVE && typeOf(board[aOf(m)]) == CROSSBOW))
+            victims(m).filter { it != bOf(m) || kindOf(m) == K_VOLLEY }.joinToString(" and ") { "the ${NAMES[typeOf(board[it])]} at ${coord(it)}" } else ""
+        return when (kindOf(m)) {
+            K_PASS -> "passes because no unit can move or attack"
+            K_RANGED -> "fires a $name at ${coord(bOf(m))}"
+            K_VOLLEY -> "shoots from a Crossbowman at ${coord(aOf(m))} at $shots"
+            K_PROMO -> "moves a Rabble from ${coord(aOf(m))} to ${coord(bOf(m))} and promotes it to a ${NAMES[viaOf(m)]}"
+            else -> "moves a $name from ${coord(aOf(m))} to ${coord(bOf(m))}" + if (shots.isNotEmpty()) " and shoots $shots" else ""
+        }
     }
 
 }

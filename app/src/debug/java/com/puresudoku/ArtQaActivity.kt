@@ -329,6 +329,18 @@ class ArtQaActivity : ComponentActivity() {
                 }.getOrElse { "FAIL: ${it.stackTraceToString()}" }
                 setContentView(TextView(this).apply { text = result; textSize = 20f }); return
             }
+            "cyvasse-board" -> {
+                // the standard 10 by 11 Cyvasse opening with a crossbowman selected
+                val s = com.puresudoku.ui.games.board.CyvasseSession(Difficulty.MEDIUM, com.puresudoku.core.board.Cyvasse.standard())
+                s.tap(com.puresudoku.core.board.Cyvasse.W * 9 + 1)
+                setContent { PureSudokuTheme {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.bg_realm_ocean), null,
+                            androidx.compose.ui.Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                        com.puresudoku.ui.games.board.CyvasseUi(s)
+                    }
+                } }; return
+            }
             "deeds-board", "deeds-dungeon" -> {
                 // a fresh Deed or Dungeon table before anyone has chosen a champion: the bare board, no pieces
                 // (deeds-dungeon: one lord locked in the Dungeon and one visiting the Colosseum)
