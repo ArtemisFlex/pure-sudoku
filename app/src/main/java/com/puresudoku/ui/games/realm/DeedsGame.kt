@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -596,78 +597,84 @@ private fun DeedsBoard(s: DeedsSession, modifier: Modifier = Modifier, interacti
 
 private val CORNER_LABEL = mapOf(0 to "SPIRE", 9 to "INQUISITOR", 18 to "COLOSSEUM", 27 to "MARKET")
 
+/**
+ * How far a tile's contents turn so they face the edge of the board, like a printed board:
+ * the bottom row reads upright, the top row upside down, the sides sideways, and the corners on the diagonal.
+ */
+private fun tileAngle(t: Int): Float = when (t) {
+    0 -> 135f; in 1..8 -> 180f; 9 -> -135f; in 10..17 -> -90f
+    18 -> -45f; in 19..26 -> 0f; 27 -> 45f; else -> 90f
+}
+
 private fun DrawScope.drawTile(s: DeedsSession, art: DeedArt, t: Int, r: Rect, e: Float) {
     val g = s.g
     val kind = Deeds.KIND[t]
     val corner = t % 9 == 0
+    val owner = g.owner[t]
     // the set's painting at half strength over parchment, so the pieces and towers stand out
     drawRect(Brush.verticalGradient(listOf(Color(0xFFFBF3E0), Color(0xFFF0E2C2)), r.top, r.bottom), r.topLeft, r.size)
     landscape(art.land[t], r, 0.5f)
-    val ie = innerEdge(t)
-    val band = e * 0.26f
-    val bandRect = when (ie) {
-        0 -> Rect(r.left, r.top, r.right, r.top + band)
-        1 -> Rect(r.right - band, r.top, r.right, r.bottom)
-        2 -> Rect(r.left, r.bottom - band, r.right, r.bottom)
-        else -> Rect(r.left, r.top, r.left + band, r.bottom)
-    }
-    // the part of the tile away from the band
-    val field = when (ie) {
-        0 -> Rect(r.left, r.top + band, r.right, r.bottom)
-        1 -> Rect(r.left, r.top, r.right - band, r.bottom)
-        2 -> Rect(r.left, r.top, r.right, r.bottom - band)
-        else -> Rect(r.left + band, r.top, r.right, r.bottom)
-    }
-    val owner = g.owner[t]
-    when {
-        corner -> {
-            val m = minOf(r.width, r.height)
-            if (kind == Deeds.ARENA) {
-                // the Colosseum, with the Dungeon's entrance in front of it
-                art(art.icons.getValue(Deeds.ARENA), r.center + Offset(m * 0.14f, -m * 0.2f), m * 0.6f)
-                art(art.icons.getValue(200), r.center + Offset(-m * 0.15f, m * 0.02f), m * 0.56f)
-            } else art.icons[kind]?.let { art(it, r.center - Offset(0f, e * 0.1f), m * 0.74f) }
-            CORNER_LABEL[t]?.let { tag(it, Offset(r.center.x, r.bottom - e * 0.2f), e * 0.26f) }
+    val c = r.center
+    if (corner) {
+        val m = minOf(r.width, r.height)
+        clipRect(r.left, r.top, r.right, r.bottom) {
+            rotate(tileAngle(t), c) {
+                if (kind == Deeds.ARENA) {
+                    // the Colosseum, with the Dungeon's entrance in front of it
+                    art(art.icons.getValue(Deeds.ARENA), c + Offset(m * 0.13f, -m * 0.2f), m * 0.54f)
+                    art(art.icons.getValue(200), c + Offset(-m * 0.14f, m * 0.0f), m * 0.5f)
+                } else art.icons[kind]?.let { art(it, c - Offset(0f, m * 0.08f), m * 0.62f) }
+                CORNER_LABEL[t]?.let { tag(it, c + Offset(0f, m * 0.22f), e * 0.22f) }
+            }
         }
-        kind == Deeds.LAND -> drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
-        kind == Deeds.BRIDGE -> drawRect(Color(0xFF3F6E8C), bandRect.topLeft, bandRect.size)
-        kind == Deeds.MILL -> drawRect(Color(0xFF6D4C41), bandRect.topLeft, bandRect.size)
-    }
-    if (!corner && kind != Deeds.LAND) {
-        val priced = g.isDeed(t) && owner < 0
-        // with a price to show, the symbol takes the first part of the tile and the price the rest
-        val at = when { !priced -> field.center; field.width > field.height -> Offset(field.left + field.width * 0.3f, field.center.y); else -> Offset(field.center.x, field.top + field.height * 0.34f) }
-        val box = minOf(field.width, field.height) * (if (priced) 0.62f else 0.8f)
-        when (kind) {
-            Deeds.MILL -> art(art.icons.getValue(if (t < 18) 100 else 101), at, box)
-            else -> art.icons[kind]?.let { art(it, at, box) }
-        }
-    }
-    drawRect(Color(0xFF6E5636), r.topLeft, r.size, style = Stroke(1.5f))
-    if (g.isDeed(t) && owner < 0) {
-        // the price: in the middle of a land, beside or below the symbol on a bridge, mill or mine
-        val at = when { kind == Deeds.LAND -> field.center; field.width > field.height -> Offset(field.left + field.width * 0.72f, field.center.y); else -> Offset(field.center.x, field.top + field.height * 0.76f) }
-        tag("${Deeds.PRICE[t]}", at, e * 0.3f)
+        drawRect(Color(0xFF6E5636), r.topLeft, r.size, style = Stroke(1.5f))
+        return
     }
     if (owner >= 0) {
-        val oc = s.seatColor(owner)
+        if (g.pawned[t] == 1) drawRect(Color.Black.copy(alpha = 0.25f), r.topLeft, r.size)
         // the owner's colour round the tile
-        drawRect(oc, Offset(r.left + e * 0.04f, r.top + e * 0.04f), Size(r.width - e * 0.08f, r.height - e * 0.08f), style = Stroke(e * 0.08f))
-        val n = g.towers[t]
-        val wide = field.width > field.height
-        val coinAt: Offset; val foot: Offset
-        if (n == 0) { coinAt = field.center; foot = field.center }
-        else if (wide) { coinAt = Offset(field.left + field.width * 0.22f, field.center.y); foot = Offset(field.left + field.width * 0.62f, field.center.y + field.height * 0.3f) }
-        else { coinAt = Offset(field.center.x, field.top + field.height * 0.24f); foot = Offset(field.center.x, field.bottom - field.height * 0.1f) }
-        // as tall as fits, but a row of towers (or a castle) must stay inside the tile
-        val span = if (n == 4) 1.3f else 0.5f + (n - 1).coerceAtLeast(0) * 0.56f
-        val th = minOf(field.height * (if (wide) 0.62f else 0.5f), e * 0.5f, (if (wide) field.width * 0.55f else field.width * 0.82f) / span)
-        if (n == 4) flatCastle(foot, th * 1.05f, oc)
-        else for (k in 0 until n) flatTower(foot + Offset((k - (n - 1) / 2f) * th * 0.56f, 0f), th, oc)
-        deedCoin(coinAt, e * 0.2f, g.face(t), oc, dim = g.pawned[t] == 1)
-        if (g.pawned[t] == 1) {
-            drawRect(Color.Black.copy(alpha = 0.25f), r.topLeft, r.size)
-            tag("PAWNED", Offset(r.center.x, coinAt.y + e * 0.3f), e * 0.2f)
+        drawRect(s.seatColor(owner), Offset(r.left + e * 0.04f, r.top + e * 0.04f), Size(r.width - e * 0.08f, r.height - e * 0.08f), style = Stroke(e * 0.08f))
+    }
+    drawRect(Color(0xFF6E5636), r.topLeft, r.size, style = Stroke(1.5f))
+    // everything else is laid out upright in the tile's own frame (band at its top, toward the middle of the board), then turned
+    val depth = maxOf(r.width, r.height)
+    val L = Rect(c.x - e / 2, c.y - depth / 2, c.x + e / 2, c.y + depth / 2)
+    val band = e * 0.26f
+    val bandRect = Rect(L.left, L.top, L.right, L.top + band)
+    val field = Rect(L.left, L.top + band, L.right, L.bottom)
+    rotate(tileAngle(t), c) {
+        when (kind) {
+            Deeds.LAND -> drawRect(DOMAIN_COLORS[Deeds.GROUP[t]], bandRect.topLeft, bandRect.size)
+            Deeds.BRIDGE -> drawRect(Color(0xFF3F6E8C), bandRect.topLeft, bandRect.size)
+            Deeds.MILL -> drawRect(Color(0xFF6D4C41), bandRect.topLeft, bandRect.size)
+        }
+        if (owner >= 0) drawRect(s.seatColor(owner), bandRect.topLeft, bandRect.size, style = Stroke(e * 0.04f))
+        if (kind != Deeds.LAND && owner < 0) {
+            val priced = g.isDeed(t)
+            // with a price to show, the picture takes the top of the tile and the price sits below it
+            val at = if (priced) Offset(field.center.x, field.top + field.height * 0.36f) else field.center
+            val box = field.width * (if (priced) 0.86f else 0.9f)
+            when (kind) {
+                Deeds.MILL -> art(art.icons.getValue(if (t < 18) 100 else 101), at, box)
+                else -> art.icons[kind]?.let { art(it, at, box) }
+            }
+        }
+        if (g.isDeed(t) && owner < 0) {
+            val at = if (kind == Deeds.LAND) field.center else Offset(field.center.x, field.top + field.height * 0.8f)
+            tag("${Deeds.PRICE[t]}", at, e * 0.3f)
+        }
+        if (owner >= 0) {
+            val oc = s.seatColor(owner)
+            val n = g.towers[t]
+            val coinAt = if (n == 0) field.center else Offset(field.center.x, field.top + field.height * 0.26f)
+            val foot = Offset(field.center.x, field.bottom - field.height * 0.1f)
+            // as tall as fits, but a row of towers (or a castle) must stay inside the tile
+            val span = if (n == 4) 1.3f else 0.5f + (n - 1).coerceAtLeast(0) * 0.56f
+            val th = minOf(field.height * 0.5f, e * 0.5f, field.width * 0.82f / span)
+            if (n == 4) flatCastle(foot, th * 1.05f, oc)
+            else for (k in 0 until n) flatTower(foot + Offset((k - (n - 1) / 2f) * th * 0.56f, 0f), th, oc)
+            deedCoin(coinAt, e * 0.2f, g.face(t), oc, dim = g.pawned[t] == 1)
+            if (g.pawned[t] == 1) tag("PAWNED", Offset(field.center.x, coinAt.y + e * 0.3f), e * 0.2f)
         }
     }
 }
