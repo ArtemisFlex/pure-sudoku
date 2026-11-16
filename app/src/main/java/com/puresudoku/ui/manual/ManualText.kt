@@ -708,29 +708,43 @@ object ManualText {
         }
         DEED_DUNGEON -> m {
             sec("The goal") {
-                p("Become King of Eiseria. Hold four whole domains and you are crowned at once. Fell your rival when they have no deeds left and they are vanquished. Otherwise the old King dies at the end of the last round, and the lord with the most renown (gold, plus deeds and towers at their cost) takes the throne.")
+                p("Become King of Eiseria. Hold enough whole domains (four with two lords, three with more) and you are crowned at once. Vanquish every other lord and the crown is yours. Otherwise the old King dies at the end of the last round, and the lord with the most renown (gold, plus deeds and towers at their cost) takes the throne.")
+            }
+            sec("The lords") {
+                p("Two to four lords play. Alone, you ride against one to three AI rivals. With friends on one device, each seat is a person or an AI lord. Online games are two people.")
             }
             sec("Your champion") {
-                p("Choose the Dragon, the Knight, the Veilnight Thief or the Black Knight, in its natural colours or a banner colour. Each has a power:")
-                b("Dragon: your Blade lands wound 1 more.", "Knight: 12 health instead of 10, and +1 in trials by combat.",
-                    "Veilnight Thief: you pay a quarter less homage.", "Black Knight: your towers cost a quarter less.")
+                p("Choose the Dragon, the Knight, the Veilnight Thief or the Black Knight, in its natural colours or a banner colour. Each has a lasting power and one great deed a game:")
+                b("Dragon: your Blade lands wound 1 more. Inferno: burn every tower on one rival land.",
+                    "Knight: 12 health instead of 10, and +1 in trials by combat. Second Wind: heal to full and take up a Tower Shield.",
+                    "Veilnight Thief: you pay a quarter less homage. The Heist: steal a rival's unfortified deed worth up to 240 gold.",
+                    "Black Knight: your towers cost a quarter less. Reign of Terror: every rival lord takes 2 wounds.")
+            }
+            sec("The board") {
+                p("Eiseria never changes. The Spire is top left and you ride clockwise. The Inquisitor stands top right, the Colosseum (with the Dungeon beneath it) bottom right, and the Royal Market bottom left. Eight coloured domains, four bridges, the Windmill and the Silver Mine lie between.")
             }
             sec("Your turn") {
-                b("Roll two dice and ride clockwise round the 36 tiles. Doubles roll again; a third double in a row sends you to the Dungeon.",
+                b("Roll two dice and ride. Doubles roll again; a third double in a row sends you to the Dungeon.",
                     "Passing the Spire pays you 200 gold, heals 1, and lets you turn your coins that turn. Landing right on it pays 100 more.",
-                    "Stop on unclaimed land, a bridge, the mill or the mine to buy its deed.",
-                    "Open Lands at any time on your turn to build, tear down, pawn, redeem and turn coins. End your turn when you're done.")
+                    "Stop on an unclaimed deed (its price is on its tag) to buy it, or send it to auction.",
+                    "Before rolling or ending your turn you may open Lands to build, tear down, pawn, redeem and turn coins; offer trades; use your great deed; and use keepsakes.")
+            }
+            sec("Auctions") {
+                p("Pass on a deed and every lord may bid for it, in turn, raising by 10, 50 or 100 gold, or dropping out. The last bidder standing wins it.")
+            }
+            sec("Trading") {
+                p("On your turn, offer any lord deeds and gold for their deeds and gold. They accept or decline. Lands with towers can't be traded; tear the towers down first. Up to three offers a turn.")
             }
             sec("The two-sided coin") {
-                p("Every deed carries a coin, tossed when you buy it.")
+                p("Every deed carries a coin, tossed when you win it.")
                 b("Crown (homage): a visitor pays homage in gold. They may refuse, and your towers strike them instead: 1 wound, plus 1 per tower.",
                     "Blade: a visitor simply takes wounds: 2, plus 1 for a whole domain, plus 1 per tower, plus 1 more for a castle. Bridges, the mill and the mine wound 1 for each one you hold.",
-                    "You turn your coins only on a turn you pass the Spire (or with a Royal Banner). Choose Crowns to grow rich and Blades to bring your rival down.")
+                    "You turn your coins only on a turn you pass the Spire (or with a Royal Banner). Choose Crowns to grow rich and Blades to bring your rivals down.")
             }
             sec("Health, wounds and the Dungeon") {
                 b("Gold you owe but can't pay becomes wounds: 1 for every 50 gold short. Raise funds first by pawning or tearing down towers if you'd rather.",
-                    "At 0 health you're felled. The lord who felled you seizes your best deed, towers and all (felled by the realm, your cheapest deed returns to it). You wake healed in the Dungeon.",
-                    "Felled with no deeds left, you're vanquished and your rival is crowned.",
+                    "At 0 health you're felled. The lord who felled you seizes your best deed, towers and all (felled by the realm, your cheapest deed returns to it). You wake healed in the Dungeon beneath the Colosseum.",
+                    "Felled with no deeds left, you're vanquished and out of the game.",
                     "In the Dungeon: roll doubles, pay the jailer 50, or use a Skeleton Key. Each night inside heals 1. After three tries you must pay.")
             }
             sec("Domains, towers and castles") {
@@ -738,20 +752,22 @@ object ManualText {
                     "On a whole domain with nothing pawned you may raise towers, evenly across it: up to three per land, then a castle.",
                     "Pawn a deed to the moneylender for half its price (tear down the domain's towers first). Pawned land asks nothing. Redeem it for a little more.")
             }
-            sec("Fate, loot and the Colosseum") {
+            sec("Fate, loot, the Market and the Colosseum") {
                 b("Fate cards bring fortune and folly, from bards to witch trials.",
                     "Loot chests hold gold, mimics, or keepsakes: Healing Potion, Skeleton Key, Tower Shield, Forged Writ (skip one homage or blade), Siege Engine (topple a rival tower) and Royal Banner (turn a coin).",
-                    "Taxes, fines and bribes fill the Colosseum purse. Land on the Colosseum to win it, then you may challenge your rival to trial by combat: both roll two dice, the winner takes the loser's best deed and the loser takes 2 wounds.",
-                    "The Inquisitor sends you straight to the Dungeon.")
+                    "The Royal Market sells one keepsake per visit.",
+                    "Taxes, fines and bribes fill the Colosseum purse. Land on the Colosseum to win it, then you may challenge any lord to trial by combat: both roll two dice, the winner takes the loser's best deed and the loser takes 2 wounds.",
+                    "The Inquisitor sends you straight down to the Dungeon.")
             }
             sec("Omens") {
                 p("Every four rounds a new omen rules the realm: a Harvest Festival, a Blood Moon, Famine, a Royal Jubilee, a Truce of the Crown that stills every blade, Tax Season, a Builders' Guild, or a Plague Winter with no healing.")
             }
             sec("Tips") {
                 b("Buy early, then finish domains: a whole domain doubles homage and opens towers.",
-                    "Watch your rival's health: when they're low, pass the Spire and turn your coins to Blades.",
-                    "Refusing a small homage costs health you may need later. Refusing a castle's homage can be a bargain.",
-                    "The Colosseum is a gamble: challenge when their best deed is worth more to you than yours is to them.")
+                    "Use auctions: a deed nobody else wants can go cheap.",
+                    "Trade for the last land of a domain, but never hand a rival theirs cheaply.",
+                    "Watch your rivals' health: when one is low, pass the Spire and turn your coins to Blades.",
+                    "Save your great deed for the moment it swings the game.")
             }
             saving()
         }

@@ -5,28 +5,47 @@ import org.json.JSONObject
 import kotlin.random.Random
 
 /**
- * Deed or Dungeon: a medieval game of lands and lordship for two players.
+ * Deed or Dungeon: a medieval game of lands and lordship for two to four lords, each a person or an AI.
  *
- * Walk a ring of 36 tiles around Eiseria with two dice. Buy deeds to the land you stop on. Every deed carries a
- * two-sided coin: the Crown face asks a visiting rival to pay homage in gold (or refuse and be struck by your
- * towers); the Blade face simply wounds them. You turn your coins only when you pass the Spire. Lose all your
- * health and you are felled: the lord who felled you seizes one of your deeds and you wake in the Dungeon.
- * A lord felled with no deeds left is vanquished. Hold four whole domains to be crowned at once; otherwise the
- * old King dies when the last round ends, and the lord with the most renown is crowned King of Eiseria.
+ * Ride a ring of 36 tiles around Eiseria with two dice. Buy deeds to the land you stop on, or let them go to auction.
+ * Every deed carries a two-sided coin: the Crown face asks a visitor for homage in gold (refuse, and your towers
+ * strike them); the Blade face simply wounds them. You turn your coins only when you pass the Spire. Lose all your
+ * health and you are felled: the lord who felled you seizes your best deed and you wake in the Dungeon beneath the
+ * Colosseum. A lord felled with no deeds left is vanquished. Trade deeds, buy keepsakes at the Royal Market, and use
+ * your champion's great deed once a game. Hold enough whole domains to be crowned at once; otherwise the old King dies
+ * when the last round ends, and the lord with the most renown is crowned King of Eiseria.
  */
 class Deeds {
+    /** A proposed exchange: [from] gives [give] deeds and [giveGold], and gets [get] deeds and [getGold] from [to]. */
+    data class Offer(val from: Int, val to: Int, val give: List<Int>, val get: List<Int>, val giveGold: Int, val getGold: Int)
+
+    /** One action a lord can take (the AI answers with these too). */
+    data class Act(val type: Int, val arg: Int = -1, val offer: Offer? = null) {
+        companion object {
+            const val ROLL = 0; const val BUY = 1; const val PASS = 2; const val PAY = 3; const val REFUSE = 4; const val BLADE = 5
+            const val WRIT = 6; const val DEBT = 7; const val CHALLENGE = 8; const val DECLINE = 9; const val ACK = 10; const val BUILD = 11
+            const val SELL = 12; const val PAWN = 13; const val REDEEM = 14; const val FLIP = 15; const val POTION = 16; const val SIEGE = 17
+            const val BRIBE = 18; const val KEY = 19; const val END = 20; const val CHOOSE = 21; const val SEATS = 22; const val BID = 23
+            const val FOLD = 24; const val PROPOSE = 25; const val ACCEPT = 26; const val REJECT = 27; const val SHOP = 28; const val LEAVE = 29
+            const val DEED = 30
+        }
+    }
+
     companion object {
         const val N = 36
+        const val MAX = 4
         // tile kinds
-        const val SPIRE = 0; const val DUNGEON = 1; const val ARENA = 2; const val SEIZE = 3; const val LAND = 4
-        const val BRIDGE = 5; const val MILL = 6; const val FATE = 7; const val LOOT = 8; const val TITHE = 9; const val LEVY = 10
-        const val DUNGEON_TILE = 9; const val ARENA_TILE = 18; const val SEIZE_TILE = 27
+        const val SPIRE = 0; const val ARENA = 2; const val SEIZE = 3; const val LAND = 4
+        const val BRIDGE = 5; const val MILL = 6; const val FATE = 7; const val LOOT = 8; const val TITHE = 9; const val LEVY = 10; const val MARKET = 11
+        /** The Spire is top left; the Inquisitor top right; the Colosseum, with the Dungeon beneath it, bottom right; the Royal Market bottom left. */
+        const val SEIZE_TILE = 9; const val ARENA_TILE = 18; const val DUNGEON_TILE = 18; const val MARKET_TILE = 27
 
         // phases
-        const val SETUP = 0; const val ROLL = 1; const val DECIDE = 2; const val AFTER = 3; const val OVER = 4
+        const val LOBBY = 5; const val SETUP = 0; const val ROLL = 1; const val DECIDE = 2; const val AFTER = 3; const val OVER = 4
+        const val AUCTION = 6; const val TRADE = 7
 
         // decisions waiting on the player to move
-        const val D_NONE = 0; const val D_BUY = 1; const val D_HOMAGE = 2; const val D_BLADE = 3; const val D_DEBT = 4; const val D_ARENA = 5; const val D_CARD = 6
+        const val D_NONE = 0; const val D_BUY = 1; const val D_HOMAGE = 2; const val D_BLADE = 3; const val D_DEBT = 4; const val D_ARENA = 5; const val D_CARD = 6; const val D_MARKET = 7
 
         // items kept from loot
         const val POTION = 0; const val KEY = 1; const val SHIELD = 2; const val WRIT = 3; const val SIEGE = 4; const val BANNER = 5
@@ -36,11 +55,12 @@ class Deeds {
             "Walk out of the Dungeon for free.",
             "Kept until needed: blocks the next wounds you would take.",
             "Show it to skip one homage or one blade, just once.",
-            "Topple a tower on the rival's strongest land.",
+            "Topple a tower on a rival's strongest land.",
             "Turn one of your coins on your turn, without passing the Spire.",
         )
+        val ITEM_PRICE = intArrayOf(80, 60, 120, 150, 150, 100)
 
-        // heroes
+        // champions
         const val DRAGON = 0; const val KNIGHT = 1; const val THIEF = 2; const val BLACK = 3
         val HERO = listOf("Dragon", "Knight", "Veilnight Thief", "Black Knight")
         val HERO_POWER = listOf(
@@ -49,15 +69,22 @@ class Deeds {
             "Light fingers: you pay a quarter less homage.",
             "Siegemaster: your towers cost a quarter less.",
         )
+        val DEED_NAME = listOf("Inferno", "Second Wind", "The Heist", "Reign of Terror")
+        val DEED_TEXT = listOf(
+            "Once a game: burn every tower on one rival land.",
+            "Once a game: heal to full and take up a Tower Shield.",
+            "Once a game: steal a rival's unfortified deed worth up to 240 gold.",
+            "Once a game: every rival lord takes 2 wounds.",
+        )
         val COLOR = listOf("Natural", "Azure", "Crimson", "Emerald", "Amber", "Violet")
 
         const val COIN_CROWN = 0; const val COIN_BLADE = 1
 
         val KIND = intArrayOf(
             SPIRE, LAND, LOOT, LAND, BRIDGE, LAND, FATE, LAND, LAND,
-            DUNGEON, LAND, MILL, LAND, LAND, BRIDGE, LAND, LOOT, LAND,
+            SEIZE, LAND, MILL, LAND, LAND, BRIDGE, LAND, LOOT, LAND,
             ARENA, LAND, FATE, LAND, LAND, BRIDGE, LAND, MILL, LAND,
-            SEIZE, LAND, TITHE, LAND, BRIDGE, FATE, LAND, LEVY, LAND,
+            MARKET, LAND, TITHE, LAND, BRIDGE, FATE, LAND, LEVY, LAND,
         )
         /** Domain (colour group) of each land, -1 for everything else. */
         val GROUP = intArrayOf(
@@ -79,18 +106,13 @@ class Deeds {
         val RENT_PCT = intArrayOf(8, 35, 100, 220, 330)
         val BRIDGE_TOLL = intArrayOf(25, 50, 100, 200)
 
-        private val LAND_NAMES = listOf(
-            listOf("Pigsty Hollow", "Turnip Row", "Muckle Ford", "Ditchwater"),
-            listOf("Millbrook", "Thatchwick", "Ploughmead", "Hayward Green", "Shepherd's Rest"),
-            listOf("Wolfden", "Old Oakhurst", "Fernhollow", "Thornwick", "Hunter's Lodge"),
-            listOf("Gallows Hill", "Crow's Perch", "Ravenscar", "Bleakfen"),
-            listOf("Harbour Keep", "Fishwife Quay", "Tidewatch", "Gull Point", "Smuggler's Cove"),
-            listOf("Quarry Gate", "Ironforge", "Granite Hall", "Anvil Rise"),
-            listOf("Bishop's Close", "Cathedral Square", "Silver Abbey", "Chapel Row"),
-            listOf("Royal Gardens", "Throne Hill", "Golden Keep", "Lion's Court"),
+        /** Eiseria's lands, always the same. */
+        val NAMES = arrayOf(
+            "The Spire", "Pigsty Hollow", "Loot", "Turnip Row", "Ferryman's Bridge", "Millbrook", "Fate", "Thatchwick", "Ploughmead",
+            "The Inquisitor", "Wolfden", "The Windmill", "Old Oakhurst", "Thornwick", "Troll Bridge", "Gallows Hill", "Loot", "Ravenscar",
+            "The Colosseum", "Harbour Keep", "Fate", "Fishwife Quay", "Tidewatch", "Old Stone Bridge", "Quarry Gate", "The Silver Mine", "Ironforge",
+            "The Royal Market", "Bishop's Close", "The Abbey's Tithe", "Cathedral Square", "Kingsbridge", "Fate", "Throne Hill", "The King's Levy", "Golden Keep",
         )
-        private val BRIDGE_NAMES = listOf("Ferryman's Bridge", "Troll Bridge", "Old Stone Bridge", "Kingsbridge", "Rope Bridge", "Drawbridge")
-        val CORNER_NAME = mapOf(0 to "The Spire", 9 to "The Dungeon", 18 to "The Colosseum", 27 to "The Inquisitor")
 
         // Fate: events, mostly medieval and some ironic
         val FATE_TEXT = listOf(
@@ -98,9 +120,9 @@ class Deeds {
             "The plague doctor sends his bill. You never had the plague. Pay 100 gold.",
             "The King summons you to the Spire. He has forgotten why. Advance to the Spire.",
             "Your horse throws you into a moat. The horse is fine. Lose 2 health.",
-            "Witch trial! You floated. Straight to the Dungeon.",
-            "A dragon ate your rival's sheep. Somehow they blame you. Pay them 50 gold.",
-            "You win the tournament! Your rival pays you 50 gold for taking part.",
+            "Witch trial! You floated. Down to the Dungeon.",
+            "A dragon ate the other lords' sheep. Somehow they blame you. Pay each of them 40 gold.",
+            "You win the tournament! Every other lord pays you 40 gold for taking part.",
             "A pilgrimage to the Colosseum. Advance there.",
             "Royal census: pay 25 gold for every tower you own. The census-taker counts on his fingers.",
             "A shortcut through the woods! Advance to the next bridge.",
@@ -111,7 +133,7 @@ class Deeds {
             "You find a deed in a tavern. It's probably real. Claim the cheapest free land.",
             "Knighted by mistake: the King thought you were your cousin. Collect 150 gold.",
             "The tax collector's horse throws a shoe at your door. Pay 40 gold shoeing tax.",
-            "Robbers on the King's road! The richer lord loses a tenth of their gold.",
+            "Robbers on the King's road! The richest lord loses a tenth of their gold.",
         )
         val LOOT_TEXT = listOf(
             "A Healing Potion! Keep it: drink on your turn to heal 4.",
@@ -144,87 +166,86 @@ class Deeds {
 
         /** Rounds before the old King dies, by level. */
         val ROUNDS = intArrayOf(18, 20, 24, 26, 30, 32)
-        const val DOMAINS_TO_WIN = 4
         const val NEXT_SETTLE = 0; const val NEXT_MOVE = 1
         const val START_GOLD = 1500
         const val STIPEND = 200
         const val BRIBE = 50
         const val GOLD_PER_WOUND = 50
+        val BID_STEPS = intArrayOf(10, 50, 100)
 
         fun newGame(level: Int, rnd: Random): Deeds {
             val g = Deeds()
             g.level = level.coerceIn(0, 5)
             g.maxRounds = ROUNDS[g.level]
-            // every realm is named afresh
-            val names = Array(N) { "" }
-            for (d in 0 until DOMAINS) {
-                val pool = LAND_NAMES[d].shuffled(rnd)
-                var k = 0
-                for (t in 0 until N) if (GROUP[t] == d) names[t] = pool[k++]
-            }
-            val br = BRIDGE_NAMES.shuffled(rnd); var b = 0
-            for (t in 0 until N) when (KIND[t]) {
-                BRIDGE -> names[t] = br[b++]
-                MILL -> names[t] = if (t < 18) "The Windmill" else "The Silver Mine"
-                FATE -> names[t] = "Fate"
-                LOOT -> names[t] = "Loot"
-                TITHE -> names[t] = "The Abbey's Tithe"
-                LEVY -> names[t] = "The King's Levy"
-                else -> CORNER_NAME[t]?.let { names[t] = it }
-            }
-            g.names = names
             g.fate = IntArray(FATE_TEXT.size) { it }.also { it.shuffle(rnd) }
             g.loot = IntArray(LOOT_TEXT.size) { it }.also { it.shuffle(rnd) }
-            g.phase = SETUP
+            g.phase = LOBBY
             return g
         }
 
+        private fun ia(o: JSONObject, k: String, n: Int, def: Int = 0) = o.optJSONArray(k).let { a -> IntArray(n) { if (a != null && it < a.length()) a.optInt(it, def) else def } }
+
         fun fromJson(o: JSONObject): Deeds {
             val g = Deeds()
-            fun ia(k: String, n: Int) = o.optJSONArray(k).let { a -> IntArray(n) { a?.optInt(it) ?: 0 } }
-            g.level = o.optInt("level"); g.maxRounds = o.optInt("maxRounds", ROUNDS[g.level])
-            val na = o.getJSONArray("names"); g.names = Array(N) { na.getString(it) }
-            g.owner = ia("owner", N); g.towers = ia("towers", N); g.coin = ia("coin", N); g.pawned = ia("pawned", N)
-            g.pos = ia("pos", 2); g.gold = ia("gold", 2); g.hp = ia("hp", 2); g.hero = ia("hero", 2); g.color = ia("color", 2)
-            g.jail = ia("jail", 2); g.items = arrayOf(ia("items0", 6), ia("items1", 6)); g.felled = ia("felled", 2)
+            g.level = o.optInt("level"); g.maxRounds = o.optInt("maxRounds", ROUNDS[g.level]); g.n = o.optInt("n", 2)
+            g.owner = ia(o, "owner", N, -1); g.towers = ia(o, "towers", N); g.coin = ia(o, "coin", N); g.pawned = ia(o, "pawned", N)
+            g.pos = ia(o, "pos", MAX); g.gold = ia(o, "gold", MAX); g.hp = ia(o, "hp", MAX); g.hero = ia(o, "hero", MAX, -1); g.color = ia(o, "color", MAX, -1)
+            g.jail = ia(o, "jail", MAX, -1); g.felled = ia(o, "felled", MAX); g.out = ia(o, "out", MAX); g.ai = ia(o, "ai", MAX); g.used = ia(o, "used", MAX)
+            g.items = Array(MAX) { ia(o, "items$it", 6) }
             g.actor = o.optInt("actor"); g.round = o.optInt("round", 1); g.doubles = o.optInt("doubles"); g.phase = o.optInt("phase")
             g.pType = o.optInt("pType"); g.pAmount = o.optInt("pAmount"); g.pDmg = o.optInt("pDmg"); g.pTile = o.optInt("pTile", -1); g.pCard = o.optInt("pCard", -1)
             g.pTo = o.optInt("pTo", -1); g.pWhat = o.optString("pWhat", ""); g.pNext = o.optInt("pNext"); g.felledThisTurn = o.optBoolean("felledThisTurn")
             g.d1 = o.optInt("d1", 1); g.d2 = o.optInt("d2", 1); g.rollId = o.optInt("rollId"); g.spireCharge = o.optBoolean("spireCharge")
             g.again = o.optBoolean("again"); g.purse = o.optInt("purse"); g.omen = o.optInt("omen"); g.winner = o.optInt("winner", -1)
-            g.endReason = o.optInt("endReason"); g.setupDone = o.optInt("setupDone"); g.lastText = o.optString("lastText", "")
+            g.endReason = o.optInt("endReason"); g.lastText = o.optString("lastText", "")
             g.fate = o.optJSONArray("fate").let { a -> IntArray(a?.length() ?: 0) { a!!.getInt(it) } }
             g.loot = o.optJSONArray("loot").let { a -> IntArray(a?.length() ?: 0) { a!!.getInt(it) } }
             if (g.fate.isEmpty()) g.fate = IntArray(FATE_TEXT.size) { it }
             if (g.loot.isEmpty()) g.loot = IntArray(LOOT_TEXT.size) { it }
             g.fateAt = o.optInt("fateAt"); g.lootAt = o.optInt("lootAt")
+            g.aTile = o.optInt("aTile", -1); g.aBid = o.optInt("aBid"); g.aHigh = o.optInt("aHigh", -1); g.aTurn = o.optInt("aTurn"); g.aIn = ia(o, "aIn", MAX)
+            g.offer = o.optJSONObject("offer")?.let { t ->
+                fun list(k: String) = t.optJSONArray(k).let { a -> List(a?.length() ?: 0) { a!!.getInt(it) } }
+                Offer(t.getInt("from"), t.getInt("to"), list("give"), list("get"), t.optInt("giveGold"), t.optInt("getGold"))
+            }
+            g.tradeBack = o.optInt("tradeBack", AFTER); g.offersThisTurn = o.optInt("offersThisTurn")
+            g.dealt = o.optInt("dealt")
             return g
         }
     }
 
     var level = 0
     var maxRounds = 24
-    var names = Array(N) { "" }
+    /** Lords at the table, 2 to 4. */
+    var n = 2
+    val names: Array<String> get() = NAMES
     var owner = IntArray(N) { -1 }
     var towers = IntArray(N)
     var coin = IntArray(N)
     var pawned = IntArray(N)
 
-    var pos = IntArray(2)
-    var gold = intArrayOf(START_GOLD, START_GOLD)
-    var hp = intArrayOf(10, 10)
-    var hero = intArrayOf(-1, -1)
-    var color = intArrayOf(-1, -1)
+    var pos = IntArray(MAX)
+    var gold = IntArray(MAX) { START_GOLD }
+    var hp = IntArray(MAX) { 10 }
+    var hero = IntArray(MAX) { -1 }
+    var color = IntArray(MAX) { -1 }
     /** Turns spent in the Dungeon so far, or -1 when free. */
-    var jail = intArrayOf(-1, -1)
-    var items = arrayOf(IntArray(6), IntArray(6))
-    var felled = IntArray(2)
+    var jail = IntArray(MAX) { -1 }
+    var items = Array(MAX) { IntArray(6) }
+    var felled = IntArray(MAX)
+    /** 1 once a lord is vanquished. */
+    var out = IntArray(MAX)
+    /** 1 for an AI lord. */
+    var ai = IntArray(MAX)
+    /** 1 once a lord has used their champion's great deed. */
+    var used = IntArray(MAX)
 
     var actor = 0
     var round = 1
     var doubles = 0
-    var phase = SETUP
-    var setupDone = 0
+    var phase = LOBBY
+    /** How many champions have been chosen so far. */
+    var dealt = 0
     var pType = D_NONE
     var pAmount = 0
     var pDmg = 0
@@ -234,6 +255,7 @@ class Deeds {
     var pTo = -1
     var pWhat = ""
     var pNext = 0
+    var felledThisTurn = false
     var d1 = 1
     var d2 = 1
     var rollId = 0
@@ -244,43 +266,69 @@ class Deeds {
     /** Taxes and fines wait in the Colosseum for whoever lands there. */
     var purse = 0
     var omen = 0
+    /** The new King, -1 while the game goes on, -2 for a tie. */
     var winner = -1
-    /** 1 vanquished, 2 four domains, 3 the old King died (most renown). */
+    /** 1 the others vanquished, 2 enough whole domains, 3 the old King died (most renown). */
     var endReason = 0
     var fate = IntArray(0)
     var fateAt = 0
     var loot = IntArray(0)
     var lootAt = 0
-    /** The last card or event shown, for the screen. */
+    /** The last card shown, for the screen. */
     var lastText = ""
+
+    // auction
+    var aTile = -1
+    var aBid = 0
+    var aHigh = -1
+    var aTurn = 0
+    var aIn = IntArray(MAX)
+
+    // trading
+    var offer: Offer? = null
+    var tradeBack = AFTER
+    var offersThisTurn = 0
 
     val log = ArrayList<String>()
 
     fun toJson(): JSONObject {
         fun a(x: IntArray) = JSONArray().also { j -> x.forEach { j.put(it) } }
-        return JSONObject()
-            .put("level", level).put("maxRounds", maxRounds).put("names", JSONArray().also { j -> names.forEach { j.put(it) } })
+        fun l(x: List<Int>) = JSONArray().also { j -> x.forEach { j.put(it) } }
+        val o = JSONObject()
+            .put("level", level).put("maxRounds", maxRounds).put("n", n)
             .put("owner", a(owner)).put("towers", a(towers)).put("coin", a(coin)).put("pawned", a(pawned))
             .put("pos", a(pos)).put("gold", a(gold)).put("hp", a(hp)).put("hero", a(hero)).put("color", a(color))
-            .put("jail", a(jail)).put("items0", a(items[0])).put("items1", a(items[1])).put("felled", a(felled))
-            .put("actor", actor).put("round", round).put("doubles", doubles).put("phase", phase).put("setupDone", setupDone)
-            .put("pType", pType).put("pAmount", pAmount).put("pDmg", pDmg).put("pTile", pTile).put("pCard", pCard).put("pTo", pTo).put("pWhat", pWhat).put("pNext", pNext).put("felledThisTurn", felledThisTurn)
+            .put("jail", a(jail)).put("felled", a(felled)).put("out", a(out)).put("ai", a(ai)).put("used", a(used))
+            .put("actor", actor).put("round", round).put("doubles", doubles).put("phase", phase).put("dealt", dealt)
+            .put("pType", pType).put("pAmount", pAmount).put("pDmg", pDmg).put("pTile", pTile).put("pCard", pCard)
+            .put("pTo", pTo).put("pWhat", pWhat).put("pNext", pNext).put("felledThisTurn", felledThisTurn)
             .put("d1", d1).put("d2", d2).put("rollId", rollId).put("spireCharge", spireCharge).put("again", again)
             .put("purse", purse).put("omen", omen).put("winner", winner).put("endReason", endReason).put("lastText", lastText)
             .put("fate", a(fate)).put("fateAt", fateAt).put("loot", a(loot)).put("lootAt", lootAt)
+            .put("aTile", aTile).put("aBid", aBid).put("aHigh", aHigh).put("aTurn", aTurn).put("aIn", a(aIn))
+            .put("tradeBack", tradeBack).put("offersThisTurn", offersThisTurn)
+        for (p in 0 until MAX) o.put("items$p", a(items[p]))
+        offer?.let { t -> o.put("offer", JSONObject().put("from", t.from).put("to", t.to).put("give", l(t.give)).put("get", l(t.get)).put("giveGold", t.giveGold).put("getGold", t.getGold)) }
+        return o
     }
 
     fun copy(): Deeds = fromJson(toJson())
 
     // ------------------------------------------------------------------ facts
 
-    fun other(p: Int) = 1 - p
+    val players: List<Int> get() = (0 until n).toList()
+    val alive: List<Int> get() = (0 until n).filter { out[it] == 0 }
+    fun rivals(p: Int) = alive.filter { it != p }
     fun maxHp(p: Int) = if (hero[p] == KNIGHT) 12 else 10
+    /** Whoever must act now: the lord whose turn it is, or the one bidding or answering an offer. */
+    val decider: Int get() = when (phase) { AUCTION -> aTurn; TRADE -> offer?.to ?: actor; else -> actor }
+
     fun title(p: Int): String {
-        val h = hero[p].coerceAtLeast(0)
-        val sameHero = hero[0] == hero[1] && hero[0] >= 0
+        val h = hero[p]
+        if (h < 0) return "lord ${p + 1}"
         val c = color[p]
-        return "the " + (if (c > 0) COLOR[c] + " " else if (sameHero) "Natural " else "") + HERO[h]
+        val twin = (0 until n).any { it != p && hero[it] == h }
+        return "the " + (if (c > 0) COLOR[c] + " " else if (twin) "Natural " else "") + HERO[h]
     }
     fun Title(p: Int) = title(p).replaceFirstChar { it.uppercase() }
     fun isDeed(t: Int) = KIND[t] == LAND || KIND[t] == BRIDGE || KIND[t] == MILL
@@ -292,6 +340,8 @@ class Deeds {
         return domainTiles(d).all { owner[it] == o }
     }
     fun domainsHeld(p: Int) = (0 until DOMAINS).count { d -> domainTiles(d).all { owner[it] == p } }
+    /** Whole domains that crown a lord at once: four between two lords, three among more. */
+    val domainsToWin: Int get() = if (n <= 2) 4 else 3
     fun bridgesOf(p: Int) = (0 until N).count { KIND[it] == BRIDGE && owner[it] == p && pawned[it] == 0 }
     fun millsOf(p: Int) = (0 until N).count { KIND[it] == MILL && owner[it] == p && pawned[it] == 0 }
     fun towerCount(p: Int) = deeds(p).sumOf { towers[it] }
@@ -304,7 +354,7 @@ class Deeds {
         return c
     }
 
-    /** Homage owed on [t] by [p] (before the Thief's discount), [dice] for mills. */
+    /** Homage owed on [t] (before the Thief's discount), [dice] for mills. */
     fun homageOf(t: Int, dice: Int = d1 + d2): Int {
         val o = owner[t]; if (o < 0 || pawned[t] == 1) return 0
         var r = when (KIND[t]) {
@@ -323,7 +373,7 @@ class Deeds {
 
     /** Wounds the towers strike if the visitor refuses homage. */
     fun refuseDmg(t: Int): Int {
-        var d = when (KIND[t]) { LAND -> 1 + towers[t]; BRIDGE -> 1; else -> 1 }
+        var d = if (KIND[t] == LAND) 1 + towers[t] else 1
         if (omen == 2) d++
         return d
     }
@@ -345,29 +395,39 @@ class Deeds {
     /** The coin face that actually applies (a truce turns every blade to its crown face). */
     fun face(t: Int) = if (omen == 5) COIN_CROWN else coin[t]
 
-    fun renown(p: Int): Int = gold[p] + deeds(p).sumOf { (if (pawned[it] == 1) PRICE[it] / 2 else PRICE[it]) + towers[it] * TOWER_COST[GROUP[it].coerceAtLeast(0)] }
+    fun deedValue(t: Int) = (if (pawned[t] == 1) PRICE[t] / 2 else PRICE[t]) + towers[t] * TOWER_COST[GROUP[t].coerceAtLeast(0)]
+    fun renown(p: Int): Int = gold[p] + deeds(p).sumOf { deedValue(it) }
 
     fun stipend(): Int = when (omen) { 3 -> STIPEND / 2; 4 -> STIPEND * 2; else -> STIPEND }
     private fun fine(x: Int) = if (omen == 6) x * 2 else x
     private fun say(s: String) { log += s }
 
-    // ------------------------------------------------------------------ setup
+    // ------------------------------------------------------------------ the table and the champions
 
-    fun canChoose(p: Int, h: Int, c: Int): Boolean = phase == SETUP && p == actor && h in 0..3 && c in COLOR.indices && color[other(p)] != c
+    /** Seat the lords: [count] of them, with [aiMask] bit k set when seat k is an AI. Seat 0 is always a person. */
+    fun seats(count: Int, aiMask: Int): Boolean {
+        if (phase != LOBBY || count !in 2..MAX) return false
+        n = count
+        for (p in 0 until MAX) ai[p] = if (p in 1 until n && (aiMask shr p) and 1 == 1) 1 else 0
+        phase = SETUP; actor = 0; dealt = 0
+        return true
+    }
+
+    fun colorFree(p: Int, c: Int) = (0 until n).none { it != p && color[it] == c }
+    fun canChoose(p: Int, h: Int, c: Int): Boolean = phase == SETUP && p == actor && h in 0..3 && c in COLOR.indices && colorFree(p, c)
 
     fun choose(h: Int, c: Int): Boolean {
         if (!canChoose(actor, h, c)) return false
         hero[actor] = h; color[actor] = c; hp[actor] = maxHp(actor)
-        setupDone++
+        dealt++
         say("${Title(actor)} takes the field.")
-        if (setupDone >= 2) { actor = 0; phase = ROLL; say("Round 1. ${Title(0)} rolls first.") } else actor = other(actor)
+        if (dealt >= n) { actor = 0; phase = ROLL; say("Round 1. ${Title(0)} rolls first.") } else actor++
         return true
     }
 
     // ------------------------------------------------------------------ rolling and moving
 
     val inDungeon: Boolean get() = jail[actor] >= 0
-    fun canAct() = phase == ROLL || phase == AFTER
 
     fun roll(rnd: Random): Boolean {
         if (phase != ROLL) return false
@@ -434,9 +494,8 @@ class Deeds {
         land(p)
     }
 
-    private fun moveTo(p: Int, to: Int, collect: Boolean = true) {
-        if (collect && to <= pos[p] && to != pos[p]) passSpire(p)
-        if (collect && to == 0 && pos[p] != 0) { /* counted above */ }
+    private fun moveTo(p: Int, to: Int) {
+        if (to < pos[p]) passSpire(p)
         pos[p] = to
         land(p)
     }
@@ -466,17 +525,17 @@ class Deeds {
         val t = pos[p]
         pType = D_NONE; pTile = t
         when (KIND[t]) {
-            SPIRE -> { gold[p] += 100; say("${Title(p)} lands right on the Spire: the King adds 100 gold.") ; settle() }
-            DUNGEON -> { say("${Title(p)} peers into the Dungeon. Just visiting."); settle() }
+            SPIRE -> { gold[p] += 100; say("${Title(p)} lands right on the Spire: the King adds 100 gold."); settle() }
             SEIZE -> {
-                say("The Inquisitor seizes ${title(p)}! Off to the Dungeon.")
+                say("The Inquisitor seizes ${title(p)}! Down to the Dungeon.")
                 toDungeon(p); settle()
             }
             ARENA -> {
                 if (purse > 0) { say("${Title(p)} wins the Colosseum purse: $purse gold!"); gold[p] += purse; purse = 0 }
                 else say("${Title(p)} enters the Colosseum. The purse is empty.")
-                if (deeds(p).isNotEmpty() && deeds(other(p)).isNotEmpty()) decide(D_ARENA) else settle()
+                if (deeds(p).isNotEmpty() && rivals(p).any { deeds(it).isNotEmpty() }) decide(D_ARENA) else settle()
             }
+            MARKET -> { say("${Title(p)} rides into the Royal Market."); decide(D_MARKET) }
             FATE -> { pCard = drawFate(); lastText = FATE_TEXT[pCard]; decide(D_CARD) }
             LOOT -> { pCard = 100 + drawLoot(); lastText = LOOT_TEXT[pCard - 100]; decide(D_CARD) }
             TITHE -> {
@@ -498,7 +557,7 @@ class Deeds {
             else -> {
                 pDmg = bladeDmg(t)
                 if (items[p][WRIT] > 0 || items[p][SHIELD] > 0) decide(D_BLADE)
-                else { say("The Blade! ${names[t]}'s guards strike ${title(p)} for ${pDmg}."); wound(p, pDmg, o); settle() }
+                else { say("The Blade! ${names[t]}'s guards strike ${title(p)} for $pDmg."); wound(p, pDmg, o); settle() }
             }
         }
     }
@@ -519,14 +578,11 @@ class Deeds {
         if (to >= 0) gold[to] += v else purse += v
     }
 
-    /** What follows a paid debt: carry on, or (leaving the Dungeon) move by the dice. */
     private fun next(p: Int, n: Int) { if (n == NEXT_MOVE && phase != OVER && !felledThisTurn) move(p, d1 + d2) else settle() }
 
     /** [p] owes [x]: paid at once if they can, otherwise they choose to raise funds or pay the shortfall in blood. */
     private fun owe(p: Int, x: Int, to: Int, what: String, then: Int = NEXT_SETTLE) {
-        if (gold[p] >= x || p != actor) {
-            bleedPay(p, x, to, what); next(p, then); return
-        }
+        if (gold[p] >= x || p != actor) { bleedPay(p, x, to, what); next(p, then); return }
         pAmount = x; pTo = to; pWhat = what; pNext = then
         decide(D_DEBT)
     }
@@ -542,7 +598,6 @@ class Deeds {
         else say("${Title(p)} pays $x gold for $what.")
     }
 
-    /** Settle the pending debt: pay what you can, wounds for the rest. */
     fun payDebt(): Boolean {
         if (phase != DECIDE || pType != D_DEBT) return false
         val p = actor
@@ -554,11 +609,9 @@ class Deeds {
         return true
     }
 
-    var felledThisTurn = false
-
     /** [n] wounds to [p], dealt by [by] (-1 = the realm). Felled at 0 health. */
     fun wound(p: Int, n: Int, by: Int) {
-        if (n <= 0) return
+        if (n <= 0 || out[p] == 1) return
         if (items[p][SHIELD] > 0) {
             items[p][SHIELD]--
             say("${Title(p)}'s Tower Shield takes the blow!")
@@ -572,17 +625,18 @@ class Deeds {
         felled[p]++
         val mine = deeds(p)
         if (mine.isEmpty()) {
-            hp[p] = 0
-            say("${Title(p)} falls with no lands left to lose. ${Title(other(p))} is crowned King of Eiseria!")
-            end(other(p), 1)
+            hp[p] = 0; out[p] = 1; jail[p] = -1
+            purse += gold[p]; gold[p] = 0
+            say("${Title(p)} falls with no lands left to lose, and is vanquished.")
+            val left = alive
+            if (left.size == 1) { say("${Title(left[0])} is the last lord standing, and is crowned King of Eiseria!"); end(left[0], 1) }
+            else if (p == actor) felledThisTurn = true
             return
         }
-        val q = other(p)
-        if (by == q) {
-            val t = mine.maxBy { spoilValue(q, it) }
-            owner[t] = q
-            if (pawned[t] == 0 && towers[t] >= 0) { /* towers and coin come with it */ }
-            say("${Title(p)} is felled! ${Title(q)} seizes ${names[t]}" + (if (towers[t] > 0) " and its ${towerWord(towers[t])}" else "") + ".")
+        if (by >= 0 && by != p && out[by] == 0) {
+            val t = mine.maxBy { spoilValue(by, it) }
+            owner[t] = by
+            say("${Title(p)} is felled! ${Title(by)} seizes ${names[t]}" + (if (towers[t] > 0) " and its ${towerWord(towers[t])}" else "") + ".")
         } else {
             val t = mine.minBy { PRICE[it] + towers[it] * 100 }
             owner[t] = -1; towers[t] = 0; pawned[t] = 0; coin[t] = COIN_CROWN
@@ -591,19 +645,21 @@ class Deeds {
         hp[p] = maxHp(p)
         toDungeon(p)
         if (p == actor) felledThisTurn = true
-        say("${Title(p)} wakes in the Dungeon, healed.")
+        say("${Title(p)} wakes in the Dungeon beneath the Colosseum, healed.")
+        checkCoronation()
     }
 
     fun towerWord(n: Int) = if (n >= 4) "castle" else if (n == 1) "tower" else "$n towers"
 
-    /** How much [q] would like to take [t]. */
+    /** How much [q] would like to own [t]. */
     fun spoilValue(q: Int, t: Int): Int {
         var v = PRICE[t] + towers[t] * TOWER_COST[GROUP[t].coerceAtLeast(0)]
         val d = GROUP[t]
         if (d >= 0) {
             val tiles = domainTiles(d)
             if (tiles.all { it == t || owner[it] == q }) v += 400
-            if (tiles.all { owner[it] == owner[t] }) v += 150
+            else if (tiles.count { owner[it] == q } >= 1) v += 80
+            if (owner[t] >= 0 && owner[t] != q && tiles.all { owner[it] == owner[t] }) v += 150
         }
         if (KIND[t] == BRIDGE) v += 40 * bridgesOf(q)
         if (pawned[t] == 1) v /= 2
@@ -616,18 +672,77 @@ class Deeds {
         if (phase != DECIDE || pType != D_BUY) return false
         val p = actor; val t = pos[p]
         if (gold[p] < PRICE[t]) return false
-        gold[p] -= PRICE[t]; owner[t] = p
-        coin[t] = rnd.nextInt(2)
-        say("${Title(p)} buys the deed to ${names[t]} for ${PRICE[t]} gold. The coin lands on its ${if (coin[t] == COIN_CROWN) "Crown" else "Blade"}!")
-        if (fullDomain(t)) say("${Title(p)} now holds all of ${DOMAIN[GROUP[t]]}!")
+        gold[p] -= PRICE[t]
+        grant(p, t, rnd, "buys the deed to ${names[t]} for ${PRICE[t]} gold")
         settle(); checkCoronation()
         return true
     }
 
+    private fun grant(p: Int, t: Int, rnd: Random, how: String) {
+        owner[t] = p
+        coin[t] = rnd.nextInt(2)
+        say("${Title(p)} $how. The coin lands on its ${if (coin[t] == COIN_CROWN) "Crown" else "Blade"}!")
+        if (fullDomain(t)) say("${Title(p)} now holds all of ${DOMAIN[GROUP[t]]}!")
+    }
+
+    /** Pass on a deed: it goes to auction among every lord. */
     fun pass(): Boolean {
         if (phase != DECIDE || pType != D_BUY) return false
-        say("${Title(actor)} leaves ${names[pos[actor]]} unclaimed.")
-        settle(); return true
+        val t = pos[actor]
+        say("${Title(actor)} passes on ${names[t]}. To auction!")
+        pType = D_NONE
+        aTile = t; aBid = 0; aHigh = -1
+        for (p in 0 until MAX) aIn[p] = if (p < n && out[p] == 0) 1 else 0
+        aTurn = nextIn(actor)
+        phase = AUCTION
+        auctionCheck()
+        return true
+    }
+
+    private fun nextIn(from: Int): Int {
+        var q = from
+        repeat(MAX) { q = (q + 1) % n; if (aIn[q] == 1 && q != aHigh) return q }
+        return if (aHigh >= 0) aHigh else from
+    }
+
+    /** The smallest raise the bidder may make. */
+    fun minBid() = aBid + BID_STEPS[0]
+
+    fun canBid(step: Int): Boolean = phase == AUCTION && step in BID_STEPS.indices && gold[aTurn] >= aBid + BID_STEPS[step]
+
+    fun bid(step: Int): Boolean {
+        if (!canBid(step)) return false
+        aBid += BID_STEPS[step]; aHigh = aTurn
+        say("${Title(aTurn)} bids $aBid gold.")
+        val bidder = aTurn
+        aTurn = nextIn(bidder)
+        auctionCheck()
+        return true
+    }
+
+    fun fold(): Boolean {
+        if (phase != AUCTION) return false
+        aIn[aTurn] = 0
+        say("${Title(aTurn)} drops out of the bidding.")
+        aTurn = nextIn(aTurn)
+        auctionCheck()
+        return true
+    }
+
+    private var auctionRnd: Random = Random(0)
+
+    private fun auctionCheck() {
+        val inside = (0 until n).filter { aIn[it] == 1 }
+        val done = inside.isEmpty() || (inside.size == 1 && inside[0] == aHigh) || (aHigh >= 0 && inside.all { it == aHigh })
+        if (!done) return
+        val t = aTile
+        if (aHigh >= 0) {
+            gold[aHigh] -= aBid
+            grant(aHigh, t, auctionRnd, "wins the auction for ${names[t]} at $aBid gold")
+        } else say("Nobody bids. ${names[t]} stays unclaimed.")
+        aTile = -1; aHigh = -1; aBid = 0
+        phase = AFTER; pType = D_NONE
+        checkCoronation()
     }
 
     fun payHomage(): Boolean {
@@ -635,14 +750,14 @@ class Deeds {
         val p = actor; val t = pos[p]
         if (gold[p] < pAmount) return false
         pay(p, pAmount, owner[t])
-        say("${Title(p)} kneels and pays ${pAmount} gold homage to ${title(owner[t])}.")
+        say("${Title(p)} kneels and pays $pAmount gold homage to ${title(owner[t])}.")
         settle(); return true
     }
 
     fun refuse(): Boolean {
         if (phase != DECIDE || pType != D_HOMAGE) return false
         val p = actor; val t = pos[p]
-        say("${Title(p)} refuses homage! The towers of ${names[t]} strike for ${pDmg}.")
+        say("${Title(p)} refuses homage! The towers of ${names[t]} strike for $pDmg.")
         wound(p, pDmg, owner[t])
         settle(); return true
     }
@@ -650,7 +765,7 @@ class Deeds {
     fun takeBlade(): Boolean {
         if (phase != DECIDE || pType != D_BLADE) return false
         val p = actor; val t = pos[p]
-        say("The Blade! ${names[t]}'s guards strike ${title(p)} for ${pDmg}.")
+        say("The Blade! ${names[t]}'s guards strike ${title(p)} for $pDmg.")
         wound(p, pDmg, owner[t])
         settle(); return true
     }
@@ -664,22 +779,23 @@ class Deeds {
         settle(); return true
     }
 
-    fun challenge(rnd: Random): Boolean {
-        if (phase != DECIDE || pType != D_ARENA) return false
-        val p = actor; val q = other(p)
+    fun canChallenge(q: Int) = phase == DECIDE && pType == D_ARENA && q != actor && q in alive && deeds(q).isNotEmpty()
+
+    fun challenge(q: Int, rnd: Random): Boolean {
+        if (!canChallenge(q)) return false
+        val p = actor
         var a: Int; var b: Int
         val bonusA = if (hero[p] == KNIGHT) 1 else 0
         val bonusB = if (hero[q] == KNIGHT) 1 else 0
         do { a = rnd.nextInt(1, 7) + rnd.nextInt(1, 7) + bonusA; b = rnd.nextInt(1, 7) + rnd.nextInt(1, 7) + bonusB } while (a == b)
         val win = if (a > b) p else q
-        val lose = other(win)
+        val lose = if (win == p) q else p
         say("Trial by combat! ${Title(p)} rolls $a, ${title(q)} rolls $b.")
         val spoils = deeds(lose).maxByOrNull { spoilValue(win, it) }
         if (spoils != null) {
             owner[spoils] = win
             say("${Title(win)} wins and takes ${names[spoils]}" + (if (towers[spoils] > 0) " with its ${towerWord(towers[spoils])}" else "") + "!")
         }
-        lastText = "Trial by combat: $a against $b. ${Title(win)} wins" + (spoils?.let { " ${names[it]}" } ?: "") + "!"
         wound(lose, 2, win)
         if (phase != OVER) { settle(); checkCoronation() }
         return true
@@ -688,6 +804,19 @@ class Deeds {
     fun decline(): Boolean {
         if (phase != DECIDE || pType != D_ARENA) return false
         say("${Title(actor)} waves to the crowd and leaves the arena.")
+        settle(); return true
+    }
+
+    fun canShop(i: Int) = phase == DECIDE && pType == D_MARKET && i in 0..5 && gold[actor] >= ITEM_PRICE[i]
+    fun shop(i: Int): Boolean {
+        if (!canShop(i)) return false
+        gold[actor] -= ITEM_PRICE[i]; items[actor][i]++
+        say("${Title(actor)} buys a ${ITEM_NAME[i]} for ${ITEM_PRICE[i]} gold.")
+        settle(); return true
+    }
+    fun leave(): Boolean {
+        if (phase != DECIDE || pType != D_MARKET) return false
+        say("${Title(actor)} haggles, sighs, and buys nothing.")
         settle(); return true
     }
 
@@ -704,16 +833,20 @@ class Deeds {
     private fun drawLoot(): Int { if (lootAt >= loot.size) { loot.shuffle(); lootAt = 0 }; return loot[lootAt++] }
 
     private fun applyFate(c: Int, rnd: Random) {
-        val p = actor; val q = other(p)
+        val p = actor
         say("Fate: " + FATE_TEXT[c])
         when (c) {
             0 -> { gold[p] += 50; settle() }
             1 -> owe(p, fine(100), -1, "the plague doctor")
             2 -> { passSpire(p); pos[p] = 0; settle() }
-            3 -> { wound(p, 2, -1); settle() }
+            3 -> { wound(p, 2, -1); if (phase != OVER) settle() }
             4 -> { toDungeon(p); settle() }
-            5 -> owe(p, 50, q, "the eaten sheep")
-            6 -> { bleedPay(q, 50, p, "the tournament"); settle() }
+            5 -> {
+                val others = rivals(p)
+                if (gold[p] >= 40 * others.size) { for (q in others) pay(p, 40, q); say("${Title(p)} pays ${40 * others.size} gold for the sheep."); settle() }
+                else owe(p, 40 * others.size, -1, "the eaten sheep")
+            }
+            6 -> { for (q in rivals(p)) bleedPay(q, 40, p, "the tournament"); if (phase != OVER) settle() }
             7 -> moveTo(p, ARENA_TILE)
             8 -> { val x = fine(25 * towerCount(p)); if (x == 0) settle() else owe(p, x, -1, "the census") }
             9 -> { var t = (pos[p] + 1) % N; while (KIND[t] != BRIDGE) t = (t + 1) % N; moveTo(p, t) }
@@ -732,17 +865,14 @@ class Deeds {
             }
             14 -> {
                 val t = (0 until N).filter { isDeed(it) && owner[it] < 0 }.minByOrNull { PRICE[it] }
-                if (t != null) {
-                    owner[t] = p; coin[t] = rnd.nextInt(2)
-                    say("${Title(p)} claims ${names[t]}! The coin lands on its ${if (coin[t] == COIN_CROWN) "Crown" else "Blade"}.")
-                    checkCoronation()
-                } else say("Every land is already claimed. The deed is a forgery after all.")
-                settle()
+                if (t != null) { grant(p, t, rnd, "claims ${names[t]}"); checkCoronation() }
+                else say("Every land is already claimed. The deed is a forgery after all.")
+                if (phase != OVER) settle()
             }
             15 -> { gold[p] += 150; settle() }
             16 -> owe(p, fine(40), -1, "the shoeing tax")
             17 -> {
-                val rich = if (gold[0] >= gold[1]) 0 else 1
+                val rich = alive.maxBy { gold[it] }
                 val x = gold[rich] / 10
                 pay(rich, x, -1); say("${Title(rich)} loses $x gold to robbers. It ends up in the Colosseum purse, somehow.")
                 settle()
@@ -763,12 +893,12 @@ class Deeds {
             10 -> { gold[p] += 150; wound(p, 1, -1) }
             11 -> gold[p] += 120
         }
-        settle()
+        if (phase != OVER) settle()
     }
 
     // ------------------------------------------------------------------ managing your lands
 
-    private fun mayManage(p: Int) = phase != OVER && phase != SETUP && p == actor
+    private fun mayManage(p: Int) = (phase == ROLL || phase == AFTER || phase == DECIDE) && p == actor
 
     fun canBuild(t: Int): Boolean {
         val p = actor
@@ -791,8 +921,7 @@ class Deeds {
     fun canSell(t: Int): Boolean {
         val p = actor
         if (!mayManage(p) || owner[t] != p || towers[t] <= 0) return false
-        val tiles = domainTiles(GROUP[t])
-        return towers[t] >= tiles.maxOf { towers[it] }
+        return towers[t] >= domainTiles(GROUP[t]).maxOf { towers[it] }
     }
 
     fun sell(t: Int): Boolean {
@@ -855,13 +984,100 @@ class Deeds {
         return true
     }
 
-    fun siegeTarget(): Int = deeds(other(actor)).filter { towers[it] > 0 }.maxByOrNull { towers[it] * 1000 + PRICE[it] } ?: -1
+    fun siegeTarget(): Int = rivals(actor).flatMap { deeds(it) }.filter { towers[it] > 0 }.maxByOrNull { towers[it] * 1000 + PRICE[it] } ?: -1
     fun canSiege() = mayManage(actor) && phase != DECIDE && items[actor][SIEGE] > 0 && siegeTarget() >= 0
     fun siege(): Boolean {
         if (!canSiege()) return false
         val t = siegeTarget()
         items[actor][SIEGE]--; towers[t]--
         say("${Title(actor)}'s Siege Engine topples a tower at ${names[t]}!")
+        return true
+    }
+
+    // ------------------------------------------------------------------ the champion's great deed
+
+    /** Lands the great deed can be aimed at, or empty for one that needs no aim. */
+    fun deedTargets(p: Int = actor): List<Int> = when (hero[p]) {
+        DRAGON -> rivals(p).flatMap { deeds(it) }.filter { towers[it] > 0 }
+        THIEF -> rivals(p).flatMap { deeds(it) }.filter { towers[it] == 0 && PRICE[it] <= 240 && (GROUP[it] < 0 || domainTiles(GROUP[it]).none { d -> towers[d] > 0 }) }
+        else -> emptyList()
+    }
+    fun deedAims(p: Int = actor) = hero[p] == DRAGON || hero[p] == THIEF
+
+    fun canGreatDeed(t: Int = -1): Boolean {
+        val p = actor
+        if (!(phase == ROLL || phase == AFTER) || used[p] == 1 || hero[p] < 0) return false
+        return when (hero[p]) {
+            DRAGON, THIEF -> t in deedTargets(p)
+            KNIGHT -> true
+            else -> rivals(p).isNotEmpty()
+        }
+    }
+
+    fun greatDeed(t: Int): Boolean {
+        if (!canGreatDeed(t)) return false
+        val p = actor
+        used[p] = 1
+        when (hero[p]) {
+            DRAGON -> { val was = towers[t]; towers[t] = 0; say("Inferno! ${Title(p)} burns ${names[t]}: its ${towerWord(was)} fall${if (was == 1) "s" else ""} in flames.") }
+            KNIGHT -> { hp[p] = maxHp(p); items[p][SHIELD]++; say("Second Wind! ${Title(p)} rises at full health and takes up a Tower Shield.") }
+            THIEF -> { val from = owner[t]; owner[t] = p; say("The Heist! ${Title(p)} steals the deed to ${names[t]} from ${title(from)}.") }
+            BLACK -> {
+                say("Reign of Terror! ${Title(p)}'s riders strike every rival lord for 2.")
+                for (q in rivals(p)) if (phase != OVER) wound(q, 2, p)
+            }
+        }
+        if (phase != OVER) checkCoronation()
+        return true
+    }
+
+    // ------------------------------------------------------------------ trading
+
+    /** An offer is fair game when both sides own what they put up, nothing traded has towers, and both can pay. */
+    fun validOffer(o: Offer): Boolean {
+        if (o.from != actor || o.to == o.from || o.to !in alive) return false
+        if (o.give.isEmpty() && o.get.isEmpty()) return false
+        if (o.give.any { owner[it] != o.from || towers[it] > 0 } || o.get.any { owner[it] != o.to || towers[it] > 0 }) return false
+        if (o.giveGold < 0 || o.getGold < 0 || o.giveGold > gold[o.from] || o.getGold > gold[o.to]) return false
+        return true
+    }
+
+    fun canPropose() = (phase == ROLL || phase == AFTER) && offersThisTurn < 3
+
+    fun propose(o: Offer): Boolean {
+        if (!canPropose() || !validOffer(o)) return false
+        offersThisTurn++
+        offer = o; tradeBack = phase; phase = TRADE
+        say("${Title(o.from)} offers ${title(o.to)} a trade: ${offerText(o)}.")
+        return true
+    }
+
+    fun offerText(o: Offer): String {
+        fun side(d: List<Int>, gld: Int) = (d.map { names[it] } + if (gld > 0) listOf("$gld gold") else emptyList()).ifEmpty { listOf("nothing") }.joinToString(", ")
+        return side(o.give, o.giveGold) + " for " + side(o.get, o.getGold)
+    }
+
+    fun accept(): Boolean {
+        val o = offer ?: return false
+        if (phase != TRADE) return false
+        offer = null; phase = tradeBack
+        if (!validOfferNow(o)) { say("The trade falls through."); return true }
+        for (t in o.give) owner[t] = o.to
+        for (t in o.get) owner[t] = o.from
+        gold[o.from] += o.getGold - o.giveGold; gold[o.to] += o.giveGold - o.getGold
+        say("${Title(o.to)} accepts! The deeds change hands.")
+        checkCoronation()
+        return true
+    }
+
+    private fun validOfferNow(o: Offer) = o.give.all { owner[it] == o.from && towers[it] == 0 } && o.get.all { owner[it] == o.to && towers[it] == 0 } &&
+        gold[o.from] >= o.giveGold && gold[o.to] >= o.getGold
+
+    fun reject(): Boolean {
+        val o = offer ?: return false
+        if (phase != TRADE) return false
+        offer = null; phase = tradeBack
+        say("${Title(o.to)} turns the offer down.")
         return true
     }
 
@@ -872,95 +1088,106 @@ class Deeds {
     fun endTurn(rnd: Random): Boolean {
         if (phase != AFTER) return false
         spireCharge = false
-        felledThisTurn = false
         pTile = -1
-        if (again && jail[actor] < 0) {
+        offersThisTurn = 0
+        if (again && jail[actor] < 0 && !felledThisTurn && out[actor] == 0) {
             again = false
             phase = ROLL
             say("${Title(actor)} rides on.")
             return true
         }
+        felledThisTurn = false
         again = false; doubles = 0
         if (checkCoronation()) return true
-        actor = other(actor)
-        if (actor == 0) {
-            round++
-            if (round > maxRounds) { kingDies(); return true }
-            if ((round - 1) % OMEN_EVERY == 0) {
-                var o: Int
-                do { o = rnd.nextInt(OMEN.size) } while (o == omen)
-                omen = o
-                say("A new omen: ${OMEN[o]}. ${OMEN_TEXT[o]}")
+        var q = actor
+        do {
+            q = (q + 1) % n
+            if (q == 0) {
+                round++
+                if (round > maxRounds) { kingDies(); return true }
+                if ((round - 1) % OMEN_EVERY == 0) {
+                    var o: Int
+                    do { o = rnd.nextInt(OMEN.size) } while (o == omen)
+                    omen = o
+                    say("A new omen: ${OMEN[o]}. ${OMEN_TEXT[o]}")
+                }
             }
-        }
+        } while (out[q] == 1)
+        actor = q
         phase = ROLL
         return true
     }
 
     private fun checkCoronation(): Boolean {
-        for (p in 0..1) if (domainsHeld(p) >= DOMAINS_TO_WIN && phase != OVER) {
-            say("${Title(p)} holds $DOMAINS_TO_WIN whole domains and is crowned King of Eiseria!")
+        if (phase == OVER) return true
+        for (p in alive) if (domainsHeld(p) >= domainsToWin) {
+            say("${Title(p)} holds $domainsToWin whole domains and is crowned King of Eiseria!")
             end(p, 2); return true
         }
         return false
     }
 
     private fun kingDies() {
-        val a = renown(0); val b = renown(1)
-        say("The old King is dead! Renown: ${title(0)} $a, ${title(1)} $b.")
-        end(if (a > b) 0 else if (b > a) 1 else 2, 3)
+        val ranked = alive.sortedByDescending { renown(it) }
+        say("The old King is dead! Renown: " + ranked.joinToString(", ") { "${title(it)} ${renown(it)}" } + ".")
+        val best = renown(ranked[0])
+        end(if (ranked.size > 1 && renown(ranked[1]) == best) -2 else ranked[0], 3)
     }
 
     private fun end(w: Int, reason: Int) {
         winner = w; endReason = reason; phase = OVER; pType = D_NONE
     }
 
-    /** One of the player's possible actions, as chosen by the AI. */
-    data class Act(val type: Int, val arg: Int = -1) {
-        companion object {
-            const val ROLL = 0; const val BUY = 1; const val PASS = 2; const val PAY = 3; const val REFUSE = 4; const val BLADE = 5
-            const val WRIT = 6; const val DEBT = 7; const val CHALLENGE = 8; const val DECLINE = 9; const val ACK = 10; const val BUILD = 11
-            const val SELL = 12; const val PAWN = 13; const val REDEEM = 14; const val FLIP = 15; const val POTION = 16; const val SIEGE = 17
-            const val BRIBE = 18; const val KEY = 19; const val END = 20; const val CHOOSE = 21
+    fun perform(a: Act, rnd: Random): Boolean {
+        auctionRnd = rnd
+        return when (a.type) {
+            Act.ROLL -> roll(rnd); Act.BUY -> buy(rnd); Act.PASS -> pass(); Act.PAY -> payHomage(); Act.REFUSE -> refuse()
+            Act.BLADE -> takeBlade(); Act.WRIT -> useWrit(); Act.DEBT -> payDebt(); Act.CHALLENGE -> challenge(a.arg, rnd); Act.DECLINE -> decline()
+            Act.ACK -> ack(rnd); Act.BUILD -> build(a.arg); Act.SELL -> sell(a.arg); Act.PAWN -> pawn(a.arg); Act.REDEEM -> redeem(a.arg)
+            Act.FLIP -> flip(a.arg); Act.POTION -> potion(); Act.SIEGE -> siege(); Act.BRIBE -> bribe(); Act.KEY -> useKey()
+            Act.END -> endTurn(rnd); Act.CHOOSE -> choose(a.arg / 10, a.arg % 10); Act.SEATS -> seats(a.arg / 100, a.arg % 100)
+            Act.BID -> bid(a.arg); Act.FOLD -> fold(); Act.PROPOSE -> a.offer?.let { propose(it) } ?: false
+            Act.ACCEPT -> accept(); Act.REJECT -> reject(); Act.SHOP -> shop(a.arg); Act.LEAVE -> leave(); Act.DEED -> greatDeed(a.arg)
+            else -> false
         }
-    }
-
-    fun perform(a: Act, rnd: Random): Boolean = when (a.type) {
-        Act.ROLL -> roll(rnd); Act.BUY -> buy(rnd); Act.PASS -> pass(); Act.PAY -> payHomage(); Act.REFUSE -> refuse()
-        Act.BLADE -> takeBlade(); Act.WRIT -> useWrit(); Act.DEBT -> payDebt(); Act.CHALLENGE -> challenge(rnd); Act.DECLINE -> decline()
-        Act.ACK -> ack(rnd); Act.BUILD -> build(a.arg); Act.SELL -> sell(a.arg); Act.PAWN -> pawn(a.arg); Act.REDEEM -> redeem(a.arg)
-        Act.FLIP -> flip(a.arg); Act.POTION -> potion(); Act.SIEGE -> siege(); Act.BRIBE -> bribe(); Act.KEY -> useKey()
-        Act.END -> endTurn(rnd); Act.CHOOSE -> choose(a.arg / 10, a.arg % 10)
-        else -> false
     }
 }
 
-/** The rival lord: greedy about land, careful with its health, sharper on harder levels. */
+/** The AI lords: greedy about land, careful with their health, sharper on harder levels. */
 object DeedsAi {
     private fun A(t: Int, arg: Int = -1) = Deeds.Act(t, arg)
 
+    private fun reserve(g: Deeds) = intArrayOf(40, 80, 120, 150, 180, 200)[g.level] + g.round * 4
+    private fun hpVal(g: Deeds) = intArrayOf(40, 50, 60, 70, 75, 80)[g.level]
+
+    /** The next action for whoever must act ([Deeds.decider]). */
     fun next(g: Deeds, rnd: Random): Deeds.Act {
-        val p = g.actor; val q = g.other(p); val lv = g.level
+        val p = g.decider; val lv = g.level
         val sloppy = lv == 0 && rnd.nextInt(100) < 25
-        val reserve = intArrayOf(40, 80, 120, 150, 180, 200)[lv] + g.round * 4
-        val hpVal = intArrayOf(40, 50, 60, 70, 75, 80)[lv]
         when (g.phase) {
+            Deeds.LOBBY -> return A(Deeds.Act.SEATS, 200 + 0b10)
             Deeds.SETUP -> {
-                val hero = (0..3).filter { it != g.hero[q] }.random(rnd)
-                val col = (1 until Deeds.COLOR.size).filter { it != g.color[q] }.random(rnd)
+                val taken = (0 until g.n).filter { it != p }.map { g.hero[it] }
+                val hero = (0..3).filter { it !in taken }.ifEmpty { (0..3).toList() }.random(rnd)
+                val col = (1 until Deeds.COLOR.size).filter { g.colorFree(p, it) }.random(rnd)
                 return A(Deeds.Act.CHOOSE, hero * 10 + col)
             }
-            Deeds.DECIDE -> return decide(g, p, q, lv, rnd, sloppy, reserve, hpVal)
+            Deeds.AUCTION -> return auction(g, p, rnd)
+            Deeds.TRADE -> return A(if (acceptable(g, g.offer!!)) Deeds.Act.ACCEPT else Deeds.Act.REJECT)
+            Deeds.DECIDE -> return decide(g, p, lv, rnd, sloppy)
         }
+        val reserve = reserve(g)
         // manage before rolling or ending
         if (g.canPotion() && g.hp[p] <= g.maxHp(p) - 4) return A(Deeds.Act.POTION)
         if (g.canSiege() && lv >= 1) return A(Deeds.Act.SIEGE)
+        greatDeed(g, p, lv)?.let { return it }
         if (g.phase == Deeds.AFTER && g.spireCharge) {
-            for (t in g.deeds(p)) { val want = wantFace(g, p, q, t, lv); if (g.coin[t] != want) return A(Deeds.Act.FLIP, t) }
+            for (t in g.deeds(p)) { val want = wantFace(g, p, t, lv); if (g.coin[t] != want) return A(Deeds.Act.FLIP, t) }
         }
         for (t in g.deeds(p).sortedByDescending { Deeds.PRICE[it] }) if (g.canRedeem(t) && g.gold[p] - g.redeemCost(t) >= reserve + 300) return A(Deeds.Act.REDEEM, t)
         val buildable = g.deeds(p).filter { g.canBuild(it) && g.gold[p] - g.towerCost(it, p) >= reserve + (if (lv <= 1) 150 else 60) }
         if (buildable.isNotEmpty() && !sloppy) return A(Deeds.Act.BUILD, buildable.maxBy { Deeds.PRICE[it] })
+        if (lv >= 1 && g.canPropose() && g.offersThisTurn == 0) tradeIdea(g, p, rnd)?.let { return Deeds.Act(Deeds.Act.PROPOSE, offer = it) }
         if (g.phase == Deeds.ROLL) {
             if (g.jail[p] >= 0) {
                 if (g.items[p][Deeds.KEY] > 0) return A(Deeds.Act.KEY)
@@ -972,14 +1199,25 @@ object DeedsAi {
         return A(Deeds.Act.END)
     }
 
-    private fun wantFace(g: Deeds, p: Int, q: Int, t: Int, lv: Int): Int {
+    private fun greatDeed(g: Deeds, p: Int, lv: Int): Deeds.Act? {
+        if (g.used[p] == 1 || lv == 0) return null
+        return when (g.hero[p]) {
+            Deeds.DRAGON -> g.deedTargets(p).filter { g.towers[it] >= 2 }.maxByOrNull { g.towers[it] * 1000 + Deeds.PRICE[it] }?.let { A(Deeds.Act.DEED, it) }
+            Deeds.THIEF -> g.deedTargets(p).maxByOrNull { g.spoilValue(p, it) }?.takeIf { g.spoilValue(p, it) >= 220 || g.round > g.maxRounds - 3 }?.let { A(Deeds.Act.DEED, it) }
+            Deeds.KNIGHT -> if (g.hp[p] <= g.maxHp(p) - 6) A(Deeds.Act.DEED) else null
+            else -> if (g.rivals(p).any { g.hp[it] <= 2 && g.items[it][Deeds.SHIELD] == 0 } || g.round > g.maxRounds - 2) A(Deeds.Act.DEED) else null
+        }
+    }
+
+    private fun wantFace(g: Deeds, p: Int, t: Int, lv: Int): Int {
         if (lv == 0) return g.coin[t]
         val blade = g.bladeDmg(t)
         val rent = g.homageOf(t, 7)
+        val rivals = g.rivals(p)
         return when {
-            g.hp[q] <= blade * 2 + (if (lv >= 3) 2 else 0) && g.deeds(q).isNotEmpty() -> Deeds.COIN_BLADE
+            rivals.any { g.hp[it] <= blade * 2 + (if (lv >= 3) 2 else 0) && g.deeds(it).isNotEmpty() } -> Deeds.COIN_BLADE
             g.hero[p] == Deeds.DRAGON && rent < 40 -> Deeds.COIN_BLADE
-            lv >= 3 && g.gold[q] < 200 -> Deeds.COIN_BLADE
+            lv >= 3 && rivals.all { g.gold[it] < 200 } -> Deeds.COIN_BLADE
             else -> Deeds.COIN_CROWN
         }
     }
@@ -990,15 +1228,59 @@ object DeedsAi {
         return null
     }
 
-    private fun decide(g: Deeds, p: Int, q: Int, lv: Int, rnd: Random, sloppy: Boolean, reserve: Int, hpVal: Int): Deeds.Act {
+    private fun auction(g: Deeds, p: Int, rnd: Random): Deeds.Act {
+        val t = g.aTile
+        val worth = (g.spoilValue(p, t) * intArrayOf(80, 95, 105, 115, 120, 125)[g.level] / 100) + rnd.nextInt(0, 21)
+        val room = g.gold[p] - reserve(g) / 2
+        val cap = minOf(worth, room)
+        // jump while the price is far below what it's worth, then creep up
+        val step = when { cap - g.aBid > 220 -> 2; cap - g.aBid > 90 -> 1; else -> 0 }
+        for (s in step downTo 0) if (g.aBid + Deeds.BID_STEPS[s] <= cap && g.canBid(s)) return A(Deeds.Act.BID, s)
+        return A(Deeds.Act.FOLD)
+    }
+
+    /** Would [o].to take this offer? */
+    fun acceptable(g: Deeds, o: Deeds.Offer): Boolean {
+        val q = o.to
+        var gain = o.giveGold - o.getGold
+        gain += o.give.sumOf { g.spoilValue(q, it) }
+        gain -= o.get.sumOf { Deeds.PRICE[it] + (if (g.fullDomain(it)) 150 else 0) }
+        // never hand a rival the last land of a domain cheaply
+        for (t in o.get) {
+            val d = Deeds.GROUP[t]
+            if (d >= 0 && g.domainTiles(d).all { it == t || g.owner[it] == o.from || it in o.get }) gain -= 450
+        }
+        return gain > intArrayOf(-40, 0, 40, 60, 80, 100)[g.level]
+    }
+
+    /** A gold-for-deed offer that would finish one of [p]'s domains. */
+    private fun tradeIdea(g: Deeds, p: Int, rnd: Random): Deeds.Offer? {
+        // at most one offer every few rounds, so people aren't pestered
+        if ((g.round + p) % 3 != 0 || rnd.nextInt(100) >= 50) return null
+        for (d in 0 until Deeds.DOMAINS) {
+            val tiles = g.domainTiles(d)
+            val missing = tiles.filter { g.owner[it] != p }
+            if (missing.size != 1 || tiles.count { g.owner[it] == p } < 1) continue
+            val t = missing[0]; val o = g.owner[t]
+            if (o < 0 || o == p || g.towers[t] > 0 || g.out[o] == 1) continue
+            val price = Deeds.PRICE[t] * 2 + 150 + g.level * 30
+            if (g.gold[p] - price < reserve(g)) continue
+            val offer = Deeds.Offer(p, o, emptyList(), listOf(t), price, 0)
+            if (g.validOffer(offer)) return offer
+        }
+        return null
+    }
+
+    private fun decide(g: Deeds, p: Int, lv: Int, rnd: Random, sloppy: Boolean): Deeds.Act {
         val t = g.pos[p]
+        val reserve = reserve(g); val hpVal = hpVal(g)
         when (g.pType) {
             Deeds.D_BUY -> {
                 val price = Deeds.PRICE[t]
                 if (g.gold[p] < price) return A(Deeds.Act.PASS)
                 val d = Deeds.GROUP[t]
                 val completes = d >= 0 && g.domainTiles(d).all { it == t || g.owner[it] == p }
-                val blocks = d >= 0 && g.domainTiles(d).any { g.owner[it] == q }
+                val blocks = d >= 0 && g.domainTiles(d).any { g.owner[it] >= 0 && g.owner[it] != p }
                 if (sloppy) return A(if (rnd.nextBoolean()) Deeds.Act.BUY else Deeds.Act.PASS)
                 return A(if (g.gold[p] - price >= reserve || ((completes || (blocks && lv >= 2)) && g.gold[p] - price >= 0)) Deeds.Act.BUY else Deeds.Act.PASS)
             }
@@ -1017,12 +1299,25 @@ object DeedsAi {
                 return A(Deeds.Act.DEBT)
             }
             Deeds.D_ARENA -> {
-                if (sloppy) return A(if (rnd.nextBoolean()) Deeds.Act.CHALLENGE else Deeds.Act.DECLINE)
-                val gain = g.deeds(q).maxOfOrNull { g.spoilValue(p, it) } ?: 0
-                val loss = g.deeds(p).maxOfOrNull { g.spoilValue(q, it) } ?: 0
-                val edge = (if (g.hero[p] == Deeds.KNIGHT) 120 else 0) - (if (g.hero[q] == Deeds.KNIGHT) 120 else 0)
-                val safe = g.hp[p] > 2
-                return A(if (safe && gain + edge > loss + 50) Deeds.Act.CHALLENGE else Deeds.Act.DECLINE)
+                val targets = g.rivals(p).filter { g.canChallenge(it) }
+                if (sloppy && targets.isNotEmpty()) return A(Deeds.Act.CHALLENGE, targets.random(rnd))
+                val loss = g.deeds(p).maxOfOrNull { d -> g.rivals(p).maxOf { g.spoilValue(it, d) } } ?: 0
+                val best = targets.maxByOrNull { q -> (g.deeds(q).maxOfOrNull { g.spoilValue(p, it) } ?: 0) + (if (g.hero[q] == Deeds.KNIGHT) -120 else 0) }
+                if (best != null && g.hp[p] > 2) {
+                    val gain = g.deeds(best).maxOf { g.spoilValue(p, it) }
+                    val edge = (if (g.hero[p] == Deeds.KNIGHT) 120 else 0) - (if (g.hero[best] == Deeds.KNIGHT) 120 else 0)
+                    if (gain + edge > loss + 50) return A(Deeds.Act.CHALLENGE, best)
+                }
+                return A(Deeds.Act.DECLINE)
+            }
+            Deeds.D_MARKET -> {
+                val want = when {
+                    g.hp[p] <= 5 && g.gold[p] >= 400 -> Deeds.POTION
+                    g.items[p][Deeds.SHIELD] == 0 && g.gold[p] >= 700 -> Deeds.SHIELD
+                    g.items[p][Deeds.WRIT] == 0 && g.gold[p] >= 900 -> Deeds.WRIT
+                    else -> -1
+                }
+                return if (want >= 0 && g.canShop(want) && !sloppy) A(Deeds.Act.SHOP, want) else A(Deeds.Act.LEAVE)
             }
             else -> return A(Deeds.Act.ACK)
         }

@@ -118,10 +118,10 @@ object StrategyLessons {
             listOf("Watch the rival's only tiles: taking their last one wins.", "Plan the closing wall two turns ahead."),
         )),
         GameKind.DEED_DUNGEON to Course(listOf(
-            "Roll and ride round Eiseria. Buy the deeds you stop on; pass the Spire for 200 gold.",
+            "Roll and ride round Eiseria. Buy the deeds you stop on, or send them to auction; pass the Spire for 200 gold. Trade deeds and gold with any lord on your turn.",
             "Every deed has a coin: Crown asks visitors for homage in gold (refuse and the towers strike), Blade wounds them outright. Coins turn only on a turn you pass the Spire.",
             "At 0 health you're felled: the lord who felled you takes your best deed and you wake in the Dungeon. Felled with no deeds, you're vanquished.",
-            "Hold four whole domains to be crowned at once; otherwise the most renown when the old King dies wins.",
+            "Hold four whole domains (three with more than two lords) to be crowned at once; otherwise the most renown when the old King dies wins. Your champion's great deed works once a game.",
         ), listOf(
             listOf("Buy almost everything you land on early.", "Keep a little gold back for homage."),
             listOf("Finish a domain before spreading out: it doubles homage and opens towers.", "Refuse small homage only when your health is high."),
