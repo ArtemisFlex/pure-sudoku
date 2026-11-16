@@ -8,6 +8,7 @@ Requests waiting to be done, in the order they came in. Move items to "Done" wit
 
 ## Done
 
+- 2026-11-15 Deed or Dungeon (Strategy, solo vs AI, two players on one device, online): a medieval lands-and-lordship board game. Buy deeds round a 36-tile ring; each deed's two-sided coin is Crown (homage in gold, refuse and the towers strike) or Blade (wounds), turned only when you pass the Spire. Felled at 0 health: the lord who felled you seizes your best deed and you wake in the Dungeon. Towers and castles, Fate and Loot cards (keepsake items), the Colosseum purse and trials by combat, omens every 4 rounds, freshly named lands each game, and four champions with powers (Dragon, Knight, Veilnight Thief, Black Knight) in six banner colours. Crowned by four whole domains, vanquishing the rival, or most renown when the old King dies.
 - 2026-11-15 Online card and strategy games: no colour cover on the opponent's turn; you keep seeing the game from your own side (your hand, the table/map, opponent hidden) with an "Opponent's turn" pill, and can only act on your turn.
 - 2026-11-15 Home screen: Two Players collection card (all 21 two-player games, one device or online), first among the collections.
 - 2026-11-15 Mancala two-player: captures and extra turns are now announced ("Player 2 captured 6") instead of being overwritten by the turn message. Tests confirm both players capture.

@@ -18,6 +18,8 @@ val onlineGames get() = com.puresudoku.core.localTwoPlayerGames
 val hiddenInfoGames = setOf(
     GameKind.GO_FISH, GameKind.CRAZY_EIGHTS, GameKind.CUTTLE, GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT,
     GameKind.REALM_ASH, GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD,
+    // nothing secret here, but the board stays readable (tap tiles) while you wait
+    GameKind.DEED_DUNGEON,
 )
 
 /** Boards with plain round pieces, turned round for the guest so their side is at the bottom. */

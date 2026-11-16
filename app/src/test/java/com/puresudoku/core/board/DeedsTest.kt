@@ -1,0 +1,55 @@
+package com.puresudoku.core.board
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.random.Random
+
+class DeedsTest {
+    /** The AI plays whole games against itself on every level; each must end, with saves round-tripping on the way. */
+    @Test fun aiGamesFinish() {
+        val reasons = IntArray(4); var fells = 0; var rounds = 0; var gaps = 0; var towersBuilt = 0
+        for (level in 0..5) for (seed in 0 until 25) {
+            val rnd = Random(seed * 31 + level)
+            var g = Deeds.newGame(level, rnd)
+            var steps = 0
+            while (g.phase != Deeds.OVER) {
+                val a = DeedsAi.next(g, rnd)
+                val ok = g.perform(a, rnd)
+                assertTrue("level $level seed $seed step $steps: illegal $a in phase ${g.phase} decision ${g.pType}", ok)
+                g.log.clear()
+                if (steps % 7 == 0) g = Deeds.fromJson(org.json.JSONObject(g.toJson().toString()))
+                steps++
+                assertTrue("game runs too long", steps < 20000)
+                for (p in 0..1) {
+                    assertTrue("gold never negative", g.gold[p] >= 0)
+                    assertTrue("health within bounds", g.hp[p] <= g.maxHp(p))
+                }
+            }
+            reasons[g.endReason]++
+            fells += g.felled[0] + g.felled[1]; rounds += g.round
+            gaps += kotlin.math.abs(g.renown(0) - g.renown(1)); towersBuilt += g.towerCount(0) + g.towerCount(1)
+        }
+        println("Deed or Dungeon endings: vanquished ${reasons[1]}, four domains ${reasons[2]}, old King died ${reasons[3]}; fellings/game ${fells / 150.0}; rounds ${rounds / 150.0}; renown gap ${gaps / 150}; towers ${towersBuilt / 150.0}")
+    }
+
+    @Test fun refusingHomageWoundsAndFellingSeizesADeed() {
+        val rnd = Random(1)
+        val g = Deeds.newGame(2, rnd)
+        g.choose(Deeds.KNIGHT, 1); g.choose(Deeds.DRAGON, 2)
+        // the Dragon owns two lands; the Knight owns one and is nearly dead
+        g.owner[1] = 1; g.owner[3] = 1; g.towers[1] = 0; g.coin[1] = Deeds.COIN_CROWN
+        g.owner[35] = 0
+        g.hp[0] = 1
+        g.pos[0] = 0
+        g.phase = Deeds.ROLL
+        // ride one tile onto the Dragon's land
+        val m = Deeds::class.java.getDeclaredMethod("move", Int::class.java, Int::class.java).apply { isAccessible = true }
+        m.invoke(g, 0, 1)
+        assertEquals(Deeds.D_HOMAGE, g.pType)
+        assertTrue(g.refuse())
+        assertEquals("felled Knight lost its only deed to the Dragon", 1, g.owner[35])
+        assertEquals("woke in the Dungeon", Deeds.DUNGEON_TILE, g.pos[0])
+        assertEquals("healed to full", 12, g.hp[0])
+    }
+}

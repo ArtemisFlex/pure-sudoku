@@ -706,6 +706,55 @@ object ManualText {
             }
             saving()
         }
+        DEED_DUNGEON -> m {
+            sec("The goal") {
+                p("Become King of Eiseria. Hold four whole domains and you are crowned at once. Fell your rival when they have no deeds left and they are vanquished. Otherwise the old King dies at the end of the last round, and the lord with the most renown (gold, plus deeds and towers at their cost) takes the throne.")
+            }
+            sec("Your champion") {
+                p("Choose the Dragon, the Knight, the Veilnight Thief or the Black Knight, in its natural colours or a banner colour. Each has a power:")
+                b("Dragon: your Blade lands wound 1 more.", "Knight: 12 health instead of 10, and +1 in trials by combat.",
+                    "Veilnight Thief: you pay a quarter less homage.", "Black Knight: your towers cost a quarter less.")
+            }
+            sec("Your turn") {
+                b("Roll two dice and ride clockwise round the 36 tiles. Doubles roll again; a third double in a row sends you to the Dungeon.",
+                    "Passing the Spire pays you 200 gold, heals 1, and lets you turn your coins that turn. Landing right on it pays 100 more.",
+                    "Stop on unclaimed land, a bridge, the mill or the mine to buy its deed.",
+                    "Open Lands at any time on your turn to build, tear down, pawn, redeem and turn coins. End your turn when you're done.")
+            }
+            sec("The two-sided coin") {
+                p("Every deed carries a coin, tossed when you buy it.")
+                b("Crown (homage): a visitor pays homage in gold. They may refuse, and your towers strike them instead: 1 wound, plus 1 per tower.",
+                    "Blade: a visitor simply takes wounds: 2, plus 1 for a whole domain, plus 1 per tower, plus 1 more for a castle. Bridges, the mill and the mine wound 1 for each one you hold.",
+                    "You turn your coins only on a turn you pass the Spire (or with a Royal Banner). Choose Crowns to grow rich and Blades to bring your rival down.")
+            }
+            sec("Health, wounds and the Dungeon") {
+                b("Gold you owe but can't pay becomes wounds: 1 for every 50 gold short. Raise funds first by pawning or tearing down towers if you'd rather.",
+                    "At 0 health you're felled. The lord who felled you seizes your best deed, towers and all (felled by the realm, your cheapest deed returns to it). You wake healed in the Dungeon.",
+                    "Felled with no deeds left, you're vanquished and your rival is crowned.",
+                    "In the Dungeon: roll doubles, pay the jailer 50, or use a Skeleton Key. Each night inside heals 1. After three tries you must pay.")
+            }
+            sec("Domains, towers and castles") {
+                b("Lands come in eight coloured domains of two or three. Hold all of one to double its bare homage.",
+                    "On a whole domain with nothing pawned you may raise towers, evenly across it: up to three per land, then a castle.",
+                    "Pawn a deed to the moneylender for half its price (tear down the domain's towers first). Pawned land asks nothing. Redeem it for a little more.")
+            }
+            sec("Fate, loot and the Colosseum") {
+                b("Fate cards bring fortune and folly, from bards to witch trials.",
+                    "Loot chests hold gold, mimics, or keepsakes: Healing Potion, Skeleton Key, Tower Shield, Forged Writ (skip one homage or blade), Siege Engine (topple a rival tower) and Royal Banner (turn a coin).",
+                    "Taxes, fines and bribes fill the Colosseum purse. Land on the Colosseum to win it, then you may challenge your rival to trial by combat: both roll two dice, the winner takes the loser's best deed and the loser takes 2 wounds.",
+                    "The Inquisitor sends you straight to the Dungeon.")
+            }
+            sec("Omens") {
+                p("Every four rounds a new omen rules the realm: a Harvest Festival, a Blood Moon, Famine, a Royal Jubilee, a Truce of the Crown that stills every blade, Tax Season, a Builders' Guild, or a Plague Winter with no healing.")
+            }
+            sec("Tips") {
+                b("Buy early, then finish domains: a whole domain doubles homage and opens towers.",
+                    "Watch your rival's health: when they're low, pass the Spire and turn your coins to Blades.",
+                    "Refusing a small homage costs health you may need later. Refusing a castle's homage can be a bargain.",
+                    "The Colosseum is a gamble: challenge when their best deed is worth more to you than yours is to them.")
+            }
+            saving()
+        }
         else -> m {
             sec("How to play") { p(kind.tagline) }
             saving()

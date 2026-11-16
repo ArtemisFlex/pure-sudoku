@@ -117,6 +117,19 @@ object StrategyLessons {
             listOf("Strike bare tiles before the rival can castle them.", "A felled castle is a point and a half-price rebuild for you."),
             listOf("Watch the rival's only tiles: taking their last one wins.", "Plan the closing wall two turns ahead."),
         )),
+        GameKind.DEED_DUNGEON to Course(listOf(
+            "Roll and ride round Eiseria. Buy the deeds you stop on; pass the Spire for 200 gold.",
+            "Every deed has a coin: Crown asks visitors for homage in gold (refuse and the towers strike), Blade wounds them outright. Coins turn only on a turn you pass the Spire.",
+            "At 0 health you're felled: the lord who felled you takes your best deed and you wake in the Dungeon. Felled with no deeds, you're vanquished.",
+            "Hold four whole domains to be crowned at once; otherwise the most renown when the old King dies wins.",
+        ), listOf(
+            listOf("Buy almost everything you land on early.", "Keep a little gold back for homage."),
+            listOf("Finish a domain before spreading out: it doubles homage and opens towers.", "Refuse small homage only when your health is high."),
+            listOf("Buy a land your rival needs to finish a domain, even at a stretch.", "Three towers on a cheap domain beat one on a dear one."),
+            listOf("When your rival is low on health, turn your coins to Blades at the Spire.", "Keep a potion or shield for when you're low."),
+            listOf("Trial by combat is even odds: only fight when their best deed is worth more to you.", "Pawn odd lands to fund towers on a whole domain."),
+            listOf("Count your rival's domains: deny the fourth at any cost.", "Late in the game, renown is gold plus land: don't overspend on the last round."),
+        )),
         GameKind.VEILGUARD to Course(listOf(
             "Each round both players give up to three secret orders. They're revealed and carried out together: Crowns move, walls rise, spies report, armies march, claims land, then knights and buildings appear.",
             "Your Crown hides on one of your tiles. Take the rival's Crown to win; lose yours and you lose. There is no points goal and no round limit. A Crown order slips your Crown to a touching tile you hold.",

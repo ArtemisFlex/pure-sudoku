@@ -60,6 +60,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     AEGWASPELL("Aegwaspell", "Stewardship", "Grow a civilization from a single port: build, feed your people, survive the seasons and take the rival capitals.", GameCategory.STRATEGY),
     AEG_CONQUEST("Aegwaspell: Conquest", "Conquest & Stewardship", "Post soldiers and workers tile by tile, trade at your port, and hold your land while rival civilizations fight for every tile.", GameCategory.STRATEGY),
     VEILGUARD("Veilguard", "Deception", "Give secret orders, hide your Crown and bluff with decoys. Find the rival's Crown to win.", GameCategory.STRATEGY),
+    DEED_DUNGEON("Deed or Dungeon", "Lordship", "Buy deeds, turn each coin to Homage or Blade, and fell your rival to seize their lands. Become King of Eiseria.", GameCategory.STRATEGY),
     STREET_SMARTS("Street Smarts", "Navigation", "Deliver around a big city while the GPS slowly lets go. Learn the streets by heart.", GameCategory.TRAINING),
     LEARN_MATH("Math Flashcards", "Arithmetic", "From counting to long multiplication, with every step shown.", GameCategory.KIDS),
     LEARN_DIVISION("Long Division", "Division", "Share things fairly, then master long division step by step.", GameCategory.KIDS),
@@ -76,5 +77,5 @@ val localTwoPlayerGames = setOf(
     GameKind.SHOGI, GameKind.XIANGQI, GameKind.MANCALA, GameKind.MORRIS, GameKind.BACKGAMMON,
     GameKind.GO_FISH, GameKind.CRAZY_EIGHTS, GameKind.CUTTLE,
     GameKind.REALMFORGE, GameKind.REALM_DRAGON, GameKind.REALM_NIGHT, GameKind.REALM_ASH,
-    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD,
+    GameKind.WISTERIA, GameKind.ASHFALL, GameKind.KREASHUN, GameKind.VEILGUARD, GameKind.DEED_DUNGEON,
 )

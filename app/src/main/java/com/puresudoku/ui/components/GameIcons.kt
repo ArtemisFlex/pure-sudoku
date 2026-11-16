@@ -38,6 +38,7 @@ fun gameLogoRes(kind: GameKind): Int = when (kind) {
     GameKind.ASHFALL -> com.puresudoku.R.drawable.rt_logo_ashfall
     GameKind.KREASHUN -> com.puresudoku.R.drawable.rt_logo_kreashun
     GameKind.VEILGUARD -> com.puresudoku.R.drawable.rt_logo_veilguard
+    GameKind.DEED_DUNGEON -> com.puresudoku.R.drawable.rt_logo_deed_dungeon
     GameKind.AEGWASPELL -> com.puresudoku.R.drawable.rt_logo_aegwaspell
     GameKind.AEG_CONQUEST -> com.puresudoku.R.drawable.rt_logo_aeg_conquest
     else -> 0
@@ -110,6 +111,7 @@ fun GameIcon(kind: GameKind, size: Dp, modifier: Modifier = Modifier) {
             GameKind.ASHFALL -> realmIcon(colors, o, inner, 1)
             GameKind.KREASHUN -> realmIcon(colors, o, inner, 0)
             GameKind.VEILGUARD -> realmIcon(colors, o, inner, 2)
+            GameKind.DEED_DUNGEON -> realmIcon(colors, o, inner, 1)
             GameKind.AEGWASPELL -> realmIcon(colors, o, inner, 0)
             GameKind.AEG_CONQUEST -> realmIcon(colors, o, inner, 1)
             GameKind.STREET_SMARTS -> mapIcon(colors, o, inner)
