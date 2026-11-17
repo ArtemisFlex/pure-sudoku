@@ -236,11 +236,11 @@ fun TwoPlayerScreen(vm: AppViewModel) {
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         TopBar("Two Players", vm::back)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 160.dp),
+            columns = DrawerColumns,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                 Text(
@@ -260,14 +260,24 @@ fun CategoryScreen(vm: AppViewModel, cat: GameCategory) {
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         TopBar(cat.title, vm::back)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 160.dp),
+            columns = DrawerColumns,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             itemsIndexed(games, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
         }
+    }
+}
+
+/** Game drawers: never fewer than two columns (a phone fits two side by side), and as many 160dp cards as fit on wider screens. */
+private val DrawerColumns = object : GridCells {
+    override fun androidx.compose.ui.unit.Density.calculateCrossAxisCellSizes(availableSize: Int, spacing: Int): List<Int> {
+        val count = maxOf(2, (availableSize + spacing) / (160.dp.roundToPx() + spacing))
+        val cell = (availableSize - spacing * (count - 1)) / count
+        val extra = availableSize - spacing * (count - 1) - cell * count
+        return List(count) { cell + if (it < extra) 1 else 0 }
     }
 }
 
@@ -291,7 +301,7 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
             else com.puresudoku.ui.components.gameLogoRes(g.kind)
         if ((g.kind.category == GameCategory.STRATEGY || g.kind == com.puresudoku.core.GameKind.CRATEBARGE || g.kind == com.puresudoku.core.GameKind.CYVASSE) && logo != 0) {
             // Strategy games are shown by their logo, centred and filling the card, over the skill it trains.
-            Column(Modifier.fillMaxWidth().height(180.dp).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.fillMaxWidth().height(140.dp).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 androidx.compose.foundation.Image(
                     androidx.compose.ui.res.painterResource(logo), contentDescription = g.kind.title,
                     modifier = Modifier.weight(1f).fillMaxWidth(), contentScale = androidx.compose.ui.layout.ContentScale.Fit,
@@ -304,15 +314,16 @@ private fun GameCard(vm: AppViewModel, g: GameDef, index: Int) {
             }
             return@Surface
         }
-        Column(Modifier.padding(16.dp)) {
-            g.Icon(52.dp)
-            Spacer(Modifier.height(12.dp))
-            Text(g.kind.title, style = MaterialTheme.typography.titleLarge)
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            g.Icon(44.dp)
+            Spacer(Modifier.height(8.dp))
+            Text(g.kind.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(
                 g.kind.skill.uppercase(), fontSize = 11.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 when {
                     saved > 0 -> "$saved saved game${if (saved > 1) "s" else ""}"
