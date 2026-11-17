@@ -158,7 +158,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         else -> "The side to move had no legal move but wasn't in check, and both sides had taken the same number of pieces: a draw."
     }
 
-    val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != Cyvasse.OVER &&
+    val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && g.phase != Cyvasse.OVER &&
         (localTwoPlayer || currentPlayer == 0) && (!localTwoPlayer || online || !handoffPending) && myOnlineTurn
 
     fun who(p: Int) = when {

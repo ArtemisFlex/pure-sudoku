@@ -122,7 +122,7 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
         else -> ""
     } + "This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != Veilguard.OVER &&
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && g.phase != Veilguard.OVER &&
         (g.phase == Veilguard.PLAN || localTwoPlayer || g.actor == 0) && (!localTwoPlayer || (!handoffPending && startingCrownPlayer < 0)) && myOnlineTurn
 
     private fun flush() { if (g.log.isNotEmpty()) { events = (events + if (localTwoPlayer) localPublicEvents(g.log) else g.log).takeLast(6); g.log.clear() } }
@@ -259,7 +259,6 @@ class VeilguardSession(difficulty: Difficulty, val g: Veilguard) : DuelSession(G
 
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
-        heraldBusy -> "Watch the orders play out · tap a card to skip"
         thinking -> "The rival is giving its secret orders…"
         localTwoPlayer && startingCrownPlayer >= 0 -> "Choose which of your lands hides your Crown"
         g.phase == Veilguard.SETUP -> if (localTwoPlayer) {
@@ -643,7 +642,7 @@ fun VeilguardUi(s: VeilguardSession, targets: DemoTargets?) {
                 for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy)
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking)
             Spacer(Modifier.height(5.dp))
             if (s.myMove && g.phase == Veilguard.PLAN) {
                 // the orders you've given, face down to the rival

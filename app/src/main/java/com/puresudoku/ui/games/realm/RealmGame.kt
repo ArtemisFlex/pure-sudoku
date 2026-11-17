@@ -191,7 +191,7 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Your rival rules the realm"
     override val lostMessage get() = "The rival reached ${g.vp(1)} points. This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && offer == null && g.phase != Realm.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && offer == null && g.phase != Realm.OVER
 
     fun vertexTargets(): List<Int> = when {
         !myMove -> emptyList()
@@ -320,7 +320,6 @@ class RealmSession(kind: GameKind, difficulty: Difficulty, val g: Realm) : DuelS
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
         offer != null -> "The rival offers a deal"
-        heraldBusy -> "Watch the rival's moves · tap a card to skip"
         thinking || (!localTwoPlayer && g.actor == 1) -> when (g.phase) {
             Realm.SETUP -> "The rival is choosing where to settle…"
             Realm.DISCARD -> "The rival is discarding…"
@@ -997,7 +996,7 @@ fun RealmUi(s: RealmSession, targets: DemoTargets?) {
                 for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING && s.offer == null))
             Spacer(Modifier.height(5.dp))
             val offer = s.offer
             when {
@@ -1179,7 +1178,7 @@ internal fun HeraldCard(s: Session, modifier: Modifier = Modifier) {
         val accent = if (h.mine) YOU else RIVAL
         val time = remember(h.id) { Animatable(1f) }
         LaunchedEffect(h.id) { time.animateTo(0f, tween(h.ms.toInt(), easing = androidx.compose.animation.core.LinearEasing)) }
-        Column(Modifier.fillMaxWidth().clip(PANEL).parchment(PANEL, accent, 2.dp).clickable { s.skipHerald() }) {
+        Column(Modifier.fillMaxWidth().clip(PANEL).parchment(PANEL, accent, 2.dp)) {
             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(46.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)).border(1.5.dp, accent, CircleShape), contentAlignment = Alignment.Center) {
                     RIconOf(h.art as? RI ?: RI.DICE, 32.dp)

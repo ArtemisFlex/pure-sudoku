@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,13 +41,12 @@ import com.puresudoku.ui.games.GameDef
 import com.puresudoku.ui.session.Session
 
 /**
- * Shows the computer's actions one card at a time over the game. While cards are showing,
- * the board can't be touched; tapping anywhere skips to the next card.
+ * Shows the computer's actions one card at a time over the game, each for its own time. The cards never block play
+ * and taps don't dismiss them: a tap on a card goes through to the game beneath it.
  */
 @Composable
 fun HeraldOverlay(session: Session, def: GameDef, modifier: Modifier = Modifier) {
     val h = session.herald
-    if (h != null) Box(modifier.fillMaxSize().clickable(remember { MutableInteractionSource() }, null) { session.skipHerald() })
     AnimatedContent(
         h, modifier = modifier.padding(horizontal = 14.dp, vertical = 10.dp), label = "herald",
         transitionSpec = { (slideInVertically { -it / 2 } + fadeIn(tween(200))) togetherWith fadeOut(tween(140)) },
@@ -55,9 +55,10 @@ fun HeraldOverlay(session: Session, def: GameDef, modifier: Modifier = Modifier)
         val accent = if (card.mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
         val time = remember(card.id) { Animatable(1f) }
         LaunchedEffect(card.id) { time.animateTo(0f, tween(card.ms.toInt(), easing = LinearEasing)) }
-        Surface(
-            shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp,
-            modifier = Modifier.fillMaxWidth().border(2.dp, accent, RoundedCornerShape(16.dp)).clickable { session.skipHerald() },
+        // a plain box rather than a Surface, which would swallow taps meant for the board
+        Box(
+            Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface).border(2.dp, accent, RoundedCornerShape(16.dp)),
         ) {
             Column {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

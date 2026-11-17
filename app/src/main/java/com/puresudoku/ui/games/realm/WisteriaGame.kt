@@ -129,7 +129,7 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(if 
         else -> "The rival reached ${g.vp(1)} points."
     } + " This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && g.phase != Wisteria.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && g.phase != Wisteria.OVER
 
     private fun flush() { if (g.log.isNotEmpty()) { events = (events + if (localTwoPlayer) localPublicEvents(g.log) else g.log).takeLast(4); g.log.clear() } }
 
@@ -282,7 +282,6 @@ class WisteriaSession(difficulty: Difficulty, val g: Wisteria) : DuelSession(if 
 
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
-        heraldBusy -> "Watch the rival's moves · tap a card to skip"
         thinking || (!localTwoPlayer && g.actor == 1) -> "The rival is taking its turn…"
         g.phase == Wisteria.SETUP -> "Settle your first land: tap a glowing tile"
         g.phase == Wisteria.CHOICE -> "Claim the ruined land?"
@@ -757,7 +756,7 @@ fun WisteriaUi(s: WisteriaSession, targets: DemoTargets?) {
                 for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
             Spacer(Modifier.height(5.dp))
             when {
                 s.myMove && g.phase == Wisteria.CHOICE -> Column(Modifier.padding(horizontal = 12.dp).parchment(PANEL).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {

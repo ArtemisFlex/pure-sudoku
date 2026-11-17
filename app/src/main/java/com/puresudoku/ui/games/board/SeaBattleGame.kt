@@ -93,7 +93,7 @@ class SeaBattleSession(difficulty: Difficulty, val g: SeaBattle) : DuelSession(G
     override val lostTitle get() = if (localTwoPlayer) "Player 2 rules the waves!" else "Your fleet is sunk"
     override val lostMessage get() = "The rival found every ship. This game's save slot has been cleared."
 
-    val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != SeaBattle.OVER &&
+    val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && g.phase != SeaBattle.OVER &&
         (localTwoPlayer || currentPlayer == 0) && (!localTwoPlayer || (!handoffPending && !awaitingPass)) && myOnlineTurn
 
     fun who(p: Int) = when { online -> if (p == onlineSeat - 1) "You" else "Your opponent"; localTwoPlayer -> "Player ${p + 1}"; p == 0 -> "You"; else -> "The rival" }

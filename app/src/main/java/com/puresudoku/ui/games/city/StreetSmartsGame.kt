@@ -125,7 +125,7 @@ class StreetSmartsSession(difficulty: Difficulty, val g: StreetSmarts) : Session
     override val progress: Float get() = (g.deliveries % 6) / 6f
     override val wonTitle = "Shift complete"
 
-    val busy get() = glide != null || heraldBusy
+    val busy get() = glide != null
 
 
     fun bump() { version++; score = g.earned; changed() }

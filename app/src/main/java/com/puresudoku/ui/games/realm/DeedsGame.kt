@@ -218,7 +218,7 @@ class DeedsSession(difficulty: Difficulty, val g: Deeds) : DuelSession(GameKind.
         else -> ""
     } + "This game's save slot has been cleared."
 
-    val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && g.phase != Deeds.OVER && human(g.decider) && myOnlineTurn
+    val myMove: Boolean get() = outcome == Outcome.PLAYING && !thinking && g.phase != Deeds.OVER && human(g.decider) && myOnlineTurn
 
     private fun flush() {
         if (g.log.isNotEmpty()) { events = (events + g.log).takeLast(40); g.log.clear() }
@@ -228,7 +228,7 @@ class DeedsSession(difficulty: Difficulty, val g: Deeds) : DuelSession(GameKind.
         "Siege Engine", "is dead", "wins the auction", "accepts", "turns the offer down", "Inferno", "Second Wind", "The Heist", "Reign of Terror", "vanquished")
 
     fun act(type: Int, arg: Int = -1, offer: Deeds.Offer? = null) {
-        if (!myMove) { if (thinking || heraldBusy) nudge("Wait for the other lords to finish"); return }
+        if (!myMove) { if (thinking) nudge("Wait for the other lords to finish"); return }
         val who = g.actor
         if (!g.perform(Act(type, arg, offer), rng)) { nudge(refusal(type)); return }
         // "Roll again" after doubles is one tap
@@ -311,7 +311,6 @@ class DeedsSession(difficulty: Difficulty, val g: Deeds) : DuelSession(GameKind.
         val d = g.decider
         return when {
             outcome != Outcome.PLAYING -> ""
-            heraldBusy -> "Tap a card to hurry things along"
             thinking -> "${who(d)} is deciding…"
             online && !myOnlineTurn -> if (g.phase == Deeds.SETUP) "Your opponent is choosing a champion" else "Your opponent's turn"
             g.phase == Deeds.LOBBY -> "Seat the lords"
@@ -932,7 +931,7 @@ fun DeedsUi(s: DeedsSession) {
                 }
             }
             Spacer(Modifier.height(4.dp))
-            PromptRibbon((if (s.localTwoPlayer && !s.online && g.phase != Deeds.OVER) "${s.who(g.decider)} · " else "") + s.prompt, s.thinking || s.heraldBusy)
+            PromptRibbon((if (s.localTwoPlayer && !s.online && g.phase != Deeds.OVER) "${s.who(g.decider)} · " else "") + s.prompt, s.thinking)
             Spacer(Modifier.height(5.dp))
             Actions(s, openLands = { showLands = true }, openTrade = { showTrade = true }, openDeed = { showDeed = true })
         }

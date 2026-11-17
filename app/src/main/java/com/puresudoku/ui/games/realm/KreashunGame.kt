@@ -117,7 +117,7 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
     override val lostTitle get() = if (localTwoPlayer) "Player 2 wins!" else "Your rival rules Kreashun"
     override val lostMessage get() = (if (g.vp(1) >= g.target) "The rival reached ${g.vp(1)} points." else "You lost every tile you held.") + " This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !thinking && !heraldBusy && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && g.phase != Kreashun.OVER
+    val myMove get() = outcome == Outcome.PLAYING && !thinking && (localTwoPlayer || g.actor == 0) && (!localTwoPlayer || !handoffPending) && myOnlineTurn && g.phase != Kreashun.OVER
 
     private fun flush() { if (g.log.isNotEmpty()) { events = (events + if (localTwoPlayer) localPublicEvents(g.log) else g.log).takeLast(4); g.log.clear() } }
 
@@ -261,7 +261,6 @@ class KreashunSession(difficulty: Difficulty, val g: Kreashun) : DuelSession(Gam
 
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
-        heraldBusy -> "Watch the rival's moves · tap a card to skip"
         thinking || (!localTwoPlayer && g.actor == 1) -> "The rival is taking its turn…"
         g.phase == Kreashun.SETUP -> if (g.setupVillage < 0) "Place a village: tap a glowing corner" else "Place a wall beside it: tap a glowing side"
         g.phase == Kreashun.ROLL -> "Roll the dice"
@@ -591,7 +590,7 @@ fun KreashunUi(s: KreashunSession, targets: DemoTargets?) {
                 for (r in 0..4) ResChip(r, g.res[s.viewer][r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || s.heraldBusy || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
+            PromptRibbon((if (s.localTwoPlayer) "Player ${s.viewer + 1} · " else "") + s.prompt, s.thinking || (!s.localTwoPlayer && g.actor == 1 && s.outcome == Outcome.PLAYING))
             Spacer(Modifier.height(5.dp))
             when {
                 s.myMove && g.phase == Kreashun.ROLL -> WoodButton("Roll", RI.DICE, Modifier.demoTarget(targets, "roll")) { s.roll() }

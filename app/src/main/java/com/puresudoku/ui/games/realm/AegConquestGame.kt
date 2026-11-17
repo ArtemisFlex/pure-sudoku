@@ -97,7 +97,7 @@ class AegConquestSession(difficulty: Difficulty, val g: AegConquest) : DuelSessi
     override val lostTitle get() = "Your people are gone"
     override val lostMessage get() = "Your civilization lasted until ${AC.SEASON[(g.season) % 4].lowercase()} of year ${g.year}. This game's save slot has been cleared."
 
-    val myMove get() = outcome == Outcome.PLAYING && !heraldBusy && !g.over
+    val myMove get() = outcome == Outcome.PLAYING && !g.over
 
     private fun flush() { if (g.log.isNotEmpty()) { events = (events + g.log).takeLast(5); g.log.clear() } }
 
@@ -145,7 +145,6 @@ class AegConquestSession(difficulty: Difficulty, val g: AegConquest) : DuelSessi
 
     val prompt: String get() = when {
         outcome != Outcome.PLAYING -> ""
-        heraldBusy -> "The season's news · tap a card to skip"
         selected < 0 -> "Tap a tile: build on your roads, or lay a road out into new land"
         else -> tileText(selected) + g.sw.notes(selected).joinToString("") { " · $it" }
     }
@@ -563,7 +562,7 @@ fun AegConquestUi(s: AegConquestSession, targets: DemoTargets?) {
                 for (r in 0..4) AegRes(r, g.res[r], Modifier.weight(1f))
             }
             Spacer(Modifier.height(5.dp))
-            PromptRibbon(s.prompt, s.heraldBusy)
+            PromptRibbon(s.prompt, false)
             Spacer(Modifier.height(5.dp))
             val selectedBuilding = s.selected
             if (s.myMove && selectedBuilding >= 0 && g.revealed[selectedBuilding] && g.rivalLand[selectedBuilding] < 0 && g.building[selectedBuilding] != AC.NONE) {

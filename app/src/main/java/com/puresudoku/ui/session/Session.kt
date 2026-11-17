@@ -64,7 +64,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     private val heraldQ = ArrayDeque<Herald>()
     private var heraldSeq = 0
     private var heraldToken = 0
-    private var afterHeralds: (() -> Unit)? = null
+    private val afterHeralds = ArrayList<() -> Unit>()
     val heraldBusy: Boolean get() = herald != null || heraldQ.isNotEmpty()
 
     /** Queues a card describing what the computer just did. [art] is a game-specific icon key. */
@@ -76,7 +76,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     private fun nextHerald() {
         val h = heraldQ.removeFirstOrNull()
         herald = h
-        if (h == null) { val f = afterHeralds; afterHeralds = null; f?.invoke(); return }
+        if (h == null) { val fs = afterHeralds.toList(); afterHeralds.clear(); fs.forEach { it() }; return }
         val tok = ++heraldToken
         com.puresudoku.platform.onMainLater(h.ms) { if (tok == heraldToken) nextHerald() }
     }
@@ -85,7 +85,7 @@ abstract class Session(val kind: GameKind, val difficulty: Difficulty) {
     fun skipHerald() { if (herald != null) { heraldToken++; nextHerald() } }
 
     /** Runs [f] once every queued card has been shown (now, if none are). */
-    fun whenQuiet(f: () -> Unit) { if (!heraldBusy) f() else afterHeralds = f }
+    fun whenQuiet(f: () -> Unit) { if (!heraldBusy) f() else afterHeralds += f }
 
     /** Latest "that didn't work" message; the play screen shows it with a buzz. */
     var nudgeFx by mutableStateOf<Nudge?>(null); private set
