@@ -116,7 +116,7 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         if (!choosingField) return
         fieldChosen = true
         g.clearTerrain()
-        message = if (localTwoPlayer) "A clear field: Alabaster moves first" else "A clear field: your move"
+        message = if (localTwoPlayer) "Oops, no terrain: Alabaster moves first" else "Oops, no terrain: your move"
         bump(); changed()
     }
 
@@ -922,13 +922,13 @@ private fun FieldChoice(s: CyvasseSession, modifier: Modifier) {
     Column(modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Choose the field", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Standard: the same layout every game. Open field: the armies and the river stay, and each side places its own 3 mountains and 3 forests behind a screen. Clear field: no terrain at all, not even the river.",
+        Text("Standard: the same layout every game. Open field: the armies and the river stay, and each side places its own 3 mountains and 3 forests behind a screen. Oops no terrain: no terrain at all, not even the river.",
             fontSize = 13.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = { s.chooseField(false) }) { Text("Standard") }
             Button(onClick = { s.chooseField(true) }) { Text("Open field") }
-            FilledTonalButton(onClick = { s.chooseClearField() }) { Text("Clear field") }
+            FilledTonalButton(onClick = { s.chooseClearField() }) { Text("Oops no terrain") }
         }
     }
     Spacer(Modifier.height(6.dp))

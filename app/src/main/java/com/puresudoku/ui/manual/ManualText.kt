@@ -629,9 +629,9 @@ object ManualText {
             sec("The goal") { p("Checkmate the rival king. This is PureGames' standard Kreat: both sides start from the same layout, and the king follows chess rules for check.") }
             sec("The battlefield") { b("A board 10 tiles wide and 11 tall. Each army holds five rows; the middle row is a river of water tiles.",
                 "Each side has a back row of trebuchet, heavy horse, light horse, spearman, dragon, king, spearman, light horse, heavy horse and catapult, and in front of it an elephant, a crossbowman, six rabble, a crossbowman and an elephant. Mountains and forests stand between the army and the river. Alabaster moves first.") }
-            sec("Open and clear fields") { b("A new game against the computer or on one device asks which field to play: standard (the layout above), open or clear.",
+            sec("Open field and Oops no terrain") { b("A new game against the computer or on one device asks which field to play: Standard (the layout above), Open field or Oops no terrain.",
                 "In an open field the armies and the river stay where they are, but the board starts bare. Each side places its own 3 mountains and 3 forests anywhere on the three empty rows of its half, behind a screen, then the screen comes down and Alabaster moves first.",
-                "A clear field has no terrain at all: no mountains, no forests and no river water. The halves still meet at the middle row, and units that cross it still can't step back until they reach the enemy's back row.",
+                "Oops no terrain has no terrain at all: no mountains, no forests and no river water. The halves still meet at the middle row, and units that cross it still can't step back until they reach the enemy's back row.",
                 "Suggest lays out one of the layouts that did best when the computer tested 24 of them against itself; change anything you like before pressing Ready. Its finding: placement matters much less than how you use your pieces.") }
             sec("The pieces") { b("King: one tile any way. It can take any piece.",
                 "Rabble: one tile forward or sideways, never back. It takes only one tile diagonally forward.",
