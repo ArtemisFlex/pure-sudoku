@@ -329,6 +329,19 @@ class ArtQaActivity : ComponentActivity() {
                 }.getOrElse { "FAIL: ${it.stackTraceToString()}" }
                 setContentView(TextView(this).apply { text = result; textSize = 20f }); return
             }
+            "cyvasse-coach" -> {
+                // the training coach on a few openings: its suggestion and the strategy it names
+                val text = (0 until 6).joinToString("\n\n") { seed ->
+                    val g = com.puresudoku.core.board.Cyvasse.standard()
+                    val r = Random(seed)
+                    repeat(6 + seed * 3) { g.play(g.legalMoves().let { it[r.nextInt(it.size)] }) }
+                    if (g.turn != 0) g.play(g.legalMoves().let { it[r.nextInt(it.size)] })
+                    val s = com.puresudoku.ui.games.board.CyvasseSession(Difficulty.HARD, g).apply { training = true }
+                    val t = System.currentTimeMillis()
+                    "${s.coachWork()?.invoke()?.first} (${System.currentTimeMillis() - t} ms)"
+                }
+                setContentView(android.widget.ScrollView(this).apply { addView(TextView(this@ArtQaActivity).apply { this.text = text; textSize = 15f; setPadding(30, 120, 30, 30) }) }); return
+            }
             "cyvasse-board" -> {
                 // the standard 10 by 11 Cyvasse opening with a crossbowman selected
                 val s = com.puresudoku.ui.games.board.CyvasseSession(Difficulty.MEDIUM, com.puresudoku.core.board.Cyvasse.standard())

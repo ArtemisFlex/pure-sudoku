@@ -85,18 +85,22 @@ object BoardLessons {
         ),
         GameKind.CYVASSE to Course(
             listOf(
-                "Both sides start from the same mirrored layout. Move or attack with one piece a turn.",
-                "Capture your own rank, lower ranks, the next rank up or a king; never your own pieces.",
-                "Like chess, never leave your king in check. Checkmate wins; stalemate draws."
+                "A 10 by 11 field with a river across the middle. Move or attack with one piece a turn; only the side to move attacks.",
+                "Most pieces take by landing on their victim. Crossbowmen, catapults and trebuchets shoot instead, as their whole move.",
+                "Like chess, never leave your king in check. Checkmate wins; a stalemate goes to whoever has taken more pieces.",
+                "Each level teaches the named strategies the computer found by training against itself. Tap Show me a move: the coach names the plan behind its move.",
             ),
-            listOf(
-                listOf("Get your horses and dragon out early.", "Keep your king behind its own pieces."),
-                listOf("Siege engines stay on your side of the river: use their range.", "Spearmen attack only diagonally."),
-                listOf("Horses can't take spearmen.", "Catapults and trebuchets fire over your own pieces."),
-                listOf("Dragons can't fly over mountains or pieces: open lines for yours, close them against theirs.", "Ruining a fortress scores a piece."),
-                listOf("Push a rabble to the back row and promote it to a dragon.", "Units across the river can't retreat: commit with care."),
-                listOf("Check with tempo: force the king to move while you gain ground.", "A king in its fortress is shielded: pull it out first.")
-            ),
+            (0..5).map { level ->
+                com.puresudoku.core.board.CyvasseStrategy.forLevel(level).map { "${it.title}: ${it.idea}" + if (it.found.isNotEmpty()) " ${it.found}" else "" } +
+                    listOf(
+                        "Pieces in a forest can't attack, and siege engines and dragons can't hit them there.",
+                        "Units across the river can't step back until they've touched the enemy's back row: commit with care.",
+                        "Siege engines fire only at the first piece in line: clear the lane first.",
+                        "Keep your king behind its own pieces, or in its fortress, which holds out two attacks (one from a dragon).",
+                        "Trade pieces when you're ahead: a stalemate goes to whoever has taken more.",
+                        "Combine the plans: a dragon in the enemy half opens lanes for your siege engines and checks for your horses.",
+                    )[level]
+            },
         ),
         GameKind.BACKGAMMON to Course(
             listOf(

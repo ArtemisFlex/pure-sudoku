@@ -16,6 +16,11 @@ interface Searchable<M> {
     fun orderKey(m: M): Int = 0
     /** Moves worth searching past the horizon (captures); empty = no quiescence. */
     fun noisyMoves(): List<M> = emptyList()
+    /**
+     * For games searched with pseudo-legal moves: called when every move at a node loses. Returns a score when the side
+     * to move actually has no legal move and isn't in check (a stalemate), or null to keep the loss.
+     */
+    fun noMoveScore(): Int? = null
 }
 
 const val WIN = 1_000_000
@@ -87,6 +92,7 @@ class AlphaBeta<M>(private val g: Searchable<M>, private val level: AiLevel, pri
             if (v > alpha) alpha = v
             if (alpha >= beta) break
         }
+        if (best <= -WIN / 2) g.noMoveScore()?.let { return it }
         return best
     }
 

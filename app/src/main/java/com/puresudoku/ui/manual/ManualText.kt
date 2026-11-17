@@ -650,6 +650,10 @@ object ManualText {
                 "A fortress protects the piece inside from one attack and then falls, becoming a grass tile; the defender survives. With a king inside it withstands two attacks. A dragon strikes twice at once: it brings the fortress down and takes the piece inside, unless that piece is a king. A dragon may only come down on a fortress to attack the piece inside.",
                 "Bringing down a fortress counts as a piece taken.") }
             sec("Promotion") { p("A rabble that reaches the enemy's back row is promoted to any piece except a king or a rabble. A promoted piece moves freely, backward included.") }
+            sec("Named strategies") {
+                p("The computer learned Cyvasse by playing hundreds of games against itself and tuning how it judges a position. The plans that decided its games are named for the Targaryens. In training wheels mode the coach names them as they're played.")
+                b(*com.puresudoku.core.board.CyvasseStrategy.entries.map { "${it.title}: ${it.idea}" }.toTypedArray())
+            }
             sec("Check and checkmate") { b("You may never make a move that leaves your king able to be taken, and when your king is in check you must get it out: move it, block, or take the attacker.",
                 "No legal move while in check is checkmate and loses. No legal move otherwise is stalemate: whoever has taken more pieces wins (a ruined fortress counts as one). If both have taken the same number, it's a draw.") }
             saving()

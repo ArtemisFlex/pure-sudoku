@@ -33,8 +33,6 @@ class Cyvasse {
         val ARMY_SIZE = ARMY.sum()
         const val MOUNTAINS = 3
         const val WATERS = 5; const val FORESTS_PER_SIDE = 5
-        /** Moves without a capture or a piece brought out before the game is drawn. */
-        const val QUIET_LIMIT = 160
 
         val NAMES = arrayOf("", "Rabble", "Spearman", "Crossbowman", "Light Horse", "Heavy Horse", "Elephant", "Catapult", "Trebuchet", "Dragon", "King")
         val PLURALS = arrayOf("", "Rabble", "Spearmen", "Crossbowmen", "Light Horses", "Heavy Horses", "Elephants", "Catapults", "Trebuchets", "Dragons", "Kings")
@@ -624,13 +622,15 @@ class Cyvasse {
 
     private fun clearCell(c: Int) { board[c] = 0; waterWait[c] = 0; facing[c] = 0; crossed[c] = 0; promoted[c] = 0 }
 
+    private fun an(name: String) = (if (name.first().lowercaseChar() in "aeiou") "an " else "a ") + name
+
     fun describe(m: Int): String {
         val name = NAMES[typeOf(board[aOf(m)])]
         return when (kindOf(m)) {
             K_PASS -> "passes because no unit can move or attack"
-            K_RANGED -> "fires a $name at the ${NAMES[typeOf(board[bOf(m)])]} on ${coord(bOf(m))}"
+            K_RANGED -> "fires ${an(name)} at the ${NAMES[typeOf(board[bOf(m)])]} on ${coord(bOf(m))}"
             K_PROMO -> "moves a Rabble from ${coord(aOf(m))} to ${coord(bOf(m))} and promotes it to a ${NAMES[viaOf(m)]}"
-            else -> "moves a $name from ${coord(aOf(m))} to ${coord(bOf(m))}"
+            else -> "moves ${an(name)} from ${coord(aOf(m))} to ${coord(bOf(m))}"
         }
     }
 
@@ -643,116 +643,4 @@ class IntList(cap: Int = 64) {
     fun add(x: Int) { if (size == a.size) a = a.copyOf(size * 2); a[size++] = x }
     operator fun get(i: Int) = a[i]
     fun toArray() = a.copyOf(size)
-}
-
-/**
- * The computer's lord: wild on Easy, greedy on Medium, then a search that looks two to four moves deep,
- * weighing pieces, pressure on the keeps and the safety of its king.
- */
-object CyvasseAi {
-    fun depthFor(level: Int) = when (level) { 0, 1 -> 1; 2, 3 -> 2; 4 -> 3; else -> 4 }
-    fun timeFor(level: Int) = when (level) { 4 -> 2000L; 5 -> 2500L; else -> 1200L }
-
-    fun setup(g: Cyvasse, side: Int, level: Int, rnd: Random) = g.randomSetup(side, rnd, level)
-
-    /** The move to play for the side to move. */
-    fun best(g: Cyvasse, level: Int, rnd: Random): Int {
-        val moves = g.legalMoves()
-        if (moves.isEmpty()) return Cyvasse.PASS
-        val me = g.turn
-        // Easy plays loosely: often any move, though it grabs a king when it sees one
-        if (level <= 0) {
-            for (m in moves) if (g.victims(m).any { Cyvasse.typeOf(g.board[it]) == Cyvasse.KING && Cyvasse.ownerOf(g.board[it]) != me }) return m
-            if (rnd.nextInt(100) < 55) return moves[rnd.nextInt(moves.size)]
-        }
-        val deadline = now() + timeFor(level)
-        val maxDepth = depthFor(level)
-        var best = moves[rnd.nextInt(moves.size)]
-        var ordered = order(g, moves)
-        for (depth in 1..maxDepth) {
-            var alpha = -INF
-            var bestHere = ordered[0]
-            val scores = HashMap<Int, Int>()
-            var timedOut = false
-            for (m in ordered) {
-                val c = g.copy(); c.play(m, check = false, settle = false)
-                val v = search(c, depth - 1, alpha, INF, me, deadline) + noise(level, rnd)
-                scores[m] = v
-                if (v > alpha) { alpha = v; bestHere = m }
-                if (depth > 1 && now() > deadline) { timedOut = true; break }
-            }
-            if (!timedOut || depth == 1) best = bestHere
-            if (timedOut) break
-            ordered = ordered.sortedByDescending { scores[it] ?: -INF }.toIntArray()
-        }
-        return best
-    }
-
-    private val clock = kotlin.time.TimeSource.Monotonic.markNow()
-    private fun now() = clock.elapsedNow().inWholeMilliseconds
-
-    private const val INF = 1_000_000
-    private const val WIN = 100_000
-
-    private fun noise(level: Int, rnd: Random) = when (level) { 0 -> rnd.nextInt(40); 1 -> rnd.nextInt(14); 2 -> rnd.nextInt(6); 3 -> rnd.nextInt(3); else -> 0 }
-
-    /** Minimax from [me]'s point of view (the side to move can stay the same for a rabble's second step). */
-    private fun search(g: Cyvasse, depth: Int, alphaIn: Int, betaIn: Int, me: Int, deadline: Long): Int {
-        if (g.phase == Cyvasse.OVER) return when (g.winner) { me -> WIN + depth; Cyvasse.DRAWN -> 0; else -> -WIN - depth }
-        if (depth <= 0) return eval(g, me)
-        val raw = g.legalMoves()
-        if (raw.isEmpty()) {
-            if (g.inCheck(g.turn)) return if (g.turn == me) -WIN - depth else WIN + depth
-            return when (g.stalemateWinner()) { me -> WIN / 2; Cyvasse.DRAWN -> 0; else -> -WIN / 2 }
-        }
-        val moves = order(g, raw)
-        var alpha = alphaIn; var beta = betaIn
-        val maxing = g.turn == me
-        var bestV = if (maxing) -INF else INF
-        for (m in moves) {
-            val c = g.copy(); c.play(m, check = false, settle = false)
-            val v = search(c, depth - 1, alpha, beta, me, deadline)
-            if (maxing) { if (v > bestV) bestV = v; if (v > alpha) alpha = v } else { if (v < bestV) bestV = v; if (v < beta) beta = v }
-            if (alpha >= beta) break
-            if (now() > deadline) break
-        }
-        return bestV
-    }
-
-    /** Captures first (biggest prize first), then everything else. */
-    private fun order(g: Cyvasse, moves: IntArray): IntArray {
-        val key = IntArray(moves.size) { i ->
-            val m = moves[i]
-            var k = 0
-            for (x in g.victims(m)) { val v = if (Cyvasse.typeOf(g.board[x]) == Cyvasse.KING) 10_000 else Cyvasse.VALUE[Cyvasse.typeOf(g.board[x])] * 10; k += if (Cyvasse.ownerOf(g.board[x]) == g.turn) -v else v }
-            k
-        }
-        return moves.indices.sortedByDescending { key[it] }.map { moves[it] }.toIntArray()
-    }
-
-    /** Material on the board and in reserve, pressure on the keeps, and a king kept out of reach. */
-    fun eval(g: Cyvasse, me: Int): Int {
-        var score = 0
-        for (side in 0..1) {
-            val sign = if (side == me) 1 else -1
-            var v = 0
-            for (c in 0 until Cyvasse.CELLS) {
-                val p = g.board[c]
-                if (Cyvasse.ownerOf(p) != side) continue
-                val t = Cyvasse.typeOf(p)
-                v += Cyvasse.VALUE[t]
-                if (!Cyvasse.inHalf(side, c)) v += 2
-            }
-            var res = 0
-            for (t in Cyvasse.TYPES) res += Cyvasse.VALUE[t] * g.reserve[side][t]
-            v += res * 9 / 10
-            val e = 1 - side
-            // a king alone in the open is a target; one guarded by its own pieces less so
-            val k = (0 until Cyvasse.CELLS).firstOrNull { g.board[it] == Cyvasse.piece(side, Cyvasse.KING) }
-            if (k != null) v += Cyvasse.NEIGHBOURS[k].count { Cyvasse.ownerOf(g.board[it]) == side } * 3 -
-                Cyvasse.NEIGHBOURS[k].count { Cyvasse.ownerOf(g.board[it]) == e } * 12 - g.openLines(side) * 7
-            score += sign * v
-        }
-        return score
-    }
 }

@@ -287,10 +287,12 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
 
     private fun play(m: Int) {
         val p = g.turn
+        val plan = if (training) com.puresudoku.core.board.CyvasseStrategy.of(g, m) else null
         if (!g.play(m)) { nudge("That move isn't allowed"); return }
         moves++; moveId++; selected = -1; pickType = 0; clearCoach()
         if (g.turn != p) showReserve = false
         message = "${who(p)} ${g.lastText}"
+        if (plan != null) message = "${plan.title}! " + message
         if (g.phase == Cyvasse.OVER) { bump(); changed(); finishGame(); return }
 
         if (g.bonusRabble >= 0) message += ". Move a second rabble, or end your turn"
@@ -309,12 +311,14 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         computerSearch(minMs = 650, valid = { it.toIntOrNull()?.let(g::isLegal) == true }) { text ->
             val m = text.toIntOrNull()?.takeIf(g::isLegal) ?: g.legalMoves().firstOrNull() ?: return@computerSearch
             val took = g.victims(m).map { Cyvasse.typeOf(g.board[it]) }
+            val plan = if (training) com.puresudoku.core.board.CyvasseStrategy.of(g, m) else null
             g.play(m)
             moves++; moveId++
             message = "The rival ${g.lastText}"
             bump(); changed()
             when {
                 g.phase == Cyvasse.OVER -> Unit
+                plan != null -> announce("The rival plays ${plan.title}", g.lastText.replaceFirstChar { it.uppercase() } + ". " + plan.idea.substringBefore(". ") + ".", 2600, false)
                 g.keepFell >= 0 -> announce("Fortress ruined", "The defender survives the attack.", 1800, false)
                 g.inCheck(0) -> announce("Check!", "Your king is under attack: move it, block, or take the attacker.", 1600, false)
                 took.isNotEmpty() -> announce("The rival takes your ${took.joinToString(" and ") { Cyvasse.NAMES[it] }}", g.lastText.replaceFirstChar { it.uppercase() }, 1500, false)
@@ -343,7 +347,8 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
             val m = CyvasseAi.best(snap, 3, Random(7))
             val from = when (Cyvasse.kindOf(m)) { Cyvasse.K_MOVE, Cyvasse.K_RANGED, Cyvasse.K_PROMO -> Cyvasse.aOf(m); else -> -1 }
             val to = if (Cyvasse.kindOf(m) == Cyvasse.K_PASS) -1 else Cyvasse.bOf(m)
-            Triple("Try this: ${snap.describe(m)}.", from, to)
+            val plan = com.puresudoku.core.board.CyvasseStrategy.of(snap, m)
+            Triple((if (plan != null) "${plan.title}: " else "Try this: ") + "${snap.describe(m)}." + (plan?.let { " " + it.idea.substringBefore(". ") + "." } ?: ""), from, to)
         }
     }
 
@@ -369,10 +374,10 @@ object CyvasseDef : GameDef {
     override fun levelBlurb(d: Difficulty) = when (d) {
         Difficulty.EASY -> "A green lordling: wild moves."
         Difficulty.MEDIUM -> "Grabs whatever it can reach."
-        Difficulty.HARD -> "Guards its king and answers your threats."
-        Difficulty.EXPERT -> "Weighs exchanges and guards its king."
-        Difficulty.MASTER -> "Plans three moves deep."
-        Difficulty.EXTREME -> "A Volantene master: four moves deep."
+        Difficulty.HARD -> "Sees your replies and guards its pieces."
+        Difficulty.EXPERT -> "Trained by self-play: four moves deep."
+        Difficulty.MASTER -> "Plans five moves deep."
+        Difficulty.EXTREME -> "A Volantene master: six moves deep."
     }
     @Composable override fun Play(session: Session) = CyvasseUi(session as CyvasseSession)
     @Composable override fun Icon(size: Dp) = GameIcon(kind, size)
@@ -395,6 +400,10 @@ object CyvasseDef : GameDef {
         },
         TutorialStep("The river and the dragon", "Entering water ends a move and holds the piece a turn (not a light horse). A piece in a forest can't attack, and catapults, trebuchets and dragons can't hit it there. Ground units that cross the river can't step back until they touch the enemy's back row. Dragons fly over water, forest and mountains; pieces and fortresses stop them. A rabble on the enemy's back row is promoted.") { _ ->
             val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.DRAGON) }?.let { d.tap(it) } } }
+            CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
+        },
+        TutorialStep("Named strategies", "The computer learned its play by training against itself, and the plans it found are named for the Targaryens: Viserys's Crown, Lord Bloodraven, Baelor Breakspear, Daemon Blackfyre's Charge and more. Play with training wheels to learn them: the coach names the plan behind each move it shows you, and calls out the rival's.") { _ ->
+            val s = remember { demo() }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
         TutorialStep("Check and checkmate", "Like chess: you may never leave your king in check, and you must get out of check at once. No legal move while in check is checkmate. No legal move otherwise is stalemate: whoever has taken more pieces wins, and level is a draw.") { _ ->
