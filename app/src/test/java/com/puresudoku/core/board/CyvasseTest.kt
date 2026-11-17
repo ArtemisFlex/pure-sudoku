@@ -56,7 +56,12 @@ class CyvasseTest {
         }
         // no fortresses on the field
         assertEquals(-1, g.keepAt[0]); assertEquals(-1, g.keepAt[1]); assertTrue((0 until Cyvasse.CELLS).none { g.block[it] == KEEP })
-        assertEquals(MOUNTAIN, g.block[at(6, 5)]); assertEquals(MOUNTAIN, g.block[at(4, 4)])
+        assertEquals(MOUNTAIN, g.block[at(6, 5)]); assertEquals(MOUNTAIN, g.block[at(4, 5)])
+        for (c in 0 until Cyvasse.CELLS) {
+            if (g.block[c] == MOUNTAIN) assertTrue(Cyvasse.lightGrass(c))
+            if (g.terrain[c] == FOREST) assertFalse(Cyvasse.lightGrass(c))
+            if (g.terrain[c] == WATER) assertEquals(RIVER, Cyvasse.row(c))
+        }
         assertEquals(20, g.onBoard(0)); assertEquals(20, g.onBoard(1)); assertEquals(0, g.reserveCount(0))
         assertTrue(g.legalMoves().isNotEmpty())
         // an old 8 by 8 save starts the new field
@@ -308,10 +313,13 @@ class CyvasseTest {
         assertEquals(20, g.onBoard(0)); assertEquals(-1, g.keepAt[0]); assertEquals(0, g.mountainsPlaced(0))
         // only your own half's empty tiles, and only three mountains and three forests
         assertFalse(g.toggleMountain(0, at(3, 3))); assertFalse(g.toggleMountain(0, at(9, 3)))
-        for (c in 1..3) assertTrue(g.toggleMountain(0, at(7, c)))
+        assertFalse(g.toggleMountain(0, at(7, 1))) // green grass
+        assertFalse(g.toggleTerrain(0, FOREST, at(6, 1))) // white grass
+        assertFalse(g.toggleTerrain(0, WATER, at(6, 0))) // water belongs to the river
+        for (c in listOf(0, 2, 4)) assertTrue(g.toggleMountain(0, at(7, c)))
         assertFalse(g.toggleMountain(0, at(7, 6)))
-        for (c in 4..6) assertTrue(g.toggleTerrain(0, FOREST, at(6, c)))
-        assertFalse(g.toggleTerrain(0, FOREST, at(6, 8)))
+        for (c in listOf(0, 2, 4)) assertTrue(g.toggleTerrain(0, FOREST, at(6, c)))
+        assertFalse(g.toggleTerrain(0, FOREST, at(6, 6)))
         assertTrue(g.setupDone(0)); assertTrue(g.ready(0, coin = true))
         CyvasseAi.setup(g, 1, 3, Random(1)); assertTrue(g.setupDone(1)); assertTrue(g.ready(1, coin = true))
         // the screen comes down, and Alabaster moves first whatever the coin says
@@ -319,6 +327,24 @@ class CyvasseTest {
         assertEquals(3, g.mountainsPlaced(1)); assertEquals(3, g.terrainPlaced(1, FOREST)); assertEquals(-1, g.keepAt[1])
         val r = Cyvasse.fromJson(g.toJson()); assertTrue(r.openField); assertEquals(3, r.mountainsPlaced(1))
         assertTrue(g.legalMoves().isNotEmpty())
+    }
+
+    @Test fun computerAndRandomTerrainUseMatchingGrass() {
+        for (side in 0..1) for (level in 0..5) for (seed in 0..4) {
+            val g = Cyvasse.openField(); g.placer = side
+            CyvasseAi.setup(g, side, level, Random(seed))
+            assertTrue("AI setup incomplete: side=$side level=$level seed=$seed", g.setupDone(side))
+            for (c in 0 until Cyvasse.CELLS) if (Cyvasse.inHalf(side, c)) {
+                if (g.block[c] == MOUNTAIN) assertTrue(Cyvasse.lightGrass(c))
+                if (g.terrain[c] == FOREST) assertFalse(Cyvasse.lightGrass(c))
+            }
+        }
+        val g = Cyvasse.newSetup(); g.randomSetup(0, Random(22))
+        assertTrue(g.setupDone(0))
+        for (c in 0 until Cyvasse.CELLS) {
+            if (g.block[c] == MOUNTAIN) assertTrue(Cyvasse.lightGrass(c))
+            if (g.terrain[c] == FOREST) assertFalse(Cyvasse.lightGrass(c))
+        }
     }
 
     @Test fun clearFieldHasNoTerrain() {

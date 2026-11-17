@@ -77,9 +77,9 @@ class Cyvasse {
             "E X R R R R R R X E",
             ". . . . . . . . . .",
             ". . . . . . . . . f",
-            "M f . . M f . . . f",
+            "f M . . f M . . f .",
             "~ ~ ~ ~ ~ ~ ~ ~ ~ ~",
-            "f f . . f M . . . M",
+            "f . f . f M . . . M",
             ". . . . . . . . . f",
             ". . . . . . . . . .",
             "E X R R R R R R X E",
@@ -115,6 +115,8 @@ class Cyvasse {
         fun typeOf(v: Int) = if (v == 0) 0 else (v - 1) % 10 + 1
         fun row(c: Int) = c / W
         fun col(c: Int) = c % W
+        /** Matches the alternating board colors: odd squares are the light grass. */
+        fun lightGrass(c: Int) = (row(c) + col(c)) % 2 != 0
         fun on(r: Int, c: Int) = r in 0 until H && c in 0 until W
         /** Alabaster (0) holds the rows below the river, Onyx (1) those above it; the river row is no one's. */
         fun inHalf(side: Int, c: Int) = if (side == 0) row(c) > RIVER else row(c) < RIVER
@@ -278,6 +280,8 @@ class Cyvasse {
         if (phase != SETUP || side != placer || type !in WATER..FOREST || c !in 0 until CELLS || !inHalf(side, c)) return false
         if (block[c] != 0 || board[c] != 0) return false
         if (terrain[c] == type) { terrain[c] = PLAIN; return true }
+        if (type == FOREST && lightGrass(c)) return false
+        if (type == WATER && row(c) != RIVER) return false
         if (terrain[c] != PLAIN || terrainPlaced(side, type) >= if (type == WATER) WATERS else FORESTS_PER_SIDE) return false
         terrain[c] = type
         return true
@@ -309,7 +313,7 @@ class Cyvasse {
     // =================================================================  setting up, behind the screen
 
     fun canMountain(side: Int, c: Int) = phase == SETUP && side == placer && c in 0 until CELLS && inHalf(side, c) &&
-        terrain[c] == PLAIN && block[c] == 0 && board[c] == 0 && mountainsPlaced(side) < MOUNTAINS
+        lightGrass(c) && terrain[c] == PLAIN && block[c] == 0 && board[c] == 0 && mountainsPlaced(side) < MOUNTAINS
 
     /** Sets a mountain on [c], or lifts the one there. */
     fun toggleMountain(side: Int, c: Int): Boolean {
@@ -359,10 +363,8 @@ class Cyvasse {
     fun randomSetup(side: Int, rnd: Random, level: Int = 3) {
         val old = placer; placer = side; clearSetup(side)
         val cells = (0 until CELLS).filter { inHalf(side, it) && board[it] == 0 }.shuffled(rnd)
-        var i = 0
-        repeat(WATERS) { toggleTerrain(side, WATER, cells[i++]) }
-        repeat(FORESTS_PER_SIDE) { toggleTerrain(side, FOREST, cells[i++]) }
-        repeat(MOUNTAINS) { toggleMountain(side, cells[i++]) }
+        cells.filter { !lightGrass(it) }.take(FORESTS_PER_SIDE).forEach { toggleTerrain(side, FOREST, it) }
+        cells.filter { lightGrass(it) }.take(MOUNTAINS).forEach { toggleMountain(side, it) }
         val open = cells.filter { block[it] != MOUNTAIN && block[it] != KEEP }.shuffled(rnd)
         val army = TYPES.flatMap { t -> List(ARMY[t]) { t } }
         for ((t, c) in army.zip(open)) standPiece(side, t, c)

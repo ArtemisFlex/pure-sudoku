@@ -253,6 +253,8 @@ class SaveRepository(private val prefs: KeyValueStore) {
         runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", null) ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM)
 
     fun setThemeMode(m: ThemeMode) { prefs.edit().putString("theme_mode", m.name).apply() }
+    fun kreatSimpleArt() = prefs.getBoolean("kreat_simple_art", false)
+    fun setKreatSimpleArt(on: Boolean) { prefs.edit().putBoolean("kreat_simple_art", on).apply() }
     /** Two players at a table, facing each other: the screen turns round for Player 2. */
     /** Pinned games, in the order they were pinned (up to 16). */
     fun favorites(): List<com.puresudoku.core.GameKind> =

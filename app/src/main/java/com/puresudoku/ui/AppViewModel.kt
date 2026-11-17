@@ -390,6 +390,10 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
 
     private fun attach(s: Session, slot: Int) {
         (s as? com.puresudoku.ui.games.board.CratebargeSession)?.loadProfile(repo.crateProfile())
+        (s as? com.puresudoku.ui.games.board.CyvasseSession)?.let { kreat ->
+            kreat.simpleArt = repo.kreatSimpleArt()
+            kreat.onArtChanged = repo::setKreatSimpleArt
+        }
         s.onChanged = ::persist
         s.onFinished = ::onFinished
         session = s

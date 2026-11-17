@@ -205,7 +205,7 @@ object CyvassePlacement {
         for (k in 1..3) g.toggleMountain(side, tile(m(layout[k]), side))
         for (k in 4..6) g.toggleTerrain(side, Cyvasse.FOREST, tile(m(layout[k]), side))
         g.placer = old
-        // should a layout not fit (it always does on a fresh field), fall back to a random one
+        // Older learned layouts may use the wrong grass color; fall back to a legal placement.
         if (!g.setupDone(side)) place(g, side, FLAT, 1.0, kotlin.random.Random(layout.sum()))
     }
 
@@ -213,8 +213,8 @@ object CyvassePlacement {
     fun tile(i: Int, side: Int): Int { val c = TILES[i]; return if (side == 0) c else (Cyvasse.H - 1 - Cyvasse.row(c)) * Cyvasse.W + Cyvasse.col(c) }
 
     /** Picks a free slot for [item], weighted by preference (softmax at [temperature]). */
-    private fun pick(g: Cyvasse, side: Int, prefs: DoubleArray, temperature: Double, rnd: Random): Int? {
-        val free = TILES.indices.filter { val c = tile(it, side); g.board[c] == 0 && g.block[c] == 0 && g.terrain[c] == Cyvasse.PLAIN }
+    private fun pick(g: Cyvasse, side: Int, item: Int, prefs: DoubleArray, temperature: Double, rnd: Random): Int? {
+        val free = TILES.indices.filter { val c = tile(it, side); g.board[c] == 0 && g.block[c] == 0 && g.terrain[c] == Cyvasse.PLAIN && (item != MOUNTAIN || Cyvasse.lightGrass(c)) && (item != FOREST || !Cyvasse.lightGrass(c)) }
         if (free.isEmpty()) return null
         val top = free.maxOf { prefs[it] }
         val w = free.map { kotlin.math.exp((prefs[it] - top) / temperature) }
@@ -228,8 +228,8 @@ object CyvassePlacement {
         val old = g.placer; g.placer = side; g.clearSetup(side)
         // slot 0 once held a fortress; there are none now, so it stays empty
         val chosen = arrayListOf(-1)
-        repeat(Cyvasse.MOUNTAINS) { pick(g, side, prefs[MOUNTAIN], temperature, rnd)?.let { g.toggleMountain(side, tile(it, side)); chosen += it } }
-        repeat(Cyvasse.FORESTS_PER_SIDE) { pick(g, side, prefs[FOREST], temperature, rnd)?.let { g.toggleTerrain(side, Cyvasse.FOREST, tile(it, side)); chosen += it } }
+        repeat(Cyvasse.MOUNTAINS) { pick(g, side, MOUNTAIN, prefs[MOUNTAIN], temperature, rnd)?.let { g.toggleMountain(side, tile(it, side)); chosen += it } }
+        repeat(Cyvasse.FORESTS_PER_SIDE) { pick(g, side, FOREST, prefs[FOREST], temperature, rnd)?.let { g.toggleTerrain(side, Cyvasse.FOREST, tile(it, side)); chosen += it } }
         g.placer = old
         return chosen.toIntArray()
     }

@@ -106,6 +106,10 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
     var showReserve by mutableStateOf(false)
     var moveId by mutableIntStateOf(0); private set
     var rangedMode by mutableStateOf(true)
+    /** Device-local visual preference; it is not part of the online game state. */
+    var simpleArt by mutableStateOf(false)
+    var onArtChanged: (Boolean) -> Unit = {}
+    fun toggleArt() { simpleArt = !simpleArt; onArtChanged(simpleArt) }
     /** A new game first asks which field to play: the standard layout, or an open field each side sets up. */
     var fieldChosen by mutableStateOf(false)
     /** The choice is offered before the first move of a fresh game, except in training and online. */
@@ -197,13 +201,13 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
         when (tool) {
             TOOL_WATER, TOOL_FOREST -> {
                 val t = if (tool == TOOL_WATER) Cyvasse.WATER else Cyvasse.FOREST
-                if (!g.toggleTerrain(p, t, c)) { nudge("Forests go on an empty grass tile of your half: three of them. Tap one to lift it"); return }
+                if (!g.toggleTerrain(p, t, c)) { nudge("Forests go on empty green grass on your half. Tap a forest to lift it"); return }
                 if (g.terrainPlaced(p, Cyvasse.FOREST) == Cyvasse.FORESTS_PER_SIDE && g.setupDone(p)) message = "All set: press Ready, or tap a tile to change it"
             }
             TOOL_MOUNTAIN -> {
                 if (g.block[c] == Cyvasse.MOUNTAIN) { g.toggleMountain(p, c); bump(); changed(); return }
                 if (g.mountainsPlaced(p) >= Cyvasse.MOUNTAINS) { nudge("All three mountains are set: tap one to lift it"); return }
-                if (!g.toggleMountain(p, c)) { nudge("Mountains go on an empty grass tile of your half"); return }
+                if (!g.toggleMountain(p, c)) { nudge("Mountains go on empty white grass on your half"); return }
                 if (g.mountainsPlaced(p) == Cyvasse.MOUNTAINS) {
                     if (g.terrainPlaced(p, Cyvasse.FOREST) < Cyvasse.FORESTS_PER_SIDE) { tool = TOOL_FOREST; message = "Now plant 3 forests" }
                 }
@@ -457,8 +461,30 @@ object CyvasseDef : GameDef {
 // Flat and quiet: plain coloured tiles, and every piece, mountain, tree and keep drawn as a simple shape.
 
 @Composable
-private fun cyvasseArt(type: Int, side: Int): ImageBitmap {
-    val id = if (side == 0) when (type) {
+private fun cyvasseArt(type: Int, side: Int, simple: Boolean = false): ImageBitmap {
+    val id = if (simple && side == 0) when (type) {
+        Cyvasse.RABBLE -> com.puresudoku.R.drawable.kreat_simple_ivory_rabble
+        Cyvasse.SPEARMAN -> com.puresudoku.R.drawable.kreat_simple_ivory_spearman
+        Cyvasse.CROSSBOW -> com.puresudoku.R.drawable.kreat_simple_ivory_crossbowman
+        Cyvasse.LIGHT_HORSE -> com.puresudoku.R.drawable.kreat_simple_ivory_light_horse
+        Cyvasse.HEAVY_HORSE -> com.puresudoku.R.drawable.kreat_simple_ivory_heavy_horse
+        Cyvasse.ELEPHANT -> com.puresudoku.R.drawable.kreat_simple_ivory_elephant
+        Cyvasse.CATAPULT -> com.puresudoku.R.drawable.kreat_simple_ivory_catapult
+        Cyvasse.TREBUCHET -> com.puresudoku.R.drawable.kreat_simple_ivory_trebuchet
+        Cyvasse.DRAGON -> com.puresudoku.R.drawable.kreat_simple_ivory_dragon
+        else -> com.puresudoku.R.drawable.kreat_simple_ivory_king
+    } else if (simple) when (type) {
+        Cyvasse.RABBLE -> com.puresudoku.R.drawable.kreat_simple_onyx_rabble
+        Cyvasse.SPEARMAN -> com.puresudoku.R.drawable.kreat_simple_onyx_spearman
+        Cyvasse.CROSSBOW -> com.puresudoku.R.drawable.kreat_simple_onyx_crossbowman
+        Cyvasse.LIGHT_HORSE -> com.puresudoku.R.drawable.kreat_simple_onyx_light_horse
+        Cyvasse.HEAVY_HORSE -> com.puresudoku.R.drawable.kreat_simple_onyx_heavy_horse
+        Cyvasse.ELEPHANT -> com.puresudoku.R.drawable.kreat_simple_onyx_elephant
+        Cyvasse.CATAPULT -> com.puresudoku.R.drawable.kreat_simple_onyx_catapult
+        Cyvasse.TREBUCHET -> com.puresudoku.R.drawable.kreat_simple_onyx_trebuchet
+        Cyvasse.DRAGON -> com.puresudoku.R.drawable.kreat_simple_onyx_dragon
+        else -> com.puresudoku.R.drawable.kreat_simple_onyx_king
+    } else if (side == 0) when (type) {
         Cyvasse.RABBLE -> com.puresudoku.R.drawable.cyvasse_ivory_rabble
         Cyvasse.SPEARMAN -> com.puresudoku.R.drawable.cyvasse_ivory_spearman
         Cyvasse.CROSSBOW -> com.puresudoku.R.drawable.cyvasse_ivory_crossbowman
@@ -589,6 +615,26 @@ private fun DrawScope.emblem(type: Int, ink: Color, face: Color, r: Rect, alpha:
     }
 }
 
+/** Quiet symbols sit on the grass rather than replacing the whole square. */
+private fun DrawScope.simpleWater(r: Rect) = inBox(r) {
+    for (y in listOf(36f, 52f, 68f)) {
+        val wave = p { moveTo(12f, y); cubicTo(24f, y - 8f, 32f, y + 8f, 44f, y); cubicTo(56f, y - 8f, 64f, y + 8f, 76f, y); quadraticTo(83f, y - 5f, 90f, y) }
+        drawPath(wave, Color(0xFF527FA0), alpha = 0.9f, style = Stroke(5f, cap = StrokeCap.Round))
+    }
+}
+
+private fun DrawScope.simpleForest(r: Rect) = inBox(r) {
+    val canopy = p { moveTo(18f, 72f); quadraticTo(8f, 66f, 15f, 54f); quadraticTo(8f, 39f, 23f, 34f); quadraticTo(25f, 21f, 41f, 24f); quadraticTo(52f, 12f, 63f, 25f); quadraticTo(79f, 22f, 80f, 36f); quadraticTo(94f, 42f, 87f, 54f); quadraticTo(94f, 68f, 82f, 73f); close() }
+    drawPath(canopy, Color(0xFF567354), alpha = 0.72f)
+    drawPath(canopy, Color(0xFF3C573F), alpha = 0.85f, style = Stroke(3f))
+}
+
+private fun DrawScope.simpleMountain(r: Rect) = inBox(r) {
+    val mountain = p { moveTo(15f, 79f); lineTo(50f, 20f); lineTo(85f, 79f); close() }
+    drawPath(mountain, Color(0xFFF8F6EF), alpha = 0.95f)
+    drawPath(mountain, Color(0xFF777D79), style = Stroke(4f))
+}
+
 /** A mountain: two plain peaks. */
 private fun DrawScope.mountainShape(r: Rect) = inBox(r) {
     drawPath(p { moveTo(8f, 84f); lineTo(38f, 26f); lineTo(58f, 62f); lineTo(70f, 44f); lineTo(94f, 84f); close() }, Color(0xFF8F887C))
@@ -637,8 +683,8 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
     val forestArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_forest)
     val mountainArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_mountain)
     val keepArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_keep)
-    val ivoryArt = Cyvasse.TYPES.map { cyvasseArt(it, 0) }
-    val onyxArt = Cyvasse.TYPES.map { cyvasseArt(it, 1) }
+    val ivoryArt = Cyvasse.TYPES.map { cyvasseArt(it, 0, s.simpleArt) }
+    val onyxArt = Cyvasse.TYPES.map { cyvasseArt(it, 1, s.simpleArt) }
     // The whole canvas is the field: each visible tile is also its full tap target.
     Canvas(modifier.aspectRatio(nw.toFloat() / nh).then(if (onTap != null) Modifier.pointerInput(s) {
         detectTapGestures { o ->
@@ -660,11 +706,20 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
         for (c in 0 until Cyvasse.CELLS) {
             val r = rectOf(c)
             val mountain = g.block[c] == Cyvasse.MOUNTAIN && !hidden(c)
-            val tile = when { mountain -> mountainArt; g.terrain[c] == Cyvasse.WATER -> waterArt; g.terrain[c] == Cyvasse.FOREST -> forestArt; else -> null }
-            // open ground alternates grass and parchment, like a chequered board
-            if (tile != null) paintCyvasse(tile, r)
-            else if ((Cyvasse.row(c) + Cyvasse.col(c)) % 2 == 0) paintCyvasse(grassArt, r)
-            else paintCyvasse(parchmentArt, r)
+            if (s.simpleArt) {
+                val base = if (Cyvasse.lightGrass(c)) Color(0xFFEDE3D0) else Color(0xFF92A675)
+                drawRect(base, r.topLeft, r.size)
+                when {
+                    mountain -> simpleMountain(r)
+                    g.terrain[c] == Cyvasse.WATER -> simpleWater(r)
+                    g.terrain[c] == Cyvasse.FOREST -> simpleForest(r)
+                }
+            } else {
+                val tile = when { mountain -> mountainArt; g.terrain[c] == Cyvasse.WATER -> waterArt; g.terrain[c] == Cyvasse.FOREST -> forestArt; else -> null }
+                if (tile != null) paintCyvasse(tile, r)
+                else if (!Cyvasse.lightGrass(c)) paintCyvasse(grassArt, r)
+                else paintCyvasse(parchmentArt, r)
+            }
         }
         for (k in 0..nw) drawLine(Color.Black.copy(alpha = 0.35f), Offset(margin + k * cs, marginY), Offset(margin + k * cs, marginY + boardH), 1f)
         for (k in 0..nh) drawLine(Color.Black.copy(alpha = 0.35f), Offset(margin, marginY + k * cs), Offset(margin + boardW, marginY + k * cs), 1f)
@@ -744,8 +799,8 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
 
 /** One small piece token, for the reserve tray and the captured row. */
 @Composable
-private fun PieceChip(type: Int, side: Int, size: Dp) {
-    val art = cyvasseArt(type, side)
+private fun PieceChip(type: Int, side: Int, size: Dp, simple: Boolean = false) {
+    val art = cyvasseArt(type, side, simple)
     Canvas(Modifier.size(size)) { paintCyvasse(art, Rect(0f, 0f, this.size.width, this.size.height)) }
 }
 
@@ -770,15 +825,19 @@ fun CyvasseUi(s: CyvasseSession) {
         // edge to edge on a phone; on a wide screen (tablet, unfolded foldable) as tall as fits, leaving room for the side rows and the turn banner
         val big = minOf(maxWidth, ((maxHeight - 150.dp) * (Cyvasse.W.toFloat() / Cyvasse.H)).coerceAtLeast(240.dp))
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (setup) {
-                if (g.openField) androidx.compose.foundation.Image(
-                    androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.kreat_logo_open_field), "Kreat: Open Field",
-                    Modifier.width(big * 0.72f).padding(vertical = 4.dp),
-                )
-                Label(if (s.localTwoPlayer || s.online) "${Cyvasse.sideName(g.placer)}: set up behind the screen" else "You are Alabaster: set up behind the screen")
-            } else {
-                // the rival's side of the table: what it has left unseen, and what it has taken
-                SideRow(s, foe, Modifier.width(big))
+            if (setup && g.openField) androidx.compose.foundation.Image(
+                androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.kreat_logo_open_field), "Kreat: Open Field",
+                Modifier.width(big * 0.72f).padding(vertical = 4.dp),
+            )
+            Row(Modifier.width(big), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    if (setup) {
+                        Label(if (s.localTwoPlayer || s.online) "${Cyvasse.sideName(g.placer)}: set up behind the screen" else "Set up behind the screen")
+                    } else SideRow(s, foe, Modifier.fillMaxWidth())
+                }
+                androidx.compose.material3.FilledTonalButton(onClick = s::toggleArt, modifier = Modifier.padding(start = 4.dp)) {
+                    Text(if (s.simpleArt) "Art: Simple" else "Art: Painted", fontSize = 12.sp)
+                }
             }
             Box(Modifier.width(big).tableUpright()) {
                 CyvasseBoard(s, Modifier.fillMaxWidth(), onTap = { s.tap(it) })
@@ -804,7 +863,7 @@ fun CyvasseUi(s: CyvasseSession) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (t in Cyvasse.PROMOTIONS) Column(Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
                             .clickable { s.promote(t) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            PieceChip(t, g.turn, 40.dp)
+                            PieceChip(t, g.turn, 40.dp, s.simpleArt)
                             Text(Cyvasse.NAMES[t], fontSize = 10.sp)
                         }
                     }
@@ -835,7 +894,7 @@ private fun SideRow(s: CyvasseSession, side: Int, modifier: Modifier) {
         val taken = Cyvasse.TYPES.filter { g.captured[side][it] > 0 }
         if (taken.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
             for (t in taken.sortedByDescending { Cyvasse.VALUE[it] }.take(6)) {
-                PieceChip(t, 1 - side, 20.dp)
+                PieceChip(t, 1 - side, 20.dp, s.simpleArt)
                 if (g.captured[side][t] > 1) Text("${g.captured[side][t]}", fontSize = 10.sp)
             }
             if (taken.size > 6) Text("+", fontSize = 11.sp)
@@ -858,7 +917,7 @@ private fun PieceTray(s: CyvasseSession, side: Int, modifier: Modifier) {
             Row(Modifier.clip(RoundedCornerShape(50)).background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)).clickable { s.pickReserve(t) }.padding(start = 2.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                PieceChip(t, side, 28.dp)
+                PieceChip(t, side, 28.dp, s.simpleArt)
                 Spacer(Modifier.width(2.dp))
                 Text("×$n", fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
                     color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
@@ -922,7 +981,7 @@ private fun FieldChoice(s: CyvasseSession, modifier: Modifier) {
     Column(modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Choose the field", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Standard: the same layout every game. Open field: the armies and the river stay, and each side places its own 3 mountains and 3 forests behind a screen. Oops no terrain: no terrain at all, not even the river.",
+        Text("Standard: the same layout every game. Open field: the armies and river stay. Each side places 3 mountains on white grass and 3 forests on green grass behind a screen. Oops no terrain: no terrain at all, not even the river.",
             fontSize = 13.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
