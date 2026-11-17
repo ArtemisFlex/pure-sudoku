@@ -484,8 +484,6 @@ private val GRASS_A = Color(0xFFE4E8CF)
 private val GRASS_B = Color(0xFFD8DEBF)
 private val WATER_TILE = Color(0xFFA9CCDD)
 private val FOREST_TILE = Color(0xFFC3D3A6)
-private val PARCHMENT = Color(0xFFE9DBB8)
-private val PARCHMENT_SHADE = Color(0xFFC9B48A).copy(alpha = 0.55f)
 private val MOUNTAIN_TILE = Color(0xFFD3CEC3)
 private val IVORY = Color(0xFFF7F1E3)
 private val IVORY_INK = Color(0xFF4A3F33)
@@ -624,6 +622,8 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
     val me = s.viewer
     val setup = g.phase == Cyvasse.SETUP
     val grassArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_grass)
+    // the grass tile recoloured to the ivory of the white pieces
+    val parchmentArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_parchment)
     val waterArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_water)
     val forestArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_forest)
     val mountainArt = ImageBitmap.imageResource(com.puresudoku.R.drawable.cyvasse_mountain)
@@ -655,7 +655,7 @@ fun CyvasseBoard(s: CyvasseSession, modifier: Modifier = Modifier, onTap: ((Int)
             // open ground alternates grass and parchment, like a chequered board
             if (tile != null) paintCyvasse(tile, r)
             else if ((Cyvasse.row(c) + Cyvasse.col(c)) % 2 == 0) paintCyvasse(grassArt, r)
-            else { drawRect(PARCHMENT, r.topLeft, r.size); drawRect(PARCHMENT_SHADE, r.topLeft, r.size, style = Stroke(cs * 0.04f)) }
+            else paintCyvasse(parchmentArt, r)
         }
         for (k in 0..nw) drawLine(Color.Black.copy(alpha = 0.35f), Offset(margin + k * cs, marginY), Offset(margin + k * cs, marginY + boardH), 1f)
         for (k in 0..nh) drawLine(Color.Black.copy(alpha = 0.35f), Offset(margin, marginY + k * cs), Offset(margin + boardW, marginY + k * cs), 1f)
