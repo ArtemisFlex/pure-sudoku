@@ -81,14 +81,24 @@ fun HubScreen(vm: AppViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(28.dp))
-            TwoPlayerCard(vm)
-            Spacer(Modifier.height(14.dp))
-            // Strategy games lead the list; the rest keep their usual order.
+            // the collections as a grid: two side by side on a phone, more on wider screens
+            val cards = ArrayList<@Composable (Modifier) -> Unit>()
+            cards += { m -> TwoPlayerCard(vm, m) }
             (GameCategory.entries.filter { it != GameCategory.STRATEGY } + GameCategory.STRATEGY).forEachIndexed { idx, cat ->
                 val games = Games.all.filter { it.kind.category == cat }
-                if (games.isNotEmpty()) CategoryCard(vm, cat, games, idx + 1)
-                Spacer(Modifier.height(14.dp))
+                if (games.isNotEmpty()) cards += { m -> CategoryCard(vm, cat, games, idx + 1, m) }
             }
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.widthIn(max = 1100.dp).fillMaxWidth()) {
+                val gap = 12.dp
+                val cols = ((maxWidth + gap) / (220.dp + gap)).toInt().coerceIn(2, 4)
+                Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                    for (row in cards.chunked(cols)) Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        for (card in row) card(Modifier.weight(1f))
+                        repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
             if (vm.backupFolderName == null) BackupNudge(vm) { showAppearance = true }
         }
         IconButton(
@@ -165,32 +175,36 @@ fun SettingsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun CategoryCard(vm: AppViewModel, cat: GameCategory, games: List<GameDef>, index: Int) {
+private fun CategoryCard(vm: AppViewModel, cat: GameCategory, games: List<GameDef>, index: Int, modifier: Modifier) {
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) { delay(150L + index * 90L); enter.animateTo(1f, spring(0.7f, Spring.StiffnessMediumLow)) }
     val saved = games.sumOf { g -> vm.slots[g.kind]?.count { it != null } ?: 0 }
     Surface(
         onClick = { vm.openCategory(cat) },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().graphicsLayer {
+        modifier = modifier.height(CARD_HEIGHT).graphicsLayer {
             alpha = enter.value.coerceIn(0f, 1f)
             translationY = (1f - enter.value) * 60.dp.toPx()
         },
     ) {
-        Column(Modifier.padding(20.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (g in games.take(5)) g.Icon(46.dp)
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(cat.title, style = MaterialTheme.typography.headlineSmall)
-            Text(cat.blurb, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "${games.size} game${if (games.size == 1) "" else "s"}" + if (saved > 0) " · $saved saved" else "",
-                fontSize = 12.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
-            )
-        }
+        CollectionCardBody(games.take(3), cat.title, cat.blurb, "${games.size} game${if (games.size == 1) "" else "s"}" + if (saved > 0) " · $saved saved" else "")
+    }
+}
+
+private val CARD_HEIGHT = 150.dp
+
+/** A collection on the home grid: three of its games, its name, a short line about it, and a count. */
+@Composable
+private fun CollectionCardBody(games: List<GameDef>, title: String, blurb: String, count: String) {
+    Column(Modifier.fillMaxSize().padding(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { for (g in games) g.Icon(32.dp) }
+        Spacer(Modifier.height(10.dp))
+        Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(blurb, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Spacer(Modifier.weight(1f))
+        Text(count, fontSize = 11.sp, letterSpacing = 0.8.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
     }
 }
 
@@ -198,34 +212,21 @@ private val twoPlayerGames get() = Games.all.filter { it.kind in com.puresudoku.
 
 /** The Two Players collection: every game two people can play, from board games to strategy. */
 @Composable
-private fun TwoPlayerCard(vm: AppViewModel) {
+private fun TwoPlayerCard(vm: AppViewModel, modifier: Modifier) {
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) { delay(150L); enter.animateTo(1f, spring(0.7f, Spring.StiffnessMediumLow)) }
     val games = twoPlayerGames
     Surface(
         onClick = vm::openTwoPlayer,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().graphicsLayer {
+        modifier = modifier.height(CARD_HEIGHT).graphicsLayer {
             alpha = enter.value.coerceIn(0f, 1f)
             translationY = (1f - enter.value) * 60.dp.toPx()
         },
     ) {
-        Column(Modifier.padding(20.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val show = listOf(com.puresudoku.core.GameKind.CHESS, com.puresudoku.core.GameKind.CRAZY_EIGHTS, com.puresudoku.core.GameKind.GO,
-                    com.puresudoku.core.GameKind.BACKGAMMON, com.puresudoku.core.GameKind.TIC_TAC_TOE)
-                for (k in show) Games.of(k).Icon(46.dp)
-            }
-            Spacer(Modifier.height(14.dp))
-            Text("Two Players", style = MaterialTheme.typography.headlineSmall)
-            Text("Play a friend on one device or online · Board · Card · Strategy", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "${games.size} games", fontSize = 12.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
+        val show = listOf(com.puresudoku.core.GameKind.CHESS, com.puresudoku.core.GameKind.CRAZY_EIGHTS, com.puresudoku.core.GameKind.GO).map { Games.of(it) }
+        CollectionCardBody(show, "Two Players", "Play a friend on one device or online", "${games.size} games")
     }
 }
 
