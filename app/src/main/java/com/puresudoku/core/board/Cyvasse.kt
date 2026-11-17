@@ -35,7 +35,7 @@ class Cyvasse {
         /** How many of each piece a side has (index = type). */
         val ARMY = intArrayOf(0, 6, 2, 2, 2, 2, 2, 1, 1, 1, 1)
         val ARMY_SIZE = ARMY.sum()
-        /** What each player sets on their own half in an open-field game (with their fortress). */
+        /** What each player sets on their own half in an open-field game. */
         const val MOUNTAINS = 3
         const val WATERS = 0; const val FORESTS_PER_SIDE = 3
 
@@ -47,9 +47,9 @@ class Cyvasse {
             "Leaps one or two tiles diagonally, over pieces, and takes by landing. Water doesn't hold it.",
             "Rides up to three tiles diagonally; pieces block it and water ends the ride. Anything but a rabble can take it.",
             "Moves one tile any way. Only kings, dragons, heavy horses, elephants, catapults and trebuchets can take it.",
-            "Steps one tile straight. Shoots any distance diagonally at the first piece in line. Never enters a fortress.",
-            "Steps one tile straight. Shoots any distance straight at the first piece in line. Never enters a fortress.",
-            "Flies any distance in a line over water, forest and mountains, and may land on a mountain; pieces and fortresses stop it. Cannot attack into forests. Its attack brings a fortress down and takes the piece inside, unless it's a king.",
+            "Steps one tile straight. Shoots any distance diagonally at the first piece in line.",
+            "Steps one tile straight. Shoots any distance straight at the first piece in line.",
+            "Flies any distance in a line over water, forest and mountains, and may land on a mountain; pieces stop it. Cannot attack into forests.",
             "Moves one tile any way and can take any piece. It can never be left in check; checkmate ends the game.")
         /** Rough worth of each piece, for the computer and the coach. */
         val VALUE = intArrayOf(0, 10, 22, 26, 28, 34, 40, 44, 46, 90, 0)
@@ -59,7 +59,7 @@ class Cyvasse {
 
         fun newSetup(): Cyvasse = Cyvasse().also { it.terrain.fill(PLAIN) }
 
-        /** An open-field game: the standard armies and the river, with each player placing their own mountains, forests and fortress. */
+        /** An open-field game: the standard armies and the river, with each player placing their own mountains and forests. */
         fun openField(): Cyvasse = standard().also { it.startOpenField() }
 
         /**
@@ -71,11 +71,11 @@ class Cyvasse {
             "T H L S D K S L H C",
             "E X R R R R R R X E",
             ". . . . . . . . . .",
-            "F . . . . . . . . f",
+            ". . . . . . . . . f",
             "M f . . M f . . . f",
             "~ ~ ~ ~ ~ ~ ~ ~ ~ ~",
             "f f . . f M . . . M",
-            "F . . . . . . . . f",
+            ". . . . . . . . . f",
             ". . . . . . . . . .",
             "E X R R R R R R X E",
             "T H L S D K S L H C")
@@ -337,7 +337,7 @@ class Cyvasse {
         keepAt[side] = -1
     }
 
-    fun setupDone(side: Int) = keepAt[side] >= 0 && mountainsPlaced(side) == MOUNTAINS &&
+    fun setupDone(side: Int) = mountainsPlaced(side) == MOUNTAINS &&
         terrainPlaced(side, WATER) == WATERS && terrainPlaced(side, FOREST) == FORESTS_PER_SIDE && reserveCount(side) == 0
 
     /** Random complete setup: terrain, fortress and (if any wait in reserve) the army. */
@@ -348,7 +348,6 @@ class Cyvasse {
         repeat(WATERS) { toggleTerrain(side, WATER, cells[i++]) }
         repeat(FORESTS_PER_SIDE) { toggleTerrain(side, FOREST, cells[i++]) }
         repeat(MOUNTAINS) { toggleMountain(side, cells[i++]) }
-        placeKeep(side, cells[i++])
         val open = cells.filter { block[it] != MOUNTAIN && block[it] != KEEP }.shuffled(rnd)
         val army = TYPES.flatMap { t -> List(ARMY[t]) { t } }
         for ((t, c) in army.zip(open)) standPiece(side, t, c)
@@ -378,12 +377,11 @@ class Cyvasse {
     private fun isSiege(type: Int) = type == CATAPULT || type == TREBUCHET
 
     /**
-     * Whether the piece on [from] may capture the piece on [target]. Never your own. A piece in a forest can't attack
-     * at all, and one in a forest can't be hit by catapults, trebuchets or dragons (others may still land on it).
+     * Whether the piece on [from] may capture the piece on [target]. Never your own. A piece in a forest can't be hit
+     * by catapults, trebuchets or dragons (others may still land on it, and it attacks normally from there).
      */
     fun canTake(from: Int, target: Int): Boolean {
         if (board[from] == 0 || board[target] == 0 || ownerOf(board[from]) == ownerOf(board[target])) return false
-        if (terrain[from] == FOREST) return false
         val attacker = typeOf(board[from])
         if (terrain[target] == FOREST && (attacker == CATAPULT || attacker == TREBUCHET || attacker == DRAGON)) return false
         return beats(attacker, typeOf(board[target]))
@@ -504,8 +502,7 @@ class Cyvasse {
                     if (block[t] != 0 || board[t] != 0 || back(t)) continue
                     out.add(mv(K_MOVE, from, t, from))
                 }
-                // shots: any distance, diagonally (catapult) or straight (trebuchet), at the first piece in line; not from a forest
-                if (terrain[from] == FOREST) return
+                // shots: any distance, diagonally (catapult) or straight (trebuchet), at the first piece in line
                 for (d in if (type == CATAPULT) DIAG else ORTHO) {
                     var r = r0; var c = c0
                     while (true) {
@@ -627,7 +624,8 @@ class Cyvasse {
                     // promoted, or having touched the enemy's back row: free to move back again
                     promoted[destination] = if (kind == K_PROMO || row(destination) == promotionRow(s)) 1 else wasPromoted
                     crossed[destination] = if (wasCrossed == 1 || inHalf(1 - s, destination)) 1 else 0
-                    waterWait[destination] = if (terrain[destination] == WATER && typeOf(moving) != DRAGON && typeOf(moving) != LIGHT_HORSE) 1 else 0
+                    // water ends a move, but no longer holds the piece for a turn
+                    waterWait[destination] = 0
                 }
             }
         }

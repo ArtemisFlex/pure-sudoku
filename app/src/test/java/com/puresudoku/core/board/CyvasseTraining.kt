@@ -173,7 +173,7 @@ class CyvasseTraining {
 
     private fun slots(g: Cyvasse, side: Int, chosen: IntArray) {
         val old = g.placer; g.placer = side; g.clearSetup(side)
-        g.placeKeep(side, CyvassePlacement.tile(chosen[0], side))
+        if (chosen[0] >= 0) g.placeKeep(side, CyvassePlacement.tile(chosen[0], side))
         for (k in 1..3) g.toggleMountain(side, CyvassePlacement.tile(chosen[k], side))
         for (k in 4..6) g.toggleTerrain(side, Cyvasse.FOREST, CyvassePlacement.tile(chosen[k], side))
         g.placer = old

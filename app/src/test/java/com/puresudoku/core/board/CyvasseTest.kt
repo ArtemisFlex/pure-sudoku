@@ -54,7 +54,8 @@ class CyvasseTest {
             assertEquals(typeOf(g.board[at(10, c)]), typeOf(g.board[at(0, c)]))
             assertEquals(typeOf(g.board[at(9, c)]), typeOf(g.board[at(1, c)]))
         }
-        assertEquals(at(7, 0), g.keepAt[0]); assertEquals(at(3, 0), g.keepAt[1])
+        // no fortresses on the field
+        assertEquals(-1, g.keepAt[0]); assertEquals(-1, g.keepAt[1]); assertTrue((0 until Cyvasse.CELLS).none { g.block[it] == KEEP })
         assertEquals(MOUNTAIN, g.block[at(6, 5)]); assertEquals(MOUNTAIN, g.block[at(4, 4)])
         assertEquals(20, g.onBoard(0)); assertEquals(20, g.onBoard(1)); assertEquals(0, g.reserveCount(0))
         assertTrue(g.legalMoves().isNotEmpty())
@@ -139,7 +140,8 @@ class CyvasseTest {
         assertNull(t.move(at(10, 2), at(2, 2), K_RANGED))
         t.board[at(9, 2)] = 0; assertNotNull(t.move(at(10, 2), at(2, 2), K_RANGED)); t.board[at(9, 2)] = piece(0, RABBLE)
         t.board[at(8, 4)] = piece(1, RABBLE); assertNull(t.move(at(10, 2), at(8, 4), K_RANGED))
-        t.board[at(9, 2)] = 0; t.terrain[at(10, 2)] = FOREST; assertNull(t.move(at(10, 2), at(2, 2), K_RANGED)); t.board[at(9, 2)] = piece(0, RABBLE)
+        // it may fire from a forest
+        t.board[at(9, 2)] = 0; t.terrain[at(10, 2)] = FOREST; assertNotNull(t.move(at(10, 2), at(2, 2), K_RANGED)); t.board[at(9, 2)] = piece(0, RABBLE)
         assertEquals(setOf(at(10, 1), at(10, 3)), t.targets(at(10, 2)).filter { t.board[it] == 0 }.toSet())
     }
 
@@ -179,11 +181,11 @@ class CyvasseTest {
     }
 
     @Test fun forestsAreCover() {
-        // a piece in a forest can't attack
+        // a piece in a forest attacks normally
         val g = battle(); g.board[at(8, 4)] = piece(0, SPEARMAN); g.terrain[at(8, 4)] = FOREST; g.board[at(7, 4)] = piece(1, RABBLE)
-        assertNull(g.move(at(8, 4), at(7, 4)))
+        assertNotNull(g.move(at(8, 4), at(7, 4)))
         val x = battle(); x.board[at(8, 4)] = piece(0, CROSSBOW); x.terrain[at(8, 4)] = FOREST; x.board[at(7, 5)] = piece(1, RABBLE)
-        assertNull(x.move(at(8, 4), at(7, 5), K_RANGED))
+        assertNotNull(x.move(at(8, 4), at(7, 5), K_RANGED))
         // siege engines and dragons can't hit a piece in a forest; others can land on it, and a crossbowman can shoot into it
         val t = battle(); t.board[at(10, 2)] = piece(0, TREBUCHET); t.board[at(4, 2)] = piece(1, RABBLE); t.terrain[at(4, 2)] = FOREST
         assertNull(t.move(at(10, 2), at(4, 2), K_RANGED))
@@ -271,9 +273,9 @@ class CyvasseTest {
         for (c in 0 until W) assertEquals(WATER, g.terrain[at(RIVER, c)])
         val h = battle(); for (c in 0 until W) h.terrain[at(RIVER, c)] = WATER
         h.board[at(6, 3)] = piece(0, ELEPHANT)
-        assertTrue(h.play(h.move(at(6, 3), at(5, 3))!!)); assertEquals(1, h.waterWait[at(5, 3)])
-        h.turn = 0; assertTrue(h.legalMoves().none { aOf(it) == at(5, 3) })
-        h.waterWait[at(5, 3)] = 0
+        // wading in ends the move, but the piece isn't held: it goes on next turn
+        assertTrue(h.play(h.move(at(6, 3), at(5, 3))!!)); assertEquals(0, h.waterWait[at(5, 3)])
+        h.turn = 0; assertTrue(h.legalMoves().any { aOf(it) == at(5, 3) })
         assertTrue(h.play(h.move(at(5, 3), at(4, 3))!!)); assertEquals(1, h.crossed[at(4, 3)]); h.turn = 0
         assertNull(h.move(at(4, 3), at(5, 3))); assertNotNull(h.move(at(4, 3), at(4, 4))); assertNotNull(h.move(at(4, 3), at(3, 3)))
         // once it has touched the enemy's back row it may go back again
@@ -293,7 +295,6 @@ class CyvasseTest {
         assertEquals(20, g.onBoard(0)); assertEquals(-1, g.keepAt[0]); assertEquals(0, g.mountainsPlaced(0))
         // only your own half's empty tiles, and only three mountains and three forests
         assertFalse(g.toggleMountain(0, at(3, 3))); assertFalse(g.toggleMountain(0, at(9, 3)))
-        assertTrue(g.placeKeep(0, at(8, 0)))
         for (c in 1..3) assertTrue(g.toggleMountain(0, at(7, c)))
         assertFalse(g.toggleMountain(0, at(7, 6)))
         for (c in 4..6) assertTrue(g.toggleTerrain(0, FOREST, at(6, c)))
@@ -302,8 +303,8 @@ class CyvasseTest {
         CyvasseAi.setup(g, 1, 3, Random(1)); assertTrue(g.setupDone(1)); assertTrue(g.ready(1, coin = true))
         // the screen comes down, and Alabaster moves first whatever the coin says
         assertEquals(BATTLE, g.phase); assertEquals(0, g.turn)
-        assertEquals(3, g.mountainsPlaced(1)); assertTrue(g.keepAt[1] >= 0 && Cyvasse.inHalf(1, g.keepAt[1]))
-        val r = Cyvasse.fromJson(g.toJson()); assertTrue(r.openField); assertEquals(g.keepAt[1], r.keepAt[1])
+        assertEquals(3, g.mountainsPlaced(1)); assertEquals(3, g.terrainPlaced(1, FOREST)); assertEquals(-1, g.keepAt[1])
+        val r = Cyvasse.fromJson(g.toJson()); assertTrue(r.openField); assertEquals(3, r.mountainsPlaced(1))
         assertTrue(g.legalMoves().isNotEmpty())
     }
 

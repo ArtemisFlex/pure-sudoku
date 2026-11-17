@@ -175,7 +175,6 @@ object CyvassePlacement {
     fun placeLayout(g: Cyvasse, side: Int, layout: IntArray, mirror: Boolean) {
         fun m(i: Int) = if (!mirror) i else (i / Cyvasse.W) * Cyvasse.W + (Cyvasse.W - 1 - i % Cyvasse.W)
         val old = g.placer; g.placer = side; g.clearSetup(side)
-        g.placeKeep(side, tile(m(layout[0]), side))
         for (k in 1..3) g.toggleMountain(side, tile(m(layout[k]), side))
         for (k in 4..6) g.toggleTerrain(side, Cyvasse.FOREST, tile(m(layout[k]), side))
         g.placer = old
@@ -200,8 +199,8 @@ object CyvassePlacement {
     /** Sets [side]'s fortress, mountains and forests; returns the chosen slots (fortress first). */
     fun place(g: Cyvasse, side: Int, prefs: Array<DoubleArray>, temperature: Double, rnd: Random): IntArray {
         val old = g.placer; g.placer = side; g.clearSetup(side)
-        val chosen = ArrayList<Int>()
-        pick(g, side, prefs[KEEP], temperature, rnd)?.let { g.placeKeep(side, tile(it, side)); chosen += it }
+        // slot 0 once held a fortress; there are none now, so it stays empty
+        val chosen = arrayListOf(-1)
         repeat(Cyvasse.MOUNTAINS) { pick(g, side, prefs[MOUNTAIN], temperature, rnd)?.let { g.toggleMountain(side, tile(it, side)); chosen += it } }
         repeat(Cyvasse.FORESTS_PER_SIDE) { pick(g, side, prefs[FOREST], temperature, rnd)?.let { g.toggleTerrain(side, Cyvasse.FOREST, tile(it, side)); chosen += it } }
         g.placer = old

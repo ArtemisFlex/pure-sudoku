@@ -93,10 +93,10 @@ object BoardLessons {
             (0..5).map { level ->
                 com.puresudoku.core.board.CyvasseStrategy.forLevel(level).map { "${it.title}: ${it.idea}" + if (it.found.isNotEmpty()) " ${it.found}" else "" } +
                     listOf(
-                        "Pieces in a forest can't attack, and siege engines and dragons can't hit them there.",
+                        "Siege engines and dragons can't hit a piece in a forest: shelter your best pieces there.",
                         "Units across the river can't step back until they've touched the enemy's back row: commit with care.",
                         "Siege engines fire only at the first piece in line: clear the lane first.",
-                        "Keep your king behind its own pieces, or in its fortress, which holds out two attacks (one from a dragon).",
+                        "Keep your king behind its own pieces: there's no fortress to hide in.",
                         "Trade pieces when you're ahead: a stalemate goes to whoever has taken more.",
                         "Combine the plans: a dragon in the enemy half opens lanes for your siege engines and checks for your horses.",
                     )[level]

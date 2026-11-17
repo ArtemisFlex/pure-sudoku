@@ -34,7 +34,7 @@ enum class CyvasseStrategy(val title: String, val level: Int, val idea: String, 
         "Fight for the river. Whoever holds the crossing decides where the battle is fought: take enemies as they wade in, since water holds a piece for a turn.",
         "In self-play both sides fought at the river about seven times a game; winners slightly more (54%)."),
     VOLLEY("Lady Ysolde's Bolts", 1,
-        "Post crossbowmen on open ground where enemies must pass, and shoot the one that steps diagonally beside them. Never from a forest.",
+        "Post crossbowmen where enemies must pass, and shoot the one that steps diagonally beside them. A forest hides your crossbowman from siege engines and dragons.",
         "Rare in self-play (once every five games) and even between winners and losers: a crossbowman's shot is a chance to take, not a plan to build on."),
     SPEAR("Tarn Spearbreaker", 1,
         "Spearmen strike two tiles away in any direction. Lead with them and break the enemy line where it is thinnest.",
@@ -49,13 +49,10 @@ enum class CyvasseStrategy(val title: String, val level: Int, val idea: String, 
         "When your king is in check, answer with another piece: block the line or take the attacker, and keep the king where it stands.",
         "Even in self-play (0.6 a game for both): it saves the game, but doesn't win it on its own."),
     PEACE("King Osric's Peace", 3,
-        "Strengthen before you strike: bring pieces in beside your king, or tuck it into its fortress, so the rival's attack finds nothing loose.",
+        "Strengthen before you strike: bring pieces in beside your king, so the rival's attack finds nothing loose.",
         "A warning from self-play: losers sheltered their king 11.2 times a game, winners 8.4. Shelter when you must, then get back to the attack."),
-    STRONGHOLD("Calder at Greyhold", 4,
-        "A dragon's fire brings a fortress down at once and takes the piece inside, unless it's a king. Use your dragon to break the enemy's stronghold.",
-        "Rare in self-play: fortresses are usually already empty or fallen by the time a dragon gets there. Strike early."),
     RAID("Seren the Young Flame", 4,
-        "Fly your dragon into the enemy's half and take what it finds. Keep its lines open: pieces and fortresses stop it, mountains don't.",
+        "Fly your dragon into the enemy's half and take what it finds. Keep its lines open: pieces stop it, mountains don't.",
         "In self-play winners made dragon raids 1.0 times a game, losers 0.8 (56%)."),
     THORN("Ilsa's Thorn", 5,
         "Strike at the king. Every check forces an answer and gains you a move; checks that also take a piece or close the king's escape lead to mate.",
@@ -73,7 +70,6 @@ enum class CyvasseStrategy(val title: String, val level: Int, val idea: String, 
             val after = g.copy(); after.play(m, check = false, settle = false)
             val wasInCheck = g.inCheck(side)
             return when {
-                type == DRAGON && victim != null && g.fortAt(b) >= 0 -> STRONGHOLD
                 kind == K_PROMO || (type == RABBLE && g.progress(side, b) >= Cyvasse.H - 3) -> CROWN
                 after.phase == Cyvasse.OVER && after.winner == side || after.inCheck(1 - side) -> THORN
                 wasInCheck && type != KING -> SHIELD
@@ -83,7 +79,7 @@ enum class CyvasseStrategy(val title: String, val level: Int, val idea: String, 
                 type == SPEARMAN && victim != null -> SPEAR
                 (type == LIGHT_HORSE || type == HEAVY_HORSE) && (victim != null || nearKing(g, 1 - side, b)) -> CHARGE
                 row(b) == RIVER && (victim != null || type != RABBLE) -> FORD
-                victim == null && (type == KING && g.fortAt(b) >= 0 || type != KING && nearKing(g, side, b) && !nearKing(g, side, a)) -> PEACE
+                victim == null && (type != KING && nearKing(g, side, b) && !nearKing(g, side, a)) -> PEACE
                 else -> null
             }
         }
