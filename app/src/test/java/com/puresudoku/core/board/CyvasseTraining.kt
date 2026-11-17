@@ -73,6 +73,12 @@ class CyvasseTraining {
             "tune" -> tune()
             "place" -> place()
             "learnplace" -> learnPlace()
+            "retrain" -> retrain()
+            "sniper" -> sniper()
+            "cmp" -> {
+                val strong = CyvasseEval.TRAINED.copyOf().also { it[CyvasseEval.SHOT_AT] = it[CyvasseEval.SHOT_AT] * 3; it[CyvasseEval.SIEGE_HUNT] = it[CyvasseEval.SIEGE_HUNT] * 2 }
+                log("stronger siege awareness vs trained: " + mixedMatch(strong, CyvasseEval.TRAINED, 150, AiLevel(2, 100_000, noise = 6, quiescence = true), 800_000))
+            }
             "layouts" -> layouts()
             "colors" -> {
                 val ai = AiLevel(2, 100_000, noise = 6, quiescence = true)
@@ -351,5 +357,90 @@ class CyvasseTraining {
             val again = play(cands[name]!!, second, 55_000)
             log("RETEST $name ${cands[name]!!.joinToString(",")}: ${"%.1f".format(100 * again)}% over $second fresh games")
         }
+    }
+
+    /** A fresh start on a field picked by [k]: 0 standard, 1 an open field with random layouts, 2 no terrain at all. */
+    private fun anyField(k: Int, rnd: Random): Cyvasse = when (k % 3) {
+        0 -> Cyvasse.standard()
+        1 -> openStart({ CyvassePlacement.place(it, 0, CyvassePlacement.FLAT, 1.0, rnd) }, { CyvassePlacement.place(it, 1, CyvassePlacement.FLAT, 1.0, rnd) })
+        else -> Cyvasse.clearField()
+    }
+
+    /** [a]'s score against [b] over [n] games on all three fields, each side and field equally often, played in parallel. */
+    private fun mixedMatch(a: IntArray, b: IntArray, n: Int, ai: AiLevel, seed: Int): String {
+        val r = parallel(n) { j ->
+            val side = j % 2; val gr = Random(seed + j)
+            val w = game(a, b, side, ai, gr, start = anyField(j / 2, gr), randomPlies = 2)
+            if (w == side) 1 else if (w == Cyvasse.DRAWN) 0 else -1
+        }
+        val won = r.count { it == 1 }; val drawn = r.count { it == 0 }; val lost = r.count { it == -1 }
+        return "${"%.1f".format(100.0 * (won + drawn / 2.0) / n)}% ($won won, $drawn drawn, $lost lost)"
+    }
+
+    /** SPSA from the current weights on all three fields, with a batch of game pairs per step played in parallel. */
+    private fun retrain() {
+        val iters = (System.getenv("CYVASSE_ITERS") ?: "100").toInt(); val pairs = (System.getenv("CYVASSE_PAIRS") ?: "12").toInt()
+        val ai = AiLevel(2, 100_000, noise = 6, quiescence = true)
+        val theta = CyvasseEval.TRAINED.map { it.toDouble() }.toDoubleArray()
+        val step = DoubleArray(theta.size) { maxOf(1.0, kotlin.math.abs(theta[it]) * 0.15) }
+        val rnd = Random(9090)
+        log("retrain: $iters SPSA steps, $pairs game pairs each, on all three fields")
+        val t0 = System.currentTimeMillis()
+        for (k in 1..iters) {
+            val delta = IntArray(theta.size) { if (rnd.nextBoolean()) 1 else -1 }
+            val plus = IntArray(theta.size) { (theta[it] + step[it] * delta[it]).toInt() }
+            val minus = IntArray(theta.size) { (theta[it] - step[it] * delta[it]).toInt() }
+            val seed = rnd.nextInt()
+            val r = parallel(pairs * 2) { j ->
+                val side = j % 2; val gr = Random(seed + j / 2)
+                val w = game(plus, minus, side, ai, gr, start = anyField(j / 2, gr), randomPlies = 2)
+                if (w == side) 1.0 else if (w == Cyvasse.DRAWN) 0.0 else -1.0
+            }.sum() / pairs
+            val gain = 0.6 / Math.pow(k.toDouble(), 0.3)
+            for (i in theta.indices) theta[i] += gain * r * delta[i] * step[i] / 2
+            for (i in 0..8) theta[i] = theta[i].coerceIn(40.0, 1400.0)
+            if (k % 10 == 0) log("step $k (${(System.currentTimeMillis() - t0) / 1000} s): " + theta.joinToString(", ") { it.toInt().toString() })
+        }
+        val tuned = IntArray(theta.size) { theta[it].toInt() }
+        log("RETRAINED = intArrayOf(${tuned.joinToString(", ")})")
+        val n = (System.getenv("CYVASSE_MATCH") ?: "150").toInt()
+        val blind = CyvasseEval.TRAINED.copyOf().also { it[CyvasseEval.SHOT_AT] = 0; it[CyvasseEval.SIEGE_HUNT] = 0 }
+        log("retrained vs current: " + mixedMatch(tuned, CyvasseEval.TRAINED, n, ai, 600_000))
+        log("current vs current without siege awareness: " + mixedMatch(CyvasseEval.TRAINED, blind, n, ai, 700_000))
+    }
+
+    /**
+     * The trebuchet exploit: a scripted player that fires a siege engine whenever it can (the most valuable target), and
+     * otherwise slides a siege engine along its row, against the Easy computer on a field with no terrain. Counts the
+     * pieces the sniper takes with its siege engines in the first 150 moves.
+     */
+    private fun sniper() {
+        val easy = CyvasseAi.level(0)
+        val n = (System.getenv("CYVASSE_GAMES") ?: "40").toInt()
+        fun run(weights: IntArray, label: String) {
+            val res = parallel(n) { j ->
+                val rnd = Random(31_000 + j)
+                val g = Cyvasse.clearField()
+                var shots = 0; var plies = 0
+                while (g.phase == Cyvasse.BATTLE && plies < 150) {
+                    val legal = g.legalMoves(); if (legal.isEmpty()) break
+                    val m = if (g.turn == 0) {
+                        val siege = legal.filter { val t = Cyvasse.typeOf(g.board[Cyvasse.aOf(it)]); t == Cyvasse.CATAPULT || t == Cyvasse.TREBUCHET }
+                        val fire = siege.filter { Cyvasse.kindOf(it) == Cyvasse.K_RANGED }.maxByOrNull { Cyvasse.VALUE[Cyvasse.typeOf(g.board[Cyvasse.bOf(it)])] }
+                        val slide = siege.filter { Cyvasse.kindOf(it) == Cyvasse.K_MOVE && Cyvasse.row(Cyvasse.bOf(it)) <= Cyvasse.row(Cyvasse.aOf(it)) }
+                        fire ?: if (slide.isNotEmpty()) slide[rnd.nextInt(slide.size)] else legal[rnd.nextInt(legal.size)]
+                    } else CyvasseAi.best(g, easy, rnd, weights)
+                    if (g.turn == 0 && Cyvasse.kindOf(m) == Cyvasse.K_RANGED) shots++
+                    g.play(m); plies++
+                }
+                shots
+            }
+            log("$label: the sniper took ${"%.1f".format(res.average())} pieces a game by siege fire (most ${res.max()}) in its first 75 turns, over $n games")
+        }
+        val blind = CyvasseEval.TRAINED.copyOf().also { it[CyvasseEval.SHOT_AT] = 0; it[CyvasseEval.SIEGE_HUNT] = 0 }
+        run(blind, "Easy without siege awareness")
+        run(CyvasseEval.TRAINED, "Easy with siege awareness")
+        val strong = CyvasseEval.TRAINED.copyOf().also { it[CyvasseEval.SHOT_AT] = it[CyvasseEval.SHOT_AT] * 3; it[CyvasseEval.SIEGE_HUNT] = it[CyvasseEval.SIEGE_HUNT] * 2 }
+        run(strong, "Easy with stronger siege awareness")
     }
 }

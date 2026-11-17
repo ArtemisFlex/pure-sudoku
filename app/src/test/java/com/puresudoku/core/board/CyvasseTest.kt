@@ -122,27 +122,40 @@ class CyvasseTest {
         assertTrue(Cyvasse.fromJson(alabaster.toJson()).stalemate)
     }
 
-    @Test fun catapultShootsDiagonallyAnyDistanceAndStepsStraight() {
+    @Test fun catapultShootsFiveTilesDiagonallyAndMovesTwoStraight() {
         val g = battle(); g.board[at(10, 2)] = piece(0, CATAPULT); g.board[at(9, 3)] = piece(0, RABBLE); g.board[at(6, 6)] = piece(1, ELEPHANT)
         assertNull(g.move(at(10, 2), at(6, 6), K_RANGED))          // its own rabble is in the way
         g.board[at(9, 3)] = 0
         assertNotNull(g.move(at(10, 2), at(6, 6), K_RANGED))       // four tiles diagonally
         g.board[at(7, 5)] = piece(1, RABBLE); assertNull(g.move(at(10, 2), at(6, 6), K_RANGED))   // nor over an enemy
-        g.board[at(7, 5)] = 0; g.board[at(9, 3)] = piece(0, RABBLE)
-        g.board[at(6, 6)] = 0; g.board[at(10, 7)] = piece(1, RABBLE)
+        g.board[at(7, 5)] = 0; g.board[at(6, 6)] = 0; g.board[at(5, 7)] = piece(1, ELEPHANT)
+        assertNotNull(g.move(at(10, 2), at(5, 7), K_RANGED))       // five tiles: its full reach
+        g.board[at(5, 7)] = 0; g.board[at(4, 8)] = piece(1, ELEPHANT)
+        assertNull(g.move(at(10, 2), at(4, 8), K_RANGED))          // six is out of range
+        g.board[at(10, 7)] = piece(1, RABBLE)
         assertNull(g.move(at(10, 2), at(10, 7), K_RANGED))          // never straight
-        assertEquals(setOf(at(10, 1), at(10, 3), at(9, 2)), g.targets(at(10, 2)))   // one step straight, never diagonally
+        // up to two tiles straight, never diagonally
+        assertEquals(setOf(at(10, 1), at(10, 0), at(10, 3), at(10, 4), at(9, 2), at(8, 2)), g.targets(at(10, 2)))
     }
 
-    @Test fun trebuchetShootsStraightAnyDistance() {
-        val t = battle(); t.board[at(10, 2)] = piece(0, TREBUCHET); t.board[at(9, 2)] = piece(0, RABBLE); t.board[at(2, 2)] = piece(1, RABBLE)
-        // it can't fire over its own rabble; with the line clear, the river doesn't stop a shot
-        assertNull(t.move(at(10, 2), at(2, 2), K_RANGED))
-        t.board[at(9, 2)] = 0; assertNotNull(t.move(at(10, 2), at(2, 2), K_RANGED)); t.board[at(9, 2)] = piece(0, RABBLE)
-        t.board[at(8, 4)] = piece(1, RABBLE); assertNull(t.move(at(10, 2), at(8, 4), K_RANGED))
+    @Test fun trebuchetShootsFiveTilesStraightThenReloads() {
+        val t = battle(); t.board[at(10, 2)] = piece(0, TREBUCHET); t.board[at(9, 2)] = piece(0, RABBLE); t.board[at(5, 2)] = piece(1, RABBLE)
+        // it can't fire over its own rabble; with the line clear, five tiles are in reach
+        assertNull(t.move(at(10, 2), at(5, 2), K_RANGED))
+        t.board[at(9, 2)] = 0; assertNotNull(t.move(at(10, 2), at(5, 2), K_RANGED))
+        t.board[at(5, 2)] = 0; t.board[at(4, 2)] = piece(1, RABBLE); assertNull(t.move(at(10, 2), at(4, 2), K_RANGED))
         // it may fire from a forest
-        t.board[at(9, 2)] = 0; t.terrain[at(10, 2)] = FOREST; assertNotNull(t.move(at(10, 2), at(2, 2), K_RANGED)); t.board[at(9, 2)] = piece(0, RABBLE)
-        assertEquals(setOf(at(10, 1), at(10, 3)), t.targets(at(10, 2)).filter { t.board[it] == 0 }.toSet())
+        t.board[at(4, 2)] = 0; t.board[at(5, 2)] = piece(1, RABBLE); t.terrain[at(10, 2)] = FOREST
+        assertNotNull(t.move(at(10, 2), at(5, 2), K_RANGED))
+        // after a shot it reloads: next turn it may move but not fire; the turn after, it fires again
+        t.board[at(6, 2)] = piece(1, RABBLE)
+        assertTrue(t.play(t.move(at(10, 2), at(6, 2), K_RANGED)!!)); assertEquals(1, t.reload[at(10, 2)])
+        t.turn = 0
+        assertNull(t.move(at(10, 2), at(5, 2), K_RANGED)); assertNotNull(t.move(at(10, 2), at(10, 3)))
+        assertTrue(t.play(t.move(at(10, 2), at(10, 3))!!)); assertEquals(0, t.reload[at(10, 3)])
+        t.turn = 0; t.board[at(5, 3)] = piece(1, RABBLE)
+        assertNotNull(t.move(at(10, 3), at(5, 3), K_RANGED))
+        assertEquals(0, Cyvasse.fromJson(t.toJson()).reload[at(10, 3)])
     }
 
     @Test fun spearmanMovesTwoAnyWayAndTakesByLanding() {
@@ -342,8 +355,8 @@ class CyvasseTest {
         val g = battle(); g.board[at(1, 4)] = piece(0, RABBLE); g.crossed[at(1, 4)] = 1
         val promo = g.legalMoves().first { kindOf(it) == K_PROMO }
         assertEquals(CyvasseStrategy.CROWN, CyvasseStrategy.of(g, promo))
-        val t = battle(); t.board[at(10, 3)] = piece(0, TREBUCHET); t.board[at(4, 3)] = piece(1, RABBLE)
-        assertEquals(CyvasseStrategy.SIEGE, CyvasseStrategy.of(t, t.move(at(10, 3), at(4, 3), K_RANGED)!!))
+        val t = battle(); t.board[at(10, 3)] = piece(0, TREBUCHET); t.board[at(5, 3)] = piece(1, RABBLE)
+        assertEquals(CyvasseStrategy.SIEGE, CyvasseStrategy.of(t, t.move(at(10, 3), at(5, 3), K_RANGED)!!))
         val c = battle(); c.board[at(6, 1)] = piece(0, DRAGON)
         // the dragon flies to a6's file... any check from it is Ilsa's Thorn
         val check = c.legalMoves().first { val x = c.copy(); x.play(it, check = false, settle = false); x.inCheck(1) }

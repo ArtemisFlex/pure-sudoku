@@ -640,8 +640,8 @@ object ManualText {
                 "Crossbowman: one tile straight (not diagonally). As its move, it can shoot one enemy diagonally beside it, staying where it is.",
                 "Light horse: one or two tiles diagonally, leaping over pieces on the way. It takes by landing on its victim, and leaps water and forest alike.",
                 "Heavy horse: up to three tiles diagonally. Pieces block it and water ends its ride; it takes by landing on its victim.",
-                "Catapult: one tile straight. It shoots any distance diagonally, at the first piece in line: it can't shoot over pieces, yours or the enemy's.",
-                "Trebuchet: one tile straight. It shoots any distance straight, at the first piece in line: it can't shoot over pieces.",
+                "Catapult: up to two tiles straight. It shoots up to five tiles diagonally, at the first piece in line: it can't shoot over pieces, yours or the enemy's. After firing it must reload: it can't fire again on its next turn, though it can move.",
+                "Trebuchet: up to two tiles straight. It shoots up to five tiles straight, at the first piece in line, and reloads after each shot like the catapult.",
                 "Dragon: flies any distance in a straight line over water, forests and mountains, and can land on a mountain. Pieces stop it, and it can't attack a piece in a forest. A dragon on a mountain can still be shot.",
                 "Only the side to move attacks, and only with the one piece it moves: nothing is taken on the other player's turn.") }
             sec("Terrain") { b("Mountains can't be entered.",

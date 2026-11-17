@@ -28,16 +28,24 @@ object CyvasseEval {
     const val KING_FORT = 17
     const val TAKEN = 18
     const val EXPOSED = 19
-    const val COUNT = 20
+    /** The worth (a tenth of each piece's value) of this side's pieces an enemy catapult or trebuchet can hit right now. */
+    const val SHOT_AT = 20
+    /** How many enemy catapults and trebuchets this side can attack. */
+    const val SIEGE_HUNT = 21
+    const val COUNT = 22
 
     val NAMES = listOf("rabble", "spearman", "crossbowman", "light horse", "heavy horse", "elephant", "catapult", "trebuchet", "dragon",
-        "mobility", "threats", "king pressure", "king shelter", "rabble advance", "units across", "forest cover", "fortress", "king in fortress", "pieces taken", "open lines to king")
+        "mobility", "threats", "king pressure", "king shelter", "rabble advance", "units across", "forest cover", "fortress", "king in fortress", "pieces taken", "open lines to king", "under siege fire", "siege engines threatened")
 
     /** The hand-set starting point for training. */
-    val HAND = intArrayOf(100, 220, 260, 280, 340, 400, 440, 460, 900, 3, 2, 8, 12, 15, 10, 10, 40, 30, 5, -15)
+    val HAND = intArrayOf(100, 220, 260, 280, 340, 400, 440, 460, 900, 3, 2, 8, 12, 15, 10, 10, 40, 30, 5, -15, -8, 40)
 
-    /** The trained weights. */
-    val TRAINED = intArrayOf(81, 111, 280, 372, 118, 319, 670, 418, 996, 0, 5, 6, 15, 20, 5, 4, 41, 41, 9, -20)
+    /**
+     * The trained weights: retrained by self-play on all three fields after the siege changes (57% against the previous
+     * weights over 150 games), then with the siege-lane weights tripled and doubled. That made no difference between
+     * computers (51% over 150 games) but cut how much a sniping trebuchet takes from the Easy computer.
+     */
+    val TRAINED = intArrayOf(82, 129, 258, 338, 121, 323, 668, 437, 1010, 0, 5, 5, 15, 18, 4, 3, 41, 41, 8, -19, -21, 84)
 
     /** The weights for an open-field game (until trained separately, the standard ones). */
     val TRAINED_OPEN = TRAINED.copyOf()
@@ -80,10 +88,29 @@ object CyvasseEval {
     /** The position's worth to [s] under weights [w]. */
     fun score(g: Cyvasse, s: Int, w: IntArray): Int {
         val a = IntArray(COUNT); val b = IntArray(COUNT)
-        features(g, s, a, IntList(96)); features(g, 1 - s, b, IntList(96))
+        val ma = IntList(96); val mb = IntList(96)
+        features(g, s, a, ma); features(g, 1 - s, b, mb)
+        siege(g, ma, a, b); siege(g, mb, b, a)
         var v = 0
         for (i in 0 until COUNT) v += w[i] * (a[i] - b[i])
         return v
+    }
+
+    /**
+     * Siege features from one side's [moves]: the other side's pieces under its siege fire ([them]'s SHOT_AT), and the
+     * other side's siege engines it can attack ([us]'s SIEGE_HUNT).
+     */
+    private fun siege(g: Cyvasse, moves: IntList, us: IntArray, them: IntArray) {
+        val shot = BooleanArray(Cyvasse.CELLS); val hunted = BooleanArray(Cyvasse.CELLS)
+        for (i in 0 until moves.size) {
+            val m = moves[i]; val b = bOf(m); val v = g.board[b]
+            if (v == 0 || ownerOf(v) == ownerOf(g.board[aOf(m)])) continue
+            val attacker = typeOf(g.board[aOf(m)]); val target = typeOf(v)
+            if (kindOf(m) == Cyvasse.K_RANGED && (attacker == Cyvasse.CATAPULT || attacker == Cyvasse.TREBUCHET) && !shot[b]) {
+                shot[b] = true; them[SHOT_AT] += if (target == KING) 50 else Cyvasse.VALUE[target] / 10
+            }
+            if ((target == Cyvasse.CATAPULT || target == Cyvasse.TREBUCHET) && !hunted[b]) { hunted[b] = true; us[SIEGE_HUNT]++ }
+        }
     }
 
     fun pieceValue(type: Int, w: IntArray) = if (type == KING) 5000 else if (type in 1..9) w[type - 1] else 0

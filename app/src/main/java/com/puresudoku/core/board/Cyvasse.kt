@@ -21,6 +21,8 @@ class Cyvasse {
         const val SETUP = 0; const val BATTLE = 1; const val OVER = 2
         /** [winner] when the game ends without a victor. */
         const val DRAWN = 2
+        /** How far a catapult or trebuchet shoots. */
+        const val SIEGE_RANGE = 5
         /** A game drawn because only the two kings are left. */
         const val END_KINGS = 1
         /** A game drawn because the same position came up for the third time. */
@@ -47,8 +49,8 @@ class Cyvasse {
             "Leaps one or two tiles diagonally, over pieces, and takes by landing. Water doesn't hold it.",
             "Rides up to three tiles diagonally; pieces block it and water ends the ride. Anything but a rabble can take it.",
             "Moves one tile any way. Only kings, dragons, heavy horses, elephants, catapults and trebuchets can take it.",
-            "Steps one tile straight. Shoots any distance diagonally at the first piece in line.",
-            "Steps one tile straight. Shoots any distance straight at the first piece in line.",
+            "Moves up to two tiles straight. Shoots up to five tiles diagonally at the first piece in line, then must reload for a turn.",
+            "Moves up to two tiles straight. Shoots up to five tiles straight at the first piece in line, then must reload for a turn.",
             "Flies any distance in a line over water, forest and mountains, and may land on a mountain; pieces stop it. Cannot attack into forests.",
             "Moves one tile any way and can take any piece. It can never be left in check; checkmate ends the game.")
         /** Rough worth of each piece, for the computer and the coach. */
@@ -172,7 +174,7 @@ class Cyvasse {
             g.lastMove = o.optInt("last", -1); g.lastBy = o.optInt("lastBy", -1); g.lastText = o.optString("lastText", "")
             g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate"); g.openField = o.optBoolean("open"); g.clearField = o.optBoolean("clear"); g.drawnBy = o.optInt("drawnBy")
             o.optJSONArray("seen")?.let { a -> for (i in 0 until a.length() / 2) g.seen[a.getInt(2 * i)] = a.getInt(2 * i + 1) }
-            ia("waterWait", CELLS).copyInto(g.waterWait); ia("facing", CELLS).copyInto(g.facing)
+            ia("waterWait", CELLS).copyInto(g.waterWait); ia("facing", CELLS).copyInto(g.facing); ia("reload", CELLS).copyInto(g.reload)
             ia("fortHits", 2).copyInto(g.fortHits)
             ia("crossed", CELLS).copyInto(g.crossed); ia("promoted", CELLS).copyInto(g.promoted)
             return g
@@ -189,6 +191,8 @@ class Cyvasse {
     val keepGone = BooleanArray(2)
     /** Water delay travels with the piece at each cell. */
     val waterWait = IntArray(CELLS)
+    /** 1 for a catapult or trebuchet that fired on its side's last turn: it can't fire again this turn (it may move). */
+    val reload = IntArray(CELLS)
     val facing = IntArray(CELLS)
     val fortHits = IntArray(2)
     /** 1 where the ground unit standing there has crossed the river (it may no longer step back), or was promoted. */
@@ -244,7 +248,7 @@ class Cyvasse {
     fun toJson(): JSONObject {
         fun a(x: IntArray) = JSONArray().also { j -> x.forEach { j.put(it) } }
         return JSONObject().put("board", a(board)).put("block", a(block)).put("terrain", a(terrain)).put("keepAt", a(keepAt))
-            .put("gone0", keepGone[0]).put("gone1", keepGone[1]).put("waterWait", a(waterWait)).put("facing", a(facing)).put("fortHits", a(fortHits)).put("crossed", a(crossed)).put("promoted", a(promoted))
+            .put("gone0", keepGone[0]).put("gone1", keepGone[1]).put("waterWait", a(waterWait)).put("reload", a(reload)).put("facing", a(facing)).put("fortHits", a(fortHits)).put("crossed", a(crossed)).put("promoted", a(promoted))
             .put("res0", a(reserve[0])).put("res1", a(reserve[1])).put("cap0", a(captured[0])).put("cap1", a(captured[1]))
             .put("phase", phase).put("placer", placer).put("turn", turn).put("first", first).put("winner", winner)
             .put("bonus", bonusRabble).put("quiet", quiet).put("plies", plies)
@@ -255,7 +259,7 @@ class Cyvasse {
     fun copy(): Cyvasse {
         val g = Cyvasse()
         board.copyInto(g.board); block.copyInto(g.block); terrain.copyInto(g.terrain); keepAt.copyInto(g.keepAt)
-        waterWait.copyInto(g.waterWait); facing.copyInto(g.facing); fortHits.copyInto(g.fortHits)
+        waterWait.copyInto(g.waterWait); reload.copyInto(g.reload); facing.copyInto(g.facing); fortHits.copyInto(g.fortHits)
         crossed.copyInto(g.crossed); promoted.copyInto(g.promoted)
         g.keepGone[0] = keepGone[0]; g.keepGone[1] = keepGone[1]
         for (s in 0..1) { reserve[s].copyInto(g.reserve[s]); captured[s].copyInto(g.captured[s]) }
@@ -505,18 +509,25 @@ class Cyvasse {
                 for (t in DIAGONALS[from]) if (canTake(from, t)) out.add(mv(K_RANGED, from, t))
             }
             CATAPULT, TREBUCHET -> {
-                // one step straight onto an empty tile, never into a fortress (water holds it a turn, as for any ground unit)
+                // up to two tiles straight onto empty ground; water ends the move
                 for (d in ORTHO) {
-                    val r = r0 + d[0]; val c = c0 + d[1]
-                    if (!on(r, c)) continue
-                    val t = r * W + c
-                    if (block[t] != 0 || board[t] != 0 || back(t)) continue
-                    out.add(mv(K_MOVE, from, t, from))
+                    var via = from
+                    for (dist in 1..2) {
+                        val r = r0 + d[0] * dist; val c = c0 + d[1] * dist
+                        if (!on(r, c)) break
+                        val t = r * W + c
+                        if (block[t] != 0 || board[t] != 0) break
+                        if (!back(t)) out.add(mv(K_MOVE, from, t, via))
+                        if (terrain[t] == WATER) break
+                        via = t
+                    }
                 }
-                // shots: any distance, diagonally (catapult) or straight (trebuchet), at the first piece in line
+                // shots: up to SIEGE_RANGE tiles, diagonally (catapult) or straight (trebuchet), at the first piece in line;
+                // a siege engine that fired last turn is still reloading
+                if (reload[from] > 0) return
                 for (d in if (type == CATAPULT) DIAG else ORTHO) {
                     var r = r0; var c = c0
-                    while (true) {
+                    for (dist in 1..SIEGE_RANGE) {
                         r += d[0]; c += d[1]
                         if (!on(r, c)) break
                         val t = r * W + c
@@ -621,20 +632,23 @@ class Cyvasse {
         lastText = describe(m); keepFell = -1
         // A unit that entered water on its previous turn is free after this turn.
         for (c in 0 until CELLS) if (ownerOf(board[c]) == s && waterWait[c] > 0) waterWait[c]--
+        // a siege engine that fired last turn has reloaded once this turn is played
+        for (c in 0 until CELLS) if (ownerOf(board[c]) == s && reload[c] > 0) reload[c]--
         val moverType = typeOf(board[a])
         val takenBefore = takenBy(0) + takenBy(1)
         when (kind) {
-            K_RANGED -> if (board[b] != 0) strike(s, moverType, b)
+            K_RANGED -> { if (board[b] != 0) strike(s, moverType, b); if (moverType == CATAPULT || moverType == TREBUCHET) reload[a] = 1 }
             K_MOVE, K_PROMO -> {
                 val repelled = board[b] != 0 && strike(s, moverType, b)
                 val destination = if (repelled) viaOf(m).takeIf { it >= 0 && kind == K_MOVE } ?: a else b
                 if (destination != a) {
-                    val moving = board[a]; val wasCrossed = crossed[a]; val wasPromoted = promoted[a]
+                    val moving = board[a]; val wasCrossed = crossed[a]; val wasPromoted = promoted[a]; val wasReloading = reload[a]
                     clearCell(a)
                     board[destination] = if (kind == K_PROMO) piece(s, viaOf(m)) else moving
                     // promoted, or having touched the enemy's back row: free to move back again
                     promoted[destination] = if (kind == K_PROMO || row(destination) == promotionRow(s)) 1 else wasPromoted
                     crossed[destination] = if (wasCrossed == 1 || inHalf(1 - s, destination)) 1 else 0
+                    reload[destination] = wasReloading
                     // water ends a move, but no longer holds the piece for a turn
                     waterWait[destination] = 0
                 }
@@ -668,7 +682,7 @@ class Cyvasse {
     /** The position as a number: pieces, fortresses, held pieces, crossings and whose move it is. */
     fun positionKey(): Int {
         var h = board.contentHashCode()
-        h = h * 31 + block.contentHashCode(); h = h * 31 + waterWait.contentHashCode()
+        h = h * 31 + block.contentHashCode(); h = h * 31 + waterWait.contentHashCode(); h = h * 31 + reload.contentHashCode()
         h = h * 31 + crossed.contentHashCode(); h = h * 31 + promoted.contentHashCode()
         h = h * 31 + fortHits.contentHashCode(); return h * 31 + turn
     }
@@ -677,7 +691,7 @@ class Cyvasse {
     fun takenBy(side: Int) = captured[side].sum()
     fun stalemateWinner() = takenBy(0).compareTo(takenBy(1)).let { if (it > 0) 0 else if (it < 0) 1 else DRAWN }
 
-    private fun clearCell(c: Int) { board[c] = 0; waterWait[c] = 0; facing[c] = 0; crossed[c] = 0; promoted[c] = 0 }
+    private fun clearCell(c: Int) { board[c] = 0; waterWait[c] = 0; reload[c] = 0; facing[c] = 0; crossed[c] = 0; promoted[c] = 0 }
 
     private fun an(name: String) = (if (name.first().lowercaseChar() in "aeiou") "an " else "a ") + name
 

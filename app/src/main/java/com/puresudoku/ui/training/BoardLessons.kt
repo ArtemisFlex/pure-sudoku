@@ -95,7 +95,7 @@ object BoardLessons {
                     listOf(
                         "Siege engines and dragons can't hit a piece in a forest: shelter your best pieces there.",
                         "Units across the river can't step back until they've touched the enemy's back row: commit with care.",
-                        "Siege engines fire only at the first piece in line: clear the lane first.",
+                        "Siege engines reach five tiles and must reload after each shot: rush one while it reloads.",
                         "Keep your king behind its own pieces: there's no fortress to hide in.",
                         "Trade pieces when you're ahead: a stalemate goes to whoever has taken more.",
                         "Combine the plans: a dragon in the enemy half opens lanes for your siege engines and checks for your horses.",
