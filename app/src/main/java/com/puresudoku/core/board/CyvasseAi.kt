@@ -39,6 +39,11 @@ object CyvasseEval {
     /** The trained weights. */
     val TRAINED = intArrayOf(81, 111, 280, 372, 118, 319, 670, 418, 996, 0, 5, 6, 15, 20, 5, 4, 41, 41, 9, -20)
 
+    /** The weights for an open-field game (until trained separately, the standard ones). */
+    val TRAINED_OPEN = TRAINED.copyOf()
+
+    fun weightsFor(g: Cyvasse) = if (g.openField) TRAINED_OPEN else TRAINED
+
     /** Fills [f] with [s]'s features; [moves] receives [s]'s pseudo-legal moves. */
     fun features(g: Cyvasse, s: Int, f: IntArray, moves: IntList) {
         f.fill(0)
@@ -121,15 +126,85 @@ object CyvasseAi {
     }
     fun depthFor(level: Int) = level(level).depth
 
-    fun setup(g: Cyvasse, side: Int, level: Int, rnd: Random) = g.randomSetup(side, rnd, level)
+    /** Sets the computer's terrain and fortress: learned preferences in an open-field game, sharper on higher levels. */
+    fun setup(g: Cyvasse, side: Int, level: Int, rnd: Random) {
+        if (!g.openField) { g.randomSetup(side, rnd, level); return }
+        // Easy and Medium place at random; from Hard up, one of the layouts that held up in self-play
+        if (level <= 1) CyvassePlacement.place(g, side, CyvassePlacement.FLAT, 1.0, rnd)
+        else CyvassePlacement.placeLayout(g, side, CyvassePlacement.PROVEN.random(rnd), mirror = rnd.nextBoolean())
+    }
 
     /** The move to play for the side to move. */
-    fun best(g: Cyvasse, level: Int, rnd: Random, weights: IntArray = CyvasseEval.TRAINED): Int = best(g, level(level), rnd, weights)
+    fun best(g: Cyvasse, level: Int, rnd: Random, weights: IntArray = CyvasseEval.weightsFor(g)): Int = best(g, level(level), rnd, weights)
 
     fun best(g: Cyvasse, ai: AiLevel, rnd: Random, weights: IntArray = CyvasseEval.TRAINED): Int {
         val moves = g.legalMoves()
         if (moves.isEmpty()) return Cyvasse.PASS
         if (moves.size == 1) return moves[0]
         return AlphaBeta(CyvasseSearch(g, weights), ai, rnd).best() ?: moves[0]
+    }
+}
+
+/**
+ * Where to set terrain in an open-field game: random (weighted by a preference per tile of a side's three free rows,
+ * seen from Alabaster's side; Onyx's mirror across the river) or one of the [PROVEN] layouts.
+ */
+object CyvassePlacement {
+    const val KEEP = 0; const val MOUNTAIN = 1; const val FOREST = 2
+    /** Alabaster's free rows, nearest the river first. */
+    val ROWS = (Cyvasse.RIVER + 1)..(Cyvasse.RIVER + 3)
+    val TILES: IntArray = ROWS.flatMap { r -> (0 until Cyvasse.W).map { r * Cyvasse.W + it } }.toIntArray()
+
+    /** Every tile equally likely. */
+    val FLAT: Array<DoubleArray> = Array(3) { DoubleArray(TILES.size) }
+
+    /**
+     * Whole layouts (fortress, 3 mountains, 3 forests; slots from the river: 0-9, 10-19, 20-29) that did best in a
+     * self-play tournament: 24 layouts played 80 games each against random layouts, and the best were replayed over 240
+     * fresh games. Only the first held up clearly (57% then 56% over 320 games): a forward fortress by the river with
+     * a knot of mountains and forests round it on the left. The others came out at 52-53%: in open-field play,
+     * placement matters much less than how the pieces are used.
+     */
+    val PROVEN = listOf(
+        intArrayOf(3, 13, 1, 23, 14, 2, 4),
+        intArrayOf(25, 10, 19, 15, 3, 5, 7),
+        intArrayOf(21, 0, 2, 5, 10, 24, 13),
+    )
+
+    /** Sets [side]'s terrain to [layout], optionally mirrored left to right. */
+    fun placeLayout(g: Cyvasse, side: Int, layout: IntArray, mirror: Boolean) {
+        fun m(i: Int) = if (!mirror) i else (i / Cyvasse.W) * Cyvasse.W + (Cyvasse.W - 1 - i % Cyvasse.W)
+        val old = g.placer; g.placer = side; g.clearSetup(side)
+        g.placeKeep(side, tile(m(layout[0]), side))
+        for (k in 1..3) g.toggleMountain(side, tile(m(layout[k]), side))
+        for (k in 4..6) g.toggleTerrain(side, Cyvasse.FOREST, tile(m(layout[k]), side))
+        g.placer = old
+        // should a layout not fit (it always does on a fresh field), fall back to a random one
+        if (!g.setupDone(side)) place(g, side, FLAT, 1.0, kotlin.random.Random(layout.sum()))
+    }
+
+    /** [side]'s tile for preference slot [i]. */
+    fun tile(i: Int, side: Int): Int { val c = TILES[i]; return if (side == 0) c else (Cyvasse.H - 1 - Cyvasse.row(c)) * Cyvasse.W + Cyvasse.col(c) }
+
+    /** Picks a free slot for [item], weighted by preference (softmax at [temperature]). */
+    private fun pick(g: Cyvasse, side: Int, prefs: DoubleArray, temperature: Double, rnd: Random): Int? {
+        val free = TILES.indices.filter { val c = tile(it, side); g.board[c] == 0 && g.block[c] == 0 && g.terrain[c] == Cyvasse.PLAIN }
+        if (free.isEmpty()) return null
+        val top = free.maxOf { prefs[it] }
+        val w = free.map { kotlin.math.exp((prefs[it] - top) / temperature) }
+        var x = rnd.nextDouble() * w.sum()
+        for ((k, i) in free.withIndex()) { x -= w[k]; if (x <= 0) return i }
+        return free.last()
+    }
+
+    /** Sets [side]'s fortress, mountains and forests; returns the chosen slots (fortress first). */
+    fun place(g: Cyvasse, side: Int, prefs: Array<DoubleArray>, temperature: Double, rnd: Random): IntArray {
+        val old = g.placer; g.placer = side; g.clearSetup(side)
+        val chosen = ArrayList<Int>()
+        pick(g, side, prefs[KEEP], temperature, rnd)?.let { g.placeKeep(side, tile(it, side)); chosen += it }
+        repeat(Cyvasse.MOUNTAINS) { pick(g, side, prefs[MOUNTAIN], temperature, rnd)?.let { g.toggleMountain(side, tile(it, side)); chosen += it } }
+        repeat(Cyvasse.FORESTS_PER_SIDE) { pick(g, side, prefs[FOREST], temperature, rnd)?.let { g.toggleTerrain(side, Cyvasse.FOREST, tile(it, side)); chosen += it } }
+        g.placer = old
+        return chosen.toIntArray()
     }
 }

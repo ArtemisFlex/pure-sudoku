@@ -30,7 +30,7 @@ import com.puresudoku.ui.theme.Poppins
 
 /** The artwork logo for games that have one, or 0 for games drawn as an icon tile. */
 fun gameLogoRes(kind: GameKind): Int = when (kind) {
-    GameKind.CYVASSE -> com.puresudoku.R.drawable.cyvasse_logo
+    GameKind.CYVASSE -> com.puresudoku.R.drawable.kreat_logo
     GameKind.REALMFORGE -> com.puresudoku.R.drawable.rt_logo
     GameKind.REALM_DRAGON -> com.puresudoku.R.drawable.rt_logo_wyrm
     GameKind.REALM_NIGHT -> com.puresudoku.R.drawable.rt_logo_night

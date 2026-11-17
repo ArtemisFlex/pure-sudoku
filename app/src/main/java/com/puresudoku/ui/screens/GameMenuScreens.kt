@@ -90,7 +90,7 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
         ) {
             if (kind == com.puresudoku.core.GameKind.CYVASSE) {
                 androidx.compose.foundation.Image(
-                    androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.cyvasse_logo),
+                    androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.kreat_logo),
                     contentDescription = kind.title,
                     modifier = Modifier.fillMaxWidth().height(104.dp),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,

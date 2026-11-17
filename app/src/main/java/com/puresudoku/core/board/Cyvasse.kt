@@ -21,6 +21,10 @@ class Cyvasse {
         const val SETUP = 0; const val BATTLE = 1; const val OVER = 2
         /** [winner] when the game ends without a victor. */
         const val DRAWN = 2
+        /** A game drawn because only the two kings are left. */
+        const val END_KINGS = 1
+        /** A game drawn because the same position came up for the third time. */
+        const val END_REPEAT = 2
 
         const val PLAIN = 0; const val WATER = 1; const val FOREST = 2
         const val MOUNTAIN = 1; const val KEEP = 2
@@ -31,8 +35,9 @@ class Cyvasse {
         /** How many of each piece a side has (index = type). */
         val ARMY = intArrayOf(0, 6, 2, 2, 2, 2, 2, 1, 1, 1, 1)
         val ARMY_SIZE = ARMY.sum()
+        /** What each player sets on their own half in an open-field game (with their fortress). */
         const val MOUNTAINS = 3
-        const val WATERS = 5; const val FORESTS_PER_SIDE = 5
+        const val WATERS = 0; const val FORESTS_PER_SIDE = 3
 
         val NAMES = arrayOf("", "Rabble", "Spearman", "Crossbowman", "Light Horse", "Heavy Horse", "Elephant", "Catapult", "Trebuchet", "Dragon", "King")
         val PLURALS = arrayOf("", "Rabble", "Spearmen", "Crossbowmen", "Light Horses", "Heavy Horses", "Elephants", "Catapults", "Trebuchets", "Dragons", "Kings")
@@ -53,6 +58,9 @@ class Cyvasse {
         val TERRAIN: IntArray = IntArray(CELLS)
 
         fun newSetup(): Cyvasse = Cyvasse().also { it.terrain.fill(PLAIN) }
+
+        /** An open-field game: the standard armies and the river, with each player placing their own mountains, forests and fortress. */
+        fun openField(): Cyvasse = standard().also { it.startOpenField() }
 
         /**
          * The standard field, top (Onyx's back row) to bottom (Alabaster's). Pieces: T trebuchet, H heavy horse,
@@ -159,7 +167,8 @@ class Cyvasse {
             g.phase = o.optInt("phase"); g.placer = o.optInt("placer"); g.turn = o.optInt("turn"); g.first = o.optInt("first")
             g.winner = o.optInt("winner", -1); g.bonusRabble = o.optInt("bonus", -1); g.quiet = o.optInt("quiet"); g.plies = o.optInt("plies")
             g.lastMove = o.optInt("last", -1); g.lastBy = o.optInt("lastBy", -1); g.lastText = o.optString("lastText", "")
-            g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate")
+            g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate"); g.openField = o.optBoolean("open"); g.drawnBy = o.optInt("drawnBy")
+            o.optJSONArray("seen")?.let { a -> for (i in 0 until a.length() / 2) g.seen[a.getInt(2 * i)] = a.getInt(2 * i + 1) }
             ia("waterWait", CELLS).copyInto(g.waterWait); ia("facing", CELLS).copyInto(g.facing)
             ia("fortHits", 2).copyInto(g.fortHits)
             ia("crossed", CELLS).copyInto(g.crossed); ia("promoted", CELLS).copyInto(g.promoted)
@@ -204,6 +213,22 @@ class Cyvasse {
     var keepFell = -1
     /** The game ended in stalemate ([winner] is whoever had taken more pieces, or [DRAWN]). */
     var stalemate = false
+    /** Why a drawn game ended, when it wasn't a stalemate: [END_KINGS] or [END_REPEAT] (else 0). */
+    var drawnBy = 0
+    /**
+     * The positions seen since the last capture, promotion or fallen fortress (which can never come back), with how
+     * often each was seen: the same position a third time is a draw, as in chess.
+     */
+    val seen = HashMap<Int, Int>()
+    /** Each player placed their own terrain and fortress before the battle. */
+    var openField = false
+
+    /** Clears the standard field's terrain (keeping the river and the armies) and opens the setup behind the screen. */
+    fun startOpenField() {
+        for (c in 0 until CELLS) { terrain[c] = if (row(c) == RIVER) WATER else PLAIN; block[c] = 0 }
+        keepAt[0] = -1; keepAt[1] = -1; keepGone[0] = false; keepGone[1] = false; fortHits.fill(0)
+        phase = SETUP; placer = 0; turn = 0; first = 0; openField = true
+    }
 
     fun toJson(): JSONObject {
         fun a(x: IntArray) = JSONArray().also { j -> x.forEach { j.put(it) } }
@@ -212,7 +237,8 @@ class Cyvasse {
             .put("res0", a(reserve[0])).put("res1", a(reserve[1])).put("cap0", a(captured[0])).put("cap1", a(captured[1]))
             .put("phase", phase).put("placer", placer).put("turn", turn).put("first", first).put("winner", winner)
             .put("bonus", bonusRabble).put("quiet", quiet).put("plies", plies)
-            .put("last", lastMove).put("lastBy", lastBy).put("lastText", lastText).put("keepFell", keepFell).put("stalemate", stalemate)
+            .put("last", lastMove).put("lastBy", lastBy).put("lastText", lastText).put("keepFell", keepFell).put("stalemate", stalemate).put("open", openField).put("drawnBy", drawnBy)
+            .put("seen", JSONArray().also { j -> for ((k, v) in seen) { j.put(k); j.put(v) } })
     }
 
     fun copy(): Cyvasse {
@@ -224,7 +250,7 @@ class Cyvasse {
         for (s in 0..1) { reserve[s].copyInto(g.reserve[s]); captured[s].copyInto(g.captured[s]) }
         g.phase = phase; g.placer = placer; g.turn = turn; g.first = first; g.winner = winner
         g.bonusRabble = bonusRabble; g.quiet = quiet; g.plies = plies
-        g.lastMove = lastMove; g.lastBy = lastBy; g.lastText = lastText; g.keepFell = keepFell; g.stalemate = stalemate
+        g.lastMove = lastMove; g.lastBy = lastBy; g.lastText = lastText; g.keepFell = keepFell; g.stalemate = stalemate; g.openField = openField; g.drawnBy = drawnBy
         return g
     }
 
@@ -304,19 +330,20 @@ class Cyvasse {
         return true
     }
 
+    /** Clears [side]'s terrain and fortress (and, outside an open-field game, lifts its pieces). */
     fun clearSetup(side: Int) {
         if (phase != SETUP) return
-        for (c in 0 until CELLS) if (inHalf(side, c)) { if (ownerOf(board[c]) == side) liftPiece(side, c); block[c] = 0; terrain[c] = PLAIN }
+        for (c in 0 until CELLS) if (inHalf(side, c)) { if (!openField && ownerOf(board[c]) == side) liftPiece(side, c); block[c] = 0; terrain[c] = PLAIN }
         keepAt[side] = -1
     }
 
     fun setupDone(side: Int) = keepAt[side] >= 0 && mountainsPlaced(side) == MOUNTAINS &&
         terrainPlaced(side, WATER) == WATERS && terrainPlaced(side, FOREST) == FORESTS_PER_SIDE && reserveCount(side) == 0
 
-    /** Random complete setup, including the whole army. */
+    /** Random complete setup: terrain, fortress and (if any wait in reserve) the army. */
     fun randomSetup(side: Int, rnd: Random, level: Int = 3) {
         val old = placer; placer = side; clearSetup(side)
-        val cells = (0 until CELLS).filter { inHalf(side, it) }.shuffled(rnd)
+        val cells = (0 until CELLS).filter { inHalf(side, it) && board[it] == 0 }.shuffled(rnd)
         var i = 0
         repeat(WATERS) { toggleTerrain(side, WATER, cells[i++]) }
         repeat(FORESTS_PER_SIDE) { toggleTerrain(side, FOREST, cells[i++]) }
@@ -332,7 +359,8 @@ class Cyvasse {
     fun ready(side: Int, coin: Boolean): Boolean {
         if (phase != SETUP || side != placer || !setupDone(side)) return false
         if (side == 0) placer = 1
-        else { phase = BATTLE; first = if (coin) 1 else 0; turn = first }
+        // an open-field game keeps the standard rule: Alabaster moves first
+        else { phase = BATTLE; first = if (coin && !openField) 1 else 0; turn = first }
         return true
     }
 
@@ -586,6 +614,7 @@ class Cyvasse {
         // A unit that entered water on its previous turn is free after this turn.
         for (c in 0 until CELLS) if (ownerOf(board[c]) == s && waterWait[c] > 0) waterWait[c]--
         val moverType = typeOf(board[a])
+        val takenBefore = takenBy(0) + takenBy(1)
         when (kind) {
             K_RANGED -> if (board[b] != 0) strike(s, moverType, b)
             K_MOVE, K_PROMO -> {
@@ -605,6 +634,17 @@ class Cyvasse {
         lastMove = m; lastBy = s; plies++; bonusRabble = -1
         if (winner >= 0) { phase = OVER; return true }
         turn = 1 - s
+        if (settle) {
+            // endless games: two bare kings can never finish, nor can players who keep repeating themselves
+            if ((0 until CELLS).none { board[it] != 0 && typeOf(board[it]) != KING }) {
+                winner = DRAWN; drawnBy = END_KINGS; phase = OVER; lastText += ": only the kings are left, a draw"; return true
+            }
+            if (kind == K_PROMO || takenBy(0) + takenBy(1) != takenBefore) seen.clear()
+            val key = positionKey()
+            val times = (seen[key] ?: 0) + 1
+            seen[key] = times
+            if (times >= 3) { winner = DRAWN; drawnBy = END_REPEAT; phase = OVER; lastText += ": the same position for the third time, a draw"; return true }
+        }
         if (settle && legalMoves().isEmpty()) {
             if (inCheck(turn)) { winner = s; lastText += ": checkmate" } else {
                 // stalemate: whoever has taken more pieces wins; level, it's a draw
@@ -614,6 +654,14 @@ class Cyvasse {
             phase = OVER
         } else if (settle && inCheck(turn)) lastText += ": check"
         return true
+    }
+
+    /** The position as a number: pieces, fortresses, held pieces, crossings and whose move it is. */
+    fun positionKey(): Int {
+        var h = board.contentHashCode()
+        h = h * 31 + block.contentHashCode(); h = h * 31 + waterWait.contentHashCode()
+        h = h * 31 + crossed.contentHashCode(); h = h * 31 + promoted.contentHashCode()
+        h = h * 31 + fortHits.contentHashCode(); return h * 31 + turn
     }
 
     /** How many pieces [side] has taken (a ruined fortress counts as one). */

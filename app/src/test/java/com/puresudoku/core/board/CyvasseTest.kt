@@ -286,6 +286,48 @@ class CyvasseTest {
         assertTrue(l.play(l.move(at(6, 2), at(5, 3))!!)); assertEquals(0, l.waterWait[at(5, 3)])
     }
 
+    @Test fun openFieldIsSetUpBehindTheScreen() {
+        val g = Cyvasse.openField()
+        assertEquals(Cyvasse.SETUP, g.phase); assertTrue(g.openField)
+        for (c in 0 until W) assertEquals(WATER, g.terrain[at(RIVER, c)])
+        assertEquals(20, g.onBoard(0)); assertEquals(-1, g.keepAt[0]); assertEquals(0, g.mountainsPlaced(0))
+        // only your own half's empty tiles, and only three mountains and three forests
+        assertFalse(g.toggleMountain(0, at(3, 3))); assertFalse(g.toggleMountain(0, at(9, 3)))
+        assertTrue(g.placeKeep(0, at(8, 0)))
+        for (c in 1..3) assertTrue(g.toggleMountain(0, at(7, c)))
+        assertFalse(g.toggleMountain(0, at(7, 6)))
+        for (c in 4..6) assertTrue(g.toggleTerrain(0, FOREST, at(6, c)))
+        assertFalse(g.toggleTerrain(0, FOREST, at(6, 8)))
+        assertTrue(g.setupDone(0)); assertTrue(g.ready(0, coin = true))
+        CyvasseAi.setup(g, 1, 3, Random(1)); assertTrue(g.setupDone(1)); assertTrue(g.ready(1, coin = true))
+        // the screen comes down, and Alabaster moves first whatever the coin says
+        assertEquals(BATTLE, g.phase); assertEquals(0, g.turn)
+        assertEquals(3, g.mountainsPlaced(1)); assertTrue(g.keepAt[1] >= 0 && Cyvasse.inHalf(1, g.keepAt[1]))
+        val r = Cyvasse.fromJson(g.toJson()); assertTrue(r.openField); assertEquals(g.keepAt[1], r.keepAt[1])
+        assertTrue(g.legalMoves().isNotEmpty())
+    }
+
+    @Test fun gamesThatCanNeverEndAreDrawn() {
+        // the last piece besides the kings is taken: only the kings are left
+        val k = battle(); k.board[at(9, 9)] = piece(1, RABBLE)
+        assertTrue(k.play(k.move(at(10, 9), at(9, 9))!!))
+        assertEquals(OVER, k.phase); assertEquals(DRAWN, k.winner); assertEquals(Cyvasse.END_KINGS, k.drawnBy)
+        // both sides shuffle back and forth: the third time the position comes up, it's a draw
+        val r = battle(); r.board[at(8, 3)] = piece(0, ELEPHANT); r.board[at(2, 3)] = piece(1, ELEPHANT)
+        val moves = listOf(at(8, 3) to at(7, 3), at(2, 3) to at(3, 3), at(7, 3) to at(8, 3), at(3, 3) to at(2, 3))
+        var n = 0
+        while (r.phase == BATTLE && n < 12) { val (a, b) = moves[n % 4]; assertTrue(r.play(r.move(a, b)!!)); n++ }
+        assertEquals(OVER, r.phase); assertEquals(DRAWN, r.winner); assertEquals(Cyvasse.END_REPEAT, r.drawnBy)
+        assertEquals(9, n)
+        // a capture wipes the slate: positions before it can't come back
+        val c = battle(); c.board[at(8, 3)] = piece(0, ELEPHANT); c.board[at(2, 3)] = piece(1, ELEPHANT); c.board[at(5, 9)] = piece(1, RABBLE)
+        c.seen[c.positionKey()] = 2
+        c.board[at(6, 8)] = piece(0, SPEARMAN)
+        assertTrue(c.play(c.move(at(6, 8), at(5, 9))!!)); assertEquals(1, c.seen.size)
+        assertEquals(BATTLE, c.phase)
+        assertEquals(c.seen.keys, Cyvasse.fromJson(c.toJson()).seen.keys)
+    }
+
     @Test fun strategiesAreRecognised() {
         val g = battle(); g.board[at(1, 4)] = piece(0, RABBLE); g.crossed[at(1, 4)] = 1
         val promo = g.legalMoves().first { kindOf(it) == K_PROMO }

@@ -1,0 +1,9 @@
+Look at the attached reference logo (ref_logo.png in this folder). Using your built-in image generation tool, create ONE new game logo in the same style: a wide medieval wordmark with weathered gold and silver carved serif capital letters in front of a dark stone castle wall with towers and crimson heraldic banners, and a small chessboard point at the bottom centre with a few chess-like pieces (a king and two rooks).
+
+The word must be exactly: KREAT (five capital letters, spelled K-R-E-A-T, nothing else written anywhere).
+
+Important: absolutely NO dragons, no wings, no winged creatures and no dragon heads anywhere in the image, including the banners. Replace the dragon with nothing, or with a simple stone crown or heraldic shield above the centre of the wall.
+
+Wide format (about 3:1), the logo centred with a little margin, on a fully transparent background (no backdrop, no shadow box). Same lighting and rendering quality as the reference.
+
+Save the final image in this folder as kreat_logo.png. Do not create any other files.

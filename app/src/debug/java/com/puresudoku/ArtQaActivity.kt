@@ -342,6 +342,18 @@ class ArtQaActivity : ComponentActivity() {
                 }
                 setContentView(android.widget.ScrollView(this).apply { addView(TextView(this@ArtQaActivity).apply { this.text = text; textSize = 15f; setPadding(30, 120, 30, 30) }) }); return
             }
+            "cyvasse-open" -> {
+                // a fresh game: the field choice, or (step=setup) an open field with the suggested layout behind the screen
+                val s = com.puresudoku.ui.games.board.CyvasseSession(Difficulty.MEDIUM, com.puresudoku.core.board.Cyvasse.standard())
+                if (intent.getStringExtra("step") == "setup") { s.chooseField(true); s.scatter() }
+                setContent { PureSudokuTheme {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.cyvasse_background), null,
+                            androidx.compose.ui.Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                        com.puresudoku.ui.games.board.CyvasseUi(s)
+                    }
+                } }; return
+            }
             "cyvasse-board" -> {
                 // the standard 10 by 11 Cyvasse opening with a crossbowman selected
                 val s = com.puresudoku.ui.games.board.CyvasseSession(Difficulty.MEDIUM, com.puresudoku.core.board.Cyvasse.standard())
