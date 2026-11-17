@@ -148,14 +148,16 @@ private fun LogoCell(digit: Int, strong: Boolean, soft: Boolean, fontSize: TextU
 
 /** "PureGames" wordmark: "Pure" in accent blue, "Games" in ink. */
 @Composable
-fun Wordmark(fontSize: TextUnit, modifier: Modifier = Modifier) {
+fun Wordmark(fontSize: TextUnit, modifier: Modifier = Modifier, stacked: Boolean = false) {
     val colors = LocalBoardColors.current
     Text(
         buildAnnotatedString {
-            withStyle(SpanStyle(color = colors.entered)) { append("Pure") }
+            withStyle(SpanStyle(color = colors.entered)) { append(if (stacked) "Pure\n" else "Pure") }
             withStyle(SpanStyle(color = colors.given)) { append("Games") }
         },
         fontFamily = Poppins, fontWeight = FontWeight.Bold, fontSize = fontSize,
+        // stacked, the two words sit snugly one above the other
+        lineHeight = if (stacked) fontSize * 1.0f else TextUnit.Unspecified,
         modifier = modifier,
     )
 }

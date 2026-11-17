@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
@@ -72,15 +73,19 @@ fun HubScreen(vm: AppViewModel) {
         ) {
             Spacer(Modifier.height(44.dp))   // clear of the settings button
             com.puresudoku.ui.components.FavoritesCard(vm)
-            Spacer(Modifier.height(24.dp))
-            GamesLogo(104.dp, introDelayMs = 150)
-            Spacer(Modifier.height(16.dp))
-            Wordmark(36.sp)
+            Spacer(Modifier.height(18.dp))
+            // a compact masthead: the logo with "Pure" stacked over "Games" beside it
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GamesLogo(64.dp, introDelayMs = 150)
+                Spacer(Modifier.width(12.dp))
+                Wordmark(28.sp, stacked = true)
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
                 "${Games.all.size} games for your brain. Every one fresh.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(18.dp))
             // the collections as a grid: two side by side on a phone, more on wider screens
             val cards = ArrayList<@Composable (Modifier) -> Unit>()
             cards += { m -> TwoPlayerCard(vm, m) }
