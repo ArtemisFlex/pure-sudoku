@@ -798,10 +798,11 @@ object ManualText {
                 b("Roll two dice and ride. Doubles roll again; a third double in a row sends you to the Dungeon.",
                     "Passing the Spire pays you 200 gold, heals 1, and lets you turn your coins that turn. Landing right on it pays 100 more.",
                     "Stop on an unclaimed deed (its price is on its tag) to buy it, or send it to auction.",
+                    "No one buys anything until they have passed the Spire once: on your first lap round the board, unclaimed deeds you stop on stay unclaimed.",
                     "Before rolling or ending your turn you may open Lands to build, tear down, pawn, redeem and turn coins; offer trades; use your great deed; and use keepsakes.")
             }
             sec("Auctions") {
-                p("Pass on a deed and every lord may bid for it, in turn, raising by 10, 50 or 100 gold, or dropping out. The last bidder standing wins it.")
+                p("Pass on a deed and every lord who has passed the Spire may bid for it, in turn, raising by 10, 50 or 100 gold, or dropping out. The last bidder standing wins it.")
             }
             sec("Trading") {
                 p("On your turn, offer any lord deeds and gold for their deeds and gold. They accept or decline. Lands with towers can't be traded; tear the towers down first. Up to three offers a turn.")

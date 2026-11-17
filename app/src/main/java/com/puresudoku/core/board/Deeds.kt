@@ -7,7 +7,7 @@ import kotlin.random.Random
 /**
  * Deed or Dungeon: a medieval game of lands and lordship for two to four lords, each a person or an AI.
  *
- * Ride a ring of 36 tiles around Eiseria with two dice. Buy deeds to the land you stop on, or let them go to auction.
+ * Ride a ring of 36 tiles around Eiseria with two dice. Once past the Spire, buy deeds to the land you stop on, or let them go to auction.
  * Every deed carries a two-sided coin: the Crown face asks a visitor for homage in gold (refuse, and your towers
  * strike them); the Blade face simply wounds them. You turn your coins only when you pass the Spire. Lose all your
  * health and you are felled: the lord who felled you seizes your best deed and you wake in the Dungeon beneath the
@@ -196,6 +196,7 @@ class Deeds {
             g.pType = o.optInt("pType"); g.pAmount = o.optInt("pAmount"); g.pDmg = o.optInt("pDmg"); g.pTile = o.optInt("pTile", -1); g.pCard = o.optInt("pCard", -1)
             g.pTo = o.optInt("pTo", -1); g.pWhat = o.optString("pWhat", ""); g.pNext = o.optInt("pNext"); g.felledThisTurn = o.optBoolean("felledThisTurn")
             g.d1 = o.optInt("d1", 1); g.d2 = o.optInt("d2", 1); g.rollId = o.optInt("rollId"); g.spireCharge = o.optBoolean("spireCharge")
+            g.lapped = ia(o, "lapped", MAX, if (o.has("lapped")) 0 else 1)
             g.again = o.optBoolean("again"); g.purse = o.optInt("purse"); g.omen = o.optInt("omen"); g.winner = o.optInt("winner", -1)
             g.endReason = o.optInt("endReason"); g.lastText = o.optString("lastText", "")
             g.fate = o.optJSONArray("fate").let { a -> IntArray(a?.length() ?: 0) { a!!.getInt(it) } }
@@ -261,6 +262,8 @@ class Deeds {
     var rollId = 0
     /** Passed the Spire this turn: you may turn your coins until the turn ends. */
     var spireCharge = false
+    /** 1 once a lord has passed (or landed on) the Spire: only then may they buy deeds or bid at auction, like Monopoly's first lap. */
+    var lapped = IntArray(MAX)
     /** Rolled doubles: roll again after this landing. */
     var again = false
     /** Taxes and fines wait in the Colosseum for whoever lands there. */
@@ -302,7 +305,7 @@ class Deeds {
             .put("actor", actor).put("round", round).put("doubles", doubles).put("phase", phase).put("dealt", dealt)
             .put("pType", pType).put("pAmount", pAmount).put("pDmg", pDmg).put("pTile", pTile).put("pCard", pCard)
             .put("pTo", pTo).put("pWhat", pWhat).put("pNext", pNext).put("felledThisTurn", felledThisTurn)
-            .put("d1", d1).put("d2", d2).put("rollId", rollId).put("spireCharge", spireCharge).put("again", again)
+            .put("d1", d1).put("d2", d2).put("rollId", rollId).put("spireCharge", spireCharge).put("lapped", a(lapped)).put("again", again)
             .put("purse", purse).put("omen", omen).put("winner", winner).put("endReason", endReason).put("lastText", lastText)
             .put("fate", a(fate)).put("fateAt", fateAt).put("loot", a(loot)).put("lootAt", lootAt)
             .put("aTile", aTile).put("aBid", aBid).put("aHigh", aHigh).put("aTurn", aTurn).put("aIn", a(aIn))
@@ -504,7 +507,7 @@ class Deeds {
         val s = stipend()
         gold[p] += s
         if (omen != 8) heal(p, 1, quiet = true)
-        spireCharge = true
+        spireCharge = true; lapped[p] = 1
         say("${Title(p)} passes the Spire: +$s gold" + (if (omen != 8) ", heals 1" else "") + ". Coins may be turned this turn.")
     }
 
@@ -525,7 +528,7 @@ class Deeds {
         val t = pos[p]
         pType = D_NONE; pTile = t
         when (KIND[t]) {
-            SPIRE -> { gold[p] += 100; say("${Title(p)} lands right on the Spire: the King adds 100 gold."); settle() }
+            SPIRE -> { gold[p] += 100; lapped[p] = 1; say("${Title(p)} lands right on the Spire: the King adds 100 gold."); settle() }
             SEIZE -> {
                 say("The Inquisitor seizes ${title(p)}! Down to the Dungeon.")
                 toDungeon(p); settle()
@@ -550,6 +553,7 @@ class Deeds {
     private fun landDeed(p: Int, t: Int) {
         val o = owner[t]
         when {
+            o < 0 && lapped[p] == 0 -> { say("${Title(p)} hasn't passed the Spire yet, so ${names[t]} can't be bought this time."); settle() }
             o < 0 -> decide(D_BUY)
             o == p -> { say("${Title(p)} rests at their own ${names[t]}."); settle() }
             pawned[t] == 1 -> { say("${names[t]} is pawned to the moneylender. Nothing is owed."); settle() }
@@ -692,7 +696,8 @@ class Deeds {
         say("${Title(actor)} passes on ${names[t]}. To auction!")
         pType = D_NONE
         aTile = t; aBid = 0; aHigh = -1
-        for (p in 0 until MAX) aIn[p] = if (p < n && out[p] == 0) 1 else 0
+        // only lords who have passed the Spire may bid
+        for (p in 0 until MAX) aIn[p] = if (p < n && out[p] == 0 && lapped[p] == 1) 1 else 0
         aTurn = nextIn(actor)
         phase = AUCTION
         auctionCheck()

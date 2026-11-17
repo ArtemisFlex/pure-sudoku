@@ -60,6 +60,7 @@ class DeedsTest {
         val rnd = Random(3)
         val g = Deeds.newGame(2, rnd)
         g.seats(3, 0); g.choose(0, 1); g.choose(1, 2); g.choose(2, 3)
+        g.lapped.fill(1)
         val m = Deeds::class.java.getDeclaredMethod("move", Int::class.java, Int::class.java).apply { isAccessible = true }
         m.invoke(g, 0, 1)
         assertEquals(Deeds.D_BUY, g.pType)
@@ -73,6 +74,24 @@ class DeedsTest {
         assertEquals(Deeds.AFTER, g.phase)
         assertEquals(0, g.owner[1])
         assertEquals(Deeds.START_GOLD - 60, g.gold[0])
+    }
+
+    @Test fun noBuyingUntilYouPassTheSpire() {
+        val rnd = Random(5)
+        val g = Deeds.newGame(2, rnd)
+        g.seats(2, 0); g.choose(0, 1); g.choose(1, 2)
+        val m = Deeds::class.java.getDeclaredMethod("move", Int::class.java, Int::class.java).apply { isAccessible = true }
+        // first lap: an unclaimed deed can't be bought, and stays unclaimed
+        m.invoke(g, 0, 1)
+        assertTrue(g.pType != Deeds.D_BUY); assertEquals(-1, g.owner[1])
+        // round the board past the Spire, then it can
+        g.phase = Deeds.ROLL; g.pos[0] = 34
+        m.invoke(g, 0, 3)
+        assertEquals(1, g.lapped[0]); assertEquals(Deeds.D_BUY, g.pType)
+        // only lords who have passed the Spire may bid on what's passed
+        assertTrue(g.pass())
+        assertTrue(g.phase != Deeds.AUCTION || g.decider == 0)
+        assertEquals(1, Deeds.fromJson(org.json.JSONObject(g.toJson().toString())).lapped[0])
     }
 
     @Test fun tradeMovesDeedsAndGold() {
