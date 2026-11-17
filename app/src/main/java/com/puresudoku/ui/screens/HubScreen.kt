@@ -104,7 +104,6 @@ fun HubScreen(vm: AppViewModel) {
                 }
             }
             Spacer(Modifier.height(14.dp))
-            if (vm.backupFolderName == null) BackupNudge(vm) { showAppearance = true }
         }
         IconButton(
             onClick = { showAppearance = true },
@@ -112,25 +111,6 @@ fun HubScreen(vm: AppViewModel) {
         ) { Icon(Icons.Outlined.Settings, contentDescription = "Appearance") }
     }
     if (showAppearance) SettingsDialog(vm, onDismiss = { showAppearance = false })
-}
-
-/** Reminds you that records only live on this phone until a backup folder is set. */
-@Composable
-private fun BackupNudge(vm: AppViewModel, openSettings: () -> Unit) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Keep your records safe", fontWeight = FontWeight.SemiBold)
-            Text(
-                if (vm.backupsUseFolder) "Your stats and leaderboards live only in the app. Choose a backup folder on your phone and they'll be kept there, even if you uninstall."
-                else "Your saves and records live in this browser. Download a backup file now and then, so clearing site data or switching devices doesn't lose them.",
-                fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row {
-                TextButton(onClick = { vm.pickBackupFolder?.invoke() }) { Text(if (vm.backupsUseFolder) "Choose folder" else "Download backup") }
-                TextButton(onClick = { vm.pickBackupFile?.invoke() }) { Text("Restore a backup") }
-            }
-        }
-    }
 }
 
 @Composable
