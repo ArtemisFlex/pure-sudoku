@@ -308,6 +308,15 @@ class CyvasseTest {
         assertTrue(g.legalMoves().isNotEmpty())
     }
 
+    @Test fun clearFieldHasNoTerrain() {
+        val g = Cyvasse.clearField()
+        assertEquals(BATTLE, g.phase); assertTrue(g.clearField)
+        assertTrue((0 until Cyvasse.CELLS).all { g.terrain[it] == PLAIN && g.block[it] == 0 })
+        assertEquals(20, g.onBoard(0)); assertEquals(20, g.onBoard(1))
+        assertTrue(g.legalMoves().isNotEmpty())
+        assertTrue(Cyvasse.fromJson(g.toJson()).clearField)
+    }
+
     @Test fun gamesThatCanNeverEndAreDrawn() {
         // the last piece besides the kings is taken: only the kings are left
         val k = battle(); k.board[at(9, 9)] = piece(1, RABBLE)

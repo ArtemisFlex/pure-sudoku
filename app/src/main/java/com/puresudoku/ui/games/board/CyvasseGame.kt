@@ -109,7 +109,16 @@ class CyvasseSession(difficulty: Difficulty, val g: Cyvasse) : DuelSession(GameK
     /** A new game first asks which field to play: the standard layout, or an open field each side sets up. */
     var fieldChosen by mutableStateOf(false)
     /** The choice is offered before the first move of a fresh game, except in training and online. */
-    val choosingField: Boolean get() = !fieldChosen && !training && !online && g.phase == Cyvasse.BATTLE && g.plies == 0 && !g.openField
+    val choosingField: Boolean get() = !fieldChosen && !training && !online && g.phase == Cyvasse.BATTLE && g.plies == 0 && !g.openField && !g.clearField
+
+    /** The clear field: no terrain at all, just the two armies. */
+    fun chooseClearField() {
+        if (!choosingField) return
+        fieldChosen = true
+        g.clearTerrain()
+        message = if (localTwoPlayer) "A clear field: Alabaster moves first" else "A clear field: your move"
+        bump(); changed()
+    }
 
     fun chooseField(open: Boolean) {
         if (!choosingField) return
@@ -906,18 +915,20 @@ private fun SetupControls(s: CyvasseSession, modifier: Modifier) {
     }
 }
 
-/** Before the first move: the standard field, or an open field each side sets up behind the screen. */
+/** Before the first move: the standard field, an open field each side sets up behind the screen, or a clear field. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FieldChoice(s: CyvasseSession, modifier: Modifier) {
     Column(modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Choose the field", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Standard: the same layout every game. Open field: the armies and the river stay, and each side places its own 3 mountains and 3 forests behind a screen.",
+        Text("Standard: the same layout every game. Open field: the armies and the river stay, and each side places its own 3 mountains and 3 forests behind a screen. Clear field: no terrain at all, not even the river.",
             fontSize = 13.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            FilledTonalButton(onClick = { s.chooseField(false) }) { Text("Standard field") }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = { s.chooseField(false) }) { Text("Standard") }
             Button(onClick = { s.chooseField(true) }) { Text("Open field") }
+            FilledTonalButton(onClick = { s.chooseClearField() }) { Text("Clear field") }
         }
     }
     Spacer(Modifier.height(6.dp))

@@ -346,6 +346,7 @@ class ArtQaActivity : ComponentActivity() {
                 // a fresh game: the field choice, or (step=setup) an open field with the suggested layout behind the screen
                 val s = com.puresudoku.ui.games.board.CyvasseSession(Difficulty.MEDIUM, com.puresudoku.core.board.Cyvasse.standard())
                 if (intent.getStringExtra("step") == "setup") { s.chooseField(true); s.scatter() }
+                if (intent.getStringExtra("step") == "clear") s.chooseClearField()
                 setContent { PureSudokuTheme {
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
                         androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.puresudoku.R.drawable.cyvasse_background), null,

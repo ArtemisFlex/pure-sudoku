@@ -62,6 +62,9 @@ class Cyvasse {
         /** An open-field game: the standard armies and the river, with each player placing their own mountains and forests. */
         fun openField(): Cyvasse = standard().also { it.startOpenField() }
 
+        /** A clear field: the standard armies on open ground, with no mountains, forests or river water at all. */
+        fun clearField(): Cyvasse = standard().also { it.clearTerrain() }
+
         /**
          * The standard field, top (Onyx's back row) to bottom (Alabaster's). Pieces: T trebuchet, H heavy horse,
          * L light horse, S spearman, D dragon, K king, C catapult, E elephant, X crossbowman, R rabble (rows above the
@@ -167,7 +170,7 @@ class Cyvasse {
             g.phase = o.optInt("phase"); g.placer = o.optInt("placer"); g.turn = o.optInt("turn"); g.first = o.optInt("first")
             g.winner = o.optInt("winner", -1); g.bonusRabble = o.optInt("bonus", -1); g.quiet = o.optInt("quiet"); g.plies = o.optInt("plies")
             g.lastMove = o.optInt("last", -1); g.lastBy = o.optInt("lastBy", -1); g.lastText = o.optString("lastText", "")
-            g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate"); g.openField = o.optBoolean("open"); g.drawnBy = o.optInt("drawnBy")
+            g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate"); g.openField = o.optBoolean("open"); g.clearField = o.optBoolean("clear"); g.drawnBy = o.optInt("drawnBy")
             o.optJSONArray("seen")?.let { a -> for (i in 0 until a.length() / 2) g.seen[a.getInt(2 * i)] = a.getInt(2 * i + 1) }
             ia("waterWait", CELLS).copyInto(g.waterWait); ia("facing", CELLS).copyInto(g.facing)
             ia("fortHits", 2).copyInto(g.fortHits)
@@ -222,6 +225,14 @@ class Cyvasse {
     val seen = HashMap<Int, Int>()
     /** Each player placed their own terrain and fortress before the battle. */
     var openField = false
+    /** No terrain at all: not even the river's water. */
+    var clearField = false
+
+    /** Strips every mountain, forest and water tile (the halves still meet at the middle row). */
+    fun clearTerrain() {
+        for (c in 0 until CELLS) { terrain[c] = PLAIN; block[c] = 0 }
+        keepAt[0] = -1; keepAt[1] = -1; clearField = true
+    }
 
     /** Clears the standard field's terrain (keeping the river and the armies) and opens the setup behind the screen. */
     fun startOpenField() {
@@ -237,7 +248,7 @@ class Cyvasse {
             .put("res0", a(reserve[0])).put("res1", a(reserve[1])).put("cap0", a(captured[0])).put("cap1", a(captured[1]))
             .put("phase", phase).put("placer", placer).put("turn", turn).put("first", first).put("winner", winner)
             .put("bonus", bonusRabble).put("quiet", quiet).put("plies", plies)
-            .put("last", lastMove).put("lastBy", lastBy).put("lastText", lastText).put("keepFell", keepFell).put("stalemate", stalemate).put("open", openField).put("drawnBy", drawnBy)
+            .put("last", lastMove).put("lastBy", lastBy).put("lastText", lastText).put("keepFell", keepFell).put("stalemate", stalemate).put("open", openField).put("clear", clearField).put("drawnBy", drawnBy)
             .put("seen", JSONArray().also { j -> for ((k, v) in seen) { j.put(k); j.put(v) } })
     }
 
@@ -250,7 +261,7 @@ class Cyvasse {
         for (s in 0..1) { reserve[s].copyInto(g.reserve[s]); captured[s].copyInto(g.captured[s]) }
         g.phase = phase; g.placer = placer; g.turn = turn; g.first = first; g.winner = winner
         g.bonusRabble = bonusRabble; g.quiet = quiet; g.plies = plies
-        g.lastMove = lastMove; g.lastBy = lastBy; g.lastText = lastText; g.keepFell = keepFell; g.stalemate = stalemate; g.openField = openField; g.drawnBy = drawnBy
+        g.lastMove = lastMove; g.lastBy = lastBy; g.lastText = lastText; g.keepFell = keepFell; g.stalemate = stalemate; g.openField = openField; g.clearField = clearField; g.drawnBy = drawnBy
         return g
     }
 
