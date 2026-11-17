@@ -289,13 +289,13 @@ class CyvasseTest {
     @Test fun strategiesAreRecognised() {
         val g = battle(); g.board[at(1, 4)] = piece(0, RABBLE); g.crossed[at(1, 4)] = 1
         val promo = g.legalMoves().first { kindOf(it) == K_PROMO }
-        assertEquals(CyvasseStrategy.VISERYS, CyvasseStrategy.of(g, promo))
+        assertEquals(CyvasseStrategy.CROWN, CyvasseStrategy.of(g, promo))
         val t = battle(); t.board[at(10, 3)] = piece(0, TREBUCHET); t.board[at(4, 3)] = piece(1, RABBLE)
-        assertEquals(CyvasseStrategy.MAEGOR, CyvasseStrategy.of(t, t.move(at(10, 3), at(4, 3), K_RANGED)!!))
+        assertEquals(CyvasseStrategy.SIEGE, CyvasseStrategy.of(t, t.move(at(10, 3), at(4, 3), K_RANGED)!!))
         val c = battle(); c.board[at(6, 1)] = piece(0, DRAGON)
-        // the dragon flies to a6's file... any check from it is Visenya's Dark Sister
+        // the dragon flies to a6's file... any check from it is Ilsa's Thorn
         val check = c.legalMoves().first { val x = c.copy(); x.play(it, check = false, settle = false); x.inCheck(1) }
-        assertEquals(CyvasseStrategy.VISENYA, CyvasseStrategy.of(c, check))
+        assertEquals(CyvasseStrategy.THORN, CyvasseStrategy.of(c, check))
         for (level in 0..5) assertTrue(CyvasseStrategy.forLevel(level).isNotEmpty())
     }
 

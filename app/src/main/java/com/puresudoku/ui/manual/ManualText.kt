@@ -651,7 +651,7 @@ object ManualText {
                 "Bringing down a fortress counts as a piece taken.") }
             sec("Promotion") { p("A rabble that reaches the enemy's back row is promoted to any piece except a king or a rabble. A promoted piece moves freely, backward included.") }
             sec("Named strategies") {
-                p("The computer learned Cyvasse by playing hundreds of games against itself and tuning how it judges a position. The plans that decided its games are named for the Targaryens. In training wheels mode the coach names them as they're played.")
+                p("The computer learned Cyvasse by playing hundreds of games against itself and tuning how it judges a position. The plans that decided its games are named for legendary players of the game. In training wheels mode the coach names them as they're played.")
                 b(*com.puresudoku.core.board.CyvasseStrategy.entries.map { "${it.title}: ${it.idea}" }.toTypedArray())
             }
             sec("Check and checkmate") { b("You may never make a move that leaves your king able to be taken, and when your king is in check you must get it out: move it, block, or take the attacker.",

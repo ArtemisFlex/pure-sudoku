@@ -27,37 +27,37 @@ import com.puresudoku.core.board.Cyvasse.Companion.typeOf
  * training showed about it.
  */
 enum class CyvasseStrategy(val title: String, val level: Int, val idea: String, val found: String = "") {
-    VISERYS("Viserys's Crown", 0,
+    CROWN("Maren's Crown", 0,
         "March a rabble across the river to the enemy's back row and crown it: it becomes any piece but a king. A rabble two rows from the end is a threat the rival must answer.",
         "In 40 self-play games, winners crowned or nearly crowned a rabble 1.8 times a game; losers 0.5. Of all the plans, this one most often marked the winner."),
-    RHAEGAR("Rhaegar at the Trident", 0,
+    FORD("Corwin at the Ford", 0,
         "Fight for the river. Whoever holds the crossing decides where the battle is fought: take enemies as they wade in, since water holds a piece for a turn.",
         "In self-play both sides fought at the river about seven times a game; winners slightly more (54%)."),
-    BLOODRAVEN("Lord Bloodraven", 1,
-        "A thousand eyes and one: post crossbowmen on open ground where enemies must pass, and shoot the one that steps diagonally beside them. Never from a forest.",
+    VOLLEY("Lady Ysolde's Bolts", 1,
+        "Post crossbowmen on open ground where enemies must pass, and shoot the one that steps diagonally beside them. Never from a forest.",
         "Rare in self-play (once every five games) and even between winners and losers: a crossbowman's shot is a chance to take, not a plan to build on."),
-    BAELOR("Baelor Breakspear", 1,
+    SPEAR("Tarn Spearbreaker", 1,
         "Spearmen strike two tiles away in any direction. Lead with them and break the enemy line where it is thinnest.",
         "In self-play winners led with spearmen 2.2 times a game, losers 1.7 (57%)."),
-    MAEGOR("Maegor's Siege", 2,
+    SIEGE("Old Hollis's Siege", 2,
         "Catapults and trebuchets reach any distance, but only to the first piece in line. Clear a lane, then fire down it: siege engines win the long game.",
         "In self-play winners fired siege engines 4.5 times a game, losers 3.1 (59%): long-range fire wears the rival down."),
-    DAEMON("Daemon Blackfyre's Charge", 2,
+    CHARGE("Rowan Ashmane's Charge", 2,
         "Horses ride the diagonals. Send them deep: take by landing, or ride in beside the enemy king to tie down its defenders.",
         "In self-play both sides charged with horses about 1.7 times a game: an even trade unless the charge also takes something."),
-    DRAGONKNIGHT("The Dragonknight", 3,
+    SHIELD("The Ember Knight", 3,
         "When your king is in check, answer with another piece: block the line or take the attacker, and keep the king where it stands.",
         "Even in self-play (0.6 a game for both): it saves the game, but doesn't win it on its own."),
-    JAEHAERYS("Jaehaerys's Peace", 3,
+    PEACE("King Osric's Peace", 3,
         "Strengthen before you strike: bring pieces in beside your king, or tuck it into its fortress, so the rival's attack finds nothing loose.",
         "A warning from self-play: losers sheltered their king 11.2 times a game, winners 8.4. Shelter when you must, then get back to the attack."),
-    AEGON("Aegon at Harrenhal", 4,
+    STRONGHOLD("Calder at Greyhold", 4,
         "A dragon's fire brings a fortress down at once and takes the piece inside, unless it's a king. Use your dragon to break the enemy's stronghold.",
         "Rare in self-play: fortresses are usually already empty or fallen by the time a dragon gets there. Strike early."),
-    DAERON("Daeron the Young Dragon", 4,
+    RAID("Seren the Young Flame", 4,
         "Fly your dragon into the enemy's half and take what it finds. Keep its lines open: pieces and fortresses stop it, mountains don't.",
         "In self-play winners made dragon raids 1.0 times a game, losers 0.8 (56%)."),
-    VISENYA("Visenya's Dark Sister", 5,
+    THORN("Ilsa's Thorn", 5,
         "Strike at the king. Every check forces an answer and gains you a move; checks that also take a piece or close the king's escape lead to mate.",
         "In self-play winners gave check 3.1 times a game, losers 1.2: the second strongest sign of the winner.");
 
@@ -73,17 +73,17 @@ enum class CyvasseStrategy(val title: String, val level: Int, val idea: String, 
             val after = g.copy(); after.play(m, check = false, settle = false)
             val wasInCheck = g.inCheck(side)
             return when {
-                type == DRAGON && victim != null && g.fortAt(b) >= 0 -> AEGON
-                kind == K_PROMO || (type == RABBLE && g.progress(side, b) >= Cyvasse.H - 3) -> VISERYS
-                after.phase == Cyvasse.OVER && after.winner == side || after.inCheck(1 - side) -> VISENYA
-                wasInCheck && type != KING -> DRAGONKNIGHT
-                type == DRAGON && victim != null && Cyvasse.inHalf(1 - side, b) -> DAERON
-                type == CROSSBOW && kind == K_RANGED -> BLOODRAVEN
-                (type == CATAPULT || type == TREBUCHET) && kind == K_RANGED -> MAEGOR
-                type == SPEARMAN && victim != null -> BAELOR
-                (type == LIGHT_HORSE || type == HEAVY_HORSE) && (victim != null || nearKing(g, 1 - side, b)) -> DAEMON
-                row(b) == RIVER && (victim != null || type != RABBLE) -> RHAEGAR
-                victim == null && (type == KING && g.fortAt(b) >= 0 || type != KING && nearKing(g, side, b) && !nearKing(g, side, a)) -> JAEHAERYS
+                type == DRAGON && victim != null && g.fortAt(b) >= 0 -> STRONGHOLD
+                kind == K_PROMO || (type == RABBLE && g.progress(side, b) >= Cyvasse.H - 3) -> CROWN
+                after.phase == Cyvasse.OVER && after.winner == side || after.inCheck(1 - side) -> THORN
+                wasInCheck && type != KING -> SHIELD
+                type == DRAGON && victim != null && Cyvasse.inHalf(1 - side, b) -> RAID
+                type == CROSSBOW && kind == K_RANGED -> VOLLEY
+                (type == CATAPULT || type == TREBUCHET) && kind == K_RANGED -> SIEGE
+                type == SPEARMAN && victim != null -> SPEAR
+                (type == LIGHT_HORSE || type == HEAVY_HORSE) && (victim != null || nearKing(g, 1 - side, b)) -> CHARGE
+                row(b) == RIVER && (victim != null || type != RABBLE) -> FORD
+                victim == null && (type == KING && g.fortAt(b) >= 0 || type != KING && nearKing(g, side, b) && !nearKing(g, side, a)) -> PEACE
                 else -> null
             }
         }

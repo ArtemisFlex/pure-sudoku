@@ -402,7 +402,7 @@ object CyvasseDef : GameDef {
             val s = remember { demo().also { d -> (0 until Cyvasse.CELLS).firstOrNull { d.g.board[it] == Cyvasse.piece(0, Cyvasse.DRAGON) }?.let { d.tap(it) } } }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
-        TutorialStep("Named strategies", "The computer learned its play by training against itself, and the plans it found are named for the Targaryens: Viserys's Crown, Lord Bloodraven, Baelor Breakspear, Daemon Blackfyre's Charge and more. Play with training wheels to learn them: the coach names the plan behind each move it shows you, and calls out the rival's.") { _ ->
+        TutorialStep("Named strategies", "The computer learned its play by training against itself, and the plans it found are named for the heroes of old Cyvasse tables: Maren's Crown, Lady Ysolde's Bolts, Tarn Spearbreaker, Rowan Ashmane's Charge and more. Play with training wheels to learn them: the coach names the plan behind each move it shows you, and calls out the rival's.") { _ ->
             val s = remember { demo() }
             CyvasseBoard(s, Modifier.fillMaxWidth().padding(16.dp))
         },
