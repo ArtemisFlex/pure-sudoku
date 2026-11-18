@@ -1,19 +1,41 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val keyProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "com.puresudoku"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.puresudoku"
+        // The Play Store ID. Permanent once published. (The code namespace above stays com.puresudoku.)
+        applicationId = "app.puregames"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 1
+        targetSdk = 36
+        versionCode = 3
         versionName = "1.0"
+    }
+
+    // Upload key for Google Play, read from keystore.properties (git-ignored, never committed):
+    //   storeFile=C:/path/to/puregames-upload.jks
+    //   storePassword=...
+    //   keyAlias=upload
+    //   keyPassword=...
+    // Without that file, release builds fall back to the debug key so they still install for testing.
+    signingConfigs {
+        if (keyProps.getProperty("storeFile") != null) create("upload") {
+            storeFile = file(keyProps.getProperty("storeFile"))
+            storePassword = keyProps.getProperty("storePassword")
+            keyAlias = keyProps.getProperty("keyAlias")
+            keyPassword = keyProps.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
@@ -21,9 +43,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signs with the debug key so the release APK installs directly.
-            // Swap in your own signing config before publishing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

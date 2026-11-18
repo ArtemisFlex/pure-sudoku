@@ -11,3 +11,10 @@ build/
 art/deed-dungeon/gen/*.png
 art/deed-dungeon/gen/*.log
 art/deed-dungeon/gen/last*.txt
+
+# Play upload key: never commit
+keystore.properties
+*.jks
+*.keystore
+# Release bundles are large build outputs
+*.aab
