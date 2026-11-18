@@ -88,6 +88,7 @@ fun HubScreen(vm: AppViewModel) {
             Spacer(Modifier.height(18.dp))
             // the collections as a grid: two side by side on a phone, more on wider screens
             val cards = ArrayList<@Composable (Modifier) -> Unit>()
+            cards += { m -> OriginalsCard(vm, m) }
             cards += { m -> TwoPlayerCard(vm, m) }
             (GameCategory.entries.filter { it != GameCategory.STRATEGY } + GameCategory.STRATEGY).forEachIndexed { idx, cat ->
                 val games = Games.all.filter { it.kind.category == cat }
@@ -103,7 +104,9 @@ fun HubScreen(vm: AppViewModel) {
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(20.dp))
+            LegalLinks()
+            Spacer(Modifier.height(4.dp))
         }
         IconButton(
             onClick = { showAppearance = true },
@@ -111,6 +114,28 @@ fun HubScreen(vm: AppViewModel) {
         ) { Icon(Icons.Outlined.Settings, contentDescription = "Appearance") }
     }
     if (showAppearance) SettingsDialog(vm, onDismiss = { showAppearance = false })
+}
+
+/** Small print at the foot of the home page: privacy policy, terms and a contact address. */
+@Composable
+private fun LegalLinks() {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        listOf(
+            "Privacy" to "https://puregames.app/privacy.html",
+            "Terms" to "https://puregames.app/terms.html",
+            "Contact" to "mailto:support@puregames.app",
+        ).forEachIndexed { i, (label, link) ->
+            if (i > 0) Text("·", fontSize = 11.sp, color = muted)
+            Text(
+                label, fontSize = 11.sp, color = muted,
+                modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                    .clickable { runCatching { uri.openUri(link) } }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+        }
+    }
 }
 
 @Composable
@@ -212,6 +237,57 @@ private fun TwoPlayerCard(vm: AppViewModel, modifier: Modifier) {
     ) {
         val show = listOf(com.puresudoku.core.GameKind.CHESS, com.puresudoku.core.GameKind.CRAZY_EIGHTS, com.puresudoku.core.GameKind.GO).map { Games.of(it) }
         CollectionCardBody(show, "Two Players", "Play a friend on one device or online", "${games.size} games")
+    }
+}
+
+/** The games designed for PureGames by BCS Gaming, in the order they appear in the Originals list. */
+private val originalKinds = listOf(
+    com.puresudoku.core.GameKind.CYVASSE, com.puresudoku.core.GameKind.REALMFORGE, com.puresudoku.core.GameKind.REALM_DRAGON, com.puresudoku.core.GameKind.REALM_NIGHT, com.puresudoku.core.GameKind.REALM_ASH, com.puresudoku.core.GameKind.WISTERIA, com.puresudoku.core.GameKind.ASHFALL, com.puresudoku.core.GameKind.VEILGUARD,
+    com.puresudoku.core.GameKind.KREASHUN, com.puresudoku.core.GameKind.AEGWASPELL, com.puresudoku.core.GameKind.AEG_CONQUEST, com.puresudoku.core.GameKind.DEED_DUNGEON, com.puresudoku.core.GameKind.CRATEBARGE,
+)
+private val originalGames get() = originalKinds.map { Games.of(it) }
+
+/** The Original Games collection: games made for PureGames, from every corner of the app. */
+@Composable
+private fun OriginalsCard(vm: AppViewModel, modifier: Modifier) {
+    val enter = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { delay(110L); enter.animateTo(1f, spring(0.7f, Spring.StiffnessMediumLow)) }
+    val games = originalGames
+    Surface(
+        onClick = vm::openOriginals,
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = modifier.height(CARD_HEIGHT).graphicsLayer {
+            alpha = enter.value.coerceIn(0f, 1f)
+            translationY = (1f - enter.value) * 60.dp.toPx()
+        },
+    ) {
+        val show = listOf(com.puresudoku.core.GameKind.CYVASSE, com.puresudoku.core.GameKind.REALMFORGE, com.puresudoku.core.GameKind.AEGWASPELL).map { Games.of(it) }
+        CollectionCardBody(show, "Original Games", "Designed by BCS Gaming, only in PureGames", "${games.size} games")
+    }
+}
+
+/** Every original game in one list. */
+@Composable
+fun OriginalsScreen(vm: AppViewModel) {
+    val games = originalGames
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+        TopBar("Original Games", vm::back)
+        LazyVerticalGrid(
+            columns = DrawerColumns,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    "Games designed for PureGames by BCS Gaming. You won't find them anywhere else.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+            }
+            itemsIndexed(games, key = { _, g -> g.kind.name }) { idx, g -> GameCard(vm, g, idx) }
+        }
     }
 }
 

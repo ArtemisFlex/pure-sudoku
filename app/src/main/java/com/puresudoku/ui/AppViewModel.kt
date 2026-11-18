@@ -28,6 +28,8 @@ sealed interface Screen {
     data class Category(val category: GameCategory) : Screen
     /** Every game two people can play together, on one device or online. */
     data object TwoPlayer : Screen
+    /** The games designed for PureGames by BCS Gaming. */
+    data object Originals : Screen
     data class Menu(val kind: GameKind) : Screen
     data class PickLevel(val kind: GameKind) : Screen
     /** Continue list; when [replaceFor] is set, the player is choosing a slot to overwrite. */
@@ -159,10 +161,11 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
     fun openCategory(c: GameCategory) { screen = Screen.Category(c) }
     fun leaderboard(kind: GameKind) = repo.leaderboard(kind)
 
-    /** A game's page remembers whether it was opened from the Two Players list, so Back returns there. */
-    private var menuFromTwoPlayer = false
+    /** A game's page remembers whether it was opened from the Two Players or Originals list, so Back returns there. */
+    private var menuFrom: Screen? = null
     fun openTwoPlayer() { screen = Screen.TwoPlayer }
-    fun openGame(kind: GameKind) { menuFromTwoPlayer = screen == Screen.TwoPlayer; activeKind = kind; refreshMeta(); screen = Screen.Menu(kind) }
+    fun openOriginals() { screen = Screen.Originals }
+    fun openGame(kind: GameKind) { menuFrom = screen.takeIf { it == Screen.TwoPlayer || it == Screen.Originals }; activeKind = kind; refreshMeta(); screen = Screen.Menu(kind) }
     fun openLevelPicker(kind: GameKind) { pendingLocalTwoPlayer = false; screen = Screen.PickLevel(kind) }
 
     fun startLocalTwoPlayer(kind: GameKind) {
@@ -267,8 +270,8 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         if (tutorialFor != null) { closeTutorial(); return }
         when (val s = screen) {
             Screen.Hub -> Unit
-            is Screen.Category, Screen.TwoPlayer -> screen = Screen.Hub
-            is Screen.Menu -> screen = if (menuFromTwoPlayer) Screen.TwoPlayer else Screen.Category(s.kind.category)
+            is Screen.Category, Screen.TwoPlayer, Screen.Originals -> screen = Screen.Hub
+            is Screen.Menu -> screen = menuFrom ?: Screen.Category(s.kind.category)
             is Screen.PickLevel -> screen = Screen.Menu(s.kind)
             is Screen.Online -> closeOnline(s.kind)
             is Screen.Slots -> {

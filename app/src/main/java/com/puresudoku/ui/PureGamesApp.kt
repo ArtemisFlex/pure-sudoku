@@ -48,6 +48,7 @@ fun PureGamesApp(vm: AppViewModel, dark: Boolean) {
                     Screen.Hub -> HubScreen(vm)
                     is Screen.Category -> com.puresudoku.ui.screens.CategoryScreen(vm, s.category)
                     Screen.TwoPlayer -> com.puresudoku.ui.screens.TwoPlayerScreen(vm)
+                    Screen.Originals -> com.puresudoku.ui.screens.OriginalsScreen(vm)
                     is Screen.Menu -> GameMenuScreen(vm, s.kind)
                     is Screen.PickLevel -> LevelScreen(vm, s.kind)
                     is Screen.Slots -> SlotsScreen(vm, s.kind, s.replaceFor)
