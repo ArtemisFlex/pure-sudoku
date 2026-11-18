@@ -229,13 +229,11 @@ class CyvasseTest {
         assertTrue(at(6, 4) in h.targets(at(9, 1)))                // three tiles
     }
 
-    @Test fun whoCanTakeElephantsAndHeavyHorses() {
-        assertTrue(Cyvasse.beats(KING, ELEPHANT)); assertTrue(Cyvasse.beats(CATAPULT, ELEPHANT)); assertTrue(Cyvasse.beats(HEAVY_HORSE, ELEPHANT))
-        assertFalse(Cyvasse.beats(SPEARMAN, ELEPHANT)); assertFalse(Cyvasse.beats(LIGHT_HORSE, ELEPHANT)); assertFalse(Cyvasse.beats(CROSSBOW, ELEPHANT)); assertFalse(Cyvasse.beats(RABBLE, ELEPHANT))
-        assertFalse(Cyvasse.beats(RABBLE, HEAVY_HORSE)); assertTrue(Cyvasse.beats(SPEARMAN, HEAVY_HORSE))
-        assertFalse(Cyvasse.beats(RABBLE, DRAGON)); assertTrue(Cyvasse.beats(SPEARMAN, DRAGON))
-        val g = battle(); g.board[at(8, 4)] = piece(0, RABBLE); g.board[at(7, 4)] = piece(1, ELEPHANT); g.board[at(7, 5)] = piece(1, HEAVY_HORSE)
-        assertNull(g.move(at(8, 4), at(7, 4))); assertNull(g.move(at(8, 4), at(7, 5)))
+    @Test fun everyPieceCanTakeEveryPiece() {
+        for (a in Cyvasse.TYPES) for (d in Cyvasse.TYPES) assertTrue("${Cyvasse.NAMES[a]} takes ${Cyvasse.NAMES[d]}", Cyvasse.beats(a, d))
+        // a rabble takes an elephant and a heavy horse diagonally forward
+        val g = battle(); g.board[at(8, 4)] = piece(0, RABBLE); g.board[at(7, 3)] = piece(1, ELEPHANT); g.board[at(7, 5)] = piece(1, HEAVY_HORSE)
+        assertNotNull(g.move(at(8, 4), at(7, 3))); assertNotNull(g.move(at(8, 4), at(7, 5)))
     }
 
     @Test fun fortressHoldsOneAttackThenBecomesGrass() {
@@ -310,7 +308,8 @@ class CyvasseTest {
         val g = Cyvasse.openField()
         assertEquals(Cyvasse.SETUP, g.phase); assertTrue(g.openField)
         for (c in 0 until W) assertEquals(WATER, g.terrain[at(RIVER, c)])
-        assertEquals(20, g.onBoard(0)); assertEquals(-1, g.keepAt[0]); assertEquals(0, g.mountainsPlaced(0))
+        // one of each piece, all waiting behind the screen to be placed
+        assertEquals(0, g.onBoard(0)); assertEquals(10, g.reserveCount(0)); assertEquals(-1, g.keepAt[0]); assertEquals(0, g.mountainsPlaced(0))
         // only your own half's empty tiles, and only three mountains and three forests
         assertFalse(g.toggleMountain(0, at(3, 3))); assertFalse(g.toggleMountain(0, at(9, 3)))
         assertFalse(g.toggleMountain(0, at(7, 1))) // green grass
@@ -320,7 +319,11 @@ class CyvasseTest {
         assertFalse(g.toggleMountain(0, at(7, 6)))
         for (c in listOf(0, 2, 4)) assertTrue(g.toggleTerrain(0, FOREST, at(6, c)))
         assertFalse(g.toggleTerrain(0, FOREST, at(6, 6)))
-        assertTrue(g.setupDone(0)); assertTrue(g.ready(0, coin = true))
+        assertTrue(g.terrainDone(0)); assertFalse(g.setupDone(0))
+        // the pieces go anywhere on your own half
+        assertFalse(g.standPiece(0, KING, at(3, 3))); assertTrue(g.standPiece(0, KING, at(6, 9)))
+        g.placeArmy(0, Random(3))
+        assertTrue(g.setupDone(0)); assertEquals(10, g.onBoard(0)); assertTrue(g.ready(0, coin = true))
         CyvasseAi.setup(g, 1, 3, Random(1)); assertTrue(g.setupDone(1)); assertTrue(g.ready(1, coin = true))
         // the screen comes down, and Alabaster moves first whatever the coin says
         assertEquals(BATTLE, g.phase); assertEquals(0, g.turn)
@@ -347,13 +350,39 @@ class CyvasseTest {
         }
     }
 
-    @Test fun clearFieldHasNoTerrain() {
+    @Test fun clearFieldKeepsOnlyTheRiver() {
         val g = Cyvasse.clearField()
         assertEquals(BATTLE, g.phase); assertTrue(g.clearField)
-        assertTrue((0 until Cyvasse.CELLS).all { g.terrain[it] == PLAIN && g.block[it] == 0 })
+        assertTrue((0 until Cyvasse.CELLS).all { g.block[it] == 0 && g.terrain[it] == if (Cyvasse.row(it) == RIVER) WATER else PLAIN })
+        // the river still ends a spearman's move
+        val s = battle(); s.loadFrom(g); s.board.fill(0); s.board[at(RIVER + 1, 4)] = piece(0, SPEARMAN); s.board[at(10, 0)] = piece(0, KING); s.board[at(0, 0)] = piece(1, KING)
+        assertFalse(at(RIVER - 1, 4) in s.targets(at(RIVER + 1, 4))); assertTrue(at(RIVER, 4) in s.targets(at(RIVER + 1, 4)))
         assertEquals(20, g.onBoard(0)); assertEquals(20, g.onBoard(1))
         assertTrue(g.legalMoves().isNotEmpty())
         assertTrue(Cyvasse.fromJson(g.toJson()).clearField)
+    }
+
+    @Test fun everyModeStartsPlayableWithTheRiver() {
+        for (v in Cyvasse.VARIANTS) {
+            val g = Cyvasse.start(v, Random(v))
+            assertEquals(v, g.variant)
+            for (c in 0 until W) assertEquals("river in ${Cyvasse.VARIANT_NAMES[v]}", WATER, g.terrain[at(RIVER, c)])
+            if (Cyvasse.hasSetup(v)) {
+                assertEquals(Cyvasse.SETUP, g.phase)
+                for (side in 0..1) { CyvasseAi.setup(g, side, 3, Random(side)); assertTrue(g.ready(side, coin = false)) }
+            }
+            assertEquals(BATTLE, g.phase)
+            assertEquals(Cyvasse.armyFor(v).sum(), g.onBoard(0)); assertEquals(g.onBoard(0), g.onBoard(1))
+            assertTrue(g.legalMoves().isNotEmpty())
+            assertEquals(v, Cyvasse.fromJson(g.toJson()).variant)
+        }
+        // back row: one of each piece, all on the back rows
+        val b = Cyvasse.start(Cyvasse.V_BACK_ROW)
+        assertTrue((0 until Cyvasse.CELLS).filter { b.board[it] != 0 }.all { Cyvasse.row(it) == 0 || Cyvasse.row(it) == Cyvasse.H - 1 })
+        // wild field: the same terrain on both sides of the river
+        val w = Cyvasse.start(Cyvasse.V_WILD, Random(9))
+        for (c in 0 until Cyvasse.CELLS) { val m = (Cyvasse.H - 1 - Cyvasse.row(c)) * W + Cyvasse.col(c); assertEquals(w.block[c], w.block[m]); assertEquals(w.terrain[c], w.terrain[m]) }
+        assertEquals(6, (0 until Cyvasse.CELLS).count { w.block[it] == MOUNTAIN })
     }
 
     @Test fun gamesThatCanNeverEndAreDrawn() {

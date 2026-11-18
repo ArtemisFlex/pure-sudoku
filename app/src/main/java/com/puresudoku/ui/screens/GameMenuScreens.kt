@@ -80,10 +80,11 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
     val def = Games.of(kind)
     val saved = vm.slots[kind]?.count { it != null } ?: 0
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        TopBar("", vm::back) {
-            com.puresudoku.ui.components.FavoriteStar(vm, kind)
+        // on a single-game site this menu is the home page: nothing to go back to, and nothing to pin
+        TopBar("", vm::back, showBack = vm.soloGame == null, actions = {
+            if (vm.soloGame == null) com.puresudoku.ui.components.FavoriteStar(vm, kind)
             IconButton(onClick = { vm.openTutorial(kind) }) { Icon(Icons.Outlined.Info, contentDescription = "How to play") }
-        }
+        })
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -120,12 +121,12 @@ fun GameMenuScreen(vm: AppViewModel, kind: GameKind) {
                         Text("New game", fontSize = 17.sp)
                     }
                 }
-                if (kind in com.puresudoku.core.localTwoPlayerGames) {
+                if (kind in com.puresudoku.core.localTwoPlayerGames && vm.soloGame == null) {
                     OutlinedButton(onClick = { vm.startLocalTwoPlayer(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
                         Text("Two players · one device", fontSize = 16.sp)
                     }
                 }
-                if (kind in com.puresudoku.online.onlineGames) {
+                if (kind in com.puresudoku.online.onlineGames && vm.soloGame == null) {
                     OutlinedButton(onClick = { vm.openOnline(kind) }, Modifier.fillMaxWidth().height(56.dp)) {
                         Text("Play a friend online", fontSize = 16.sp)
                     }
@@ -477,9 +478,10 @@ fun GeneratingScreen(kind: GameKind, d: Difficulty) {
 // ---------------------------------------------------------------- shared
 
 @Composable
-fun TopBar(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}) {
+fun TopBar(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, showBack: Boolean = true) {
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+        if (showBack) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+        else Spacer(Modifier.size(48.dp))
         Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
         actions()
     }

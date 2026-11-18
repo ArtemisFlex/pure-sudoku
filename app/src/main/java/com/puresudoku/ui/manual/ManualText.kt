@@ -629,10 +629,14 @@ object ManualText {
             sec("The goal") { p("Checkmate the rival king. This is PureGames' standard Kreat: both sides start from the same layout, and the king follows chess rules for check.") }
             sec("The battlefield") { b("A board 10 tiles wide and 11 tall. Each army holds five rows; the middle row is a river of water tiles.",
                 "Each side has a back row of trebuchet, heavy horse, light horse, spearman, dragon, king, spearman, light horse, heavy horse and catapult, and in front of it an elephant, a crossbowman, six rabble, a crossbowman and an elephant. Mountains and forests stand between the army and the river. Alabaster moves first.") }
-            sec("Open field and Oops no terrain") { b("A new game against the computer or on one device asks which field to play: Standard (the layout above), Open field or Oops no terrain.",
-                "In an open field the armies and the river stay where they are, but the board starts bare. Each side places its own 3 mountains on white grass and 3 forests on green grass in the three empty rows of its half, behind a screen. Then the screen comes down and Alabaster moves first.",
-                "Oops no terrain has no terrain at all: no mountains, no forests and no river water. The halves still meet at the middle row, and units that cross it still can't step back until they reach the enemy's back row.",
-                "Suggest lays out one of the layouts that did best when the computer tested 24 of them against itself; change anything you like before pressing Ready. Its finding: placement matters much less than how you use your pieces.") }
+            sec("Modes") { b("A new game against the computer or on one device asks which mode to play. Tap a mode to preview its field on the board and read what's different, then press Start.",
+                "Standard: the layout above.",
+                "Open field: one of each piece, 10 a side. Behind a screen, each side places 3 mountains on white grass, 3 forests on green grass and all 10 pieces anywhere on its own half. Then the screen comes down and Alabaster moves first.",
+                "Oops no terrain: the standard armies with no mountains or forests. The river still crosses the middle and works as always.",
+                "Back row: one of each piece, all 10 lined up on the back row, with no front line of rabble.",
+                "Muster: the standard army and field, but each side places all 20 of its pieces anywhere on its own half, behind a screen.",
+                "Wild field: the standard armies on new terrain every game, 3 mountains and 3 forests a side, mirrored so neither side has an edge.",
+                "Suggest lays out a setup for you to change before pressing Ready.") }
             sec("The pieces") { b("King: one tile any way. It can take any piece.",
                 "Rabble: one tile forward or sideways, never back. It takes only one tile diagonally forward.",
                 "Elephant: one tile any way.",
@@ -648,7 +652,7 @@ object ManualText {
                 "Forests are cover: catapults, trebuchets and dragons can't hit a piece in one. Other pieces can still land on it and take it, a crossbowman can shoot into a forest, and a piece in a forest attacks normally.",
                 "Entering water ends a move; the piece goes on as normal next turn.",
                 "Ground units that cross the river can't step back toward their own side, only forward or sideways, until they've touched the enemy's back row. After that they move freely by their own rules. Catapults and trebuchets cross the river too.") }
-            sec("Taking pieces") { b("Kings can take any piece. Elephants can be taken only by kings, dragons, heavy horses, elephants, catapults and trebuchets. Heavy horses and dragons can be taken by anything except a rabble. Everything else can be taken by any piece.",
+            sec("Taking pieces") { b("Every piece can take every piece, by its own way of attacking.",
                 "Shots stop at the first enemy and at mountains. You can never take your own pieces.") }
             sec("Promotion") { p("A rabble that reaches the enemy's back row is promoted to any piece except a king or a rabble. A promoted piece moves freely, backward included.") }
             sec("Named strategies") {

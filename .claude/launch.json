@@ -4,8 +4,26 @@
     {
       "name": "puregames-web",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "web/build/dist/wasmJs/productionExecutable"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--directory",
+        "web/build/dist/wasmJs/productionExecutable"
+      ],
       "port": 8765
+    },
+    {
+      "name": "kreat-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8766",
+        "--directory",
+        "kreat-web/build/dist/wasmJs/developmentExecutable"
+      ],
+      "port": 8766
     }
   ]
 }

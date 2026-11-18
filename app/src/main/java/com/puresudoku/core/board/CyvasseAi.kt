@@ -155,10 +155,12 @@ object CyvasseAi {
 
     /** Sets the computer's terrain and fortress: learned preferences in an open-field game, sharper on higher levels. */
     fun setup(g: Cyvasse, side: Int, level: Int, rnd: Random) {
-        if (!g.openField) { g.randomSetup(side, rnd, level); return }
-        // Easy and Medium place at random; from Hard up, one of the layouts that held up in self-play
+        if (!g.placesTerrain) { g.randomSetup(side, rnd, level); return }
+        // Easy and Medium place terrain at random; from Hard up, one of the layouts that held up in self-play
         if (level <= 1) CyvassePlacement.place(g, side, CyvassePlacement.FLAT, 1.0, rnd)
         else CyvassePlacement.placeLayout(g, side, CyvassePlacement.PROVEN.random(rnd), mirror = rnd.nextBoolean())
+        // then the army, in formation round the terrain
+        g.placeArmy(side, rnd)
     }
 
     /** The move to play for the side to move. */
@@ -206,7 +208,7 @@ object CyvassePlacement {
         for (k in 4..6) g.toggleTerrain(side, Cyvasse.FOREST, tile(m(layout[k]), side))
         g.placer = old
         // Older learned layouts may use the wrong grass color; fall back to a legal placement.
-        if (!g.setupDone(side)) place(g, side, FLAT, 1.0, kotlin.random.Random(layout.sum()))
+        if (!g.terrainDone(side)) place(g, side, FLAT, 1.0, kotlin.random.Random(layout.sum()))
     }
 
     /** [side]'s tile for preference slot [i]. */

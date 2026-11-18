@@ -47,6 +47,8 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
     private val repo = SaveRepository(store)
     private val viewModelScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main)
 
+    /** On a single-game site, the one game: its menu is the home page, and play is against the computer only. */
+    val soloGame: GameKind? = com.puresudoku.platform.onlyGame?.let { n -> GameKind.entries.firstOrNull { it.name == n } }
     var screen by mutableStateOf<Screen>(Screen.Hub); private set
     var themeMode by mutableStateOf(repo.themeMode()); private set
     var tableMode by mutableStateOf(repo.tableMode()); private set
@@ -271,7 +273,7 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         when (val s = screen) {
             Screen.Hub -> Unit
             is Screen.Category, Screen.TwoPlayer, Screen.Originals -> screen = Screen.Hub
-            is Screen.Menu -> screen = menuFrom ?: Screen.Category(s.kind.category)
+            is Screen.Menu -> if (soloGame == null) screen = menuFrom ?: Screen.Category(s.kind.category)
             is Screen.PickLevel -> screen = Screen.Menu(s.kind)
             is Screen.Online -> closeOnline(s.kind)
             is Screen.Slots -> {
@@ -541,6 +543,8 @@ class AppViewModel(store: com.puresudoku.data.KeyValueStore, private val backups
         persist()
         viewModelScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
+
+    init { soloGame?.let { openGame(it) } }
 }
 
 const val MAX_FAVORITES = 16

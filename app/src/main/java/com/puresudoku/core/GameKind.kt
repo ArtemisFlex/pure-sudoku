@@ -44,7 +44,7 @@ enum class GameKind(val title: String, val skill: String, val tagline: String, v
     GO("Go", "Territory", "Surround more of the board than your rival.", GameCategory.BOARD),
     SHOGI("Shogi", "Strategy", "Japanese chess, where captured pieces fight for you.", GameCategory.BOARD),
     XIANGQI("Xiangqi", "Strategy", "Chinese chess across the river.", GameCategory.BOARD),
-    CYVASSE("Kreat", "Strategy", "Twenty pieces a side across a river of mountains, forests and fortresses. Checkmate the rival king.", GameCategory.BOARD),
+    CYVASSE("Kreat", "Strategy", "A war game across a river of mountains and forests, with six ways to play. Checkmate the rival king.", GameCategory.BOARD),
     BACKGAMMON("Backgammon", "Luck", "Race your checkers home and bear them off.", GameCategory.BOARD),
     MANCALA("Mancala", "Planning", "Sow seeds and capture the most.", GameCategory.BOARD),
     MAHJONG("Mahjong", "Patterns", "Clear the tiles by matching free pairs.", GameCategory.BOARD),

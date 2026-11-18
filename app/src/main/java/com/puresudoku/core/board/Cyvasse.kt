@@ -37,6 +37,47 @@ class Cyvasse {
         /** How many of each piece a side has (index = type). */
         val ARMY = intArrayOf(0, 6, 2, 2, 2, 2, 2, 1, 1, 1, 1)
         val ARMY_SIZE = ARMY.sum()
+        /** A small army: one of every piece. */
+        val ONE_EACH = intArrayOf(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+
+        // ---- the ways to play (the field and the armies); every one keeps the river across the middle
+        /** The fixed layout below. */
+        const val V_STANDARD = 0
+        /** One of each piece; each side places its terrain and its pieces anywhere on its half, behind a screen. */
+        const val V_OPEN = 1
+        /** The standard armies with no mountains or forests: only the river. */
+        const val V_CLEAR = 2
+        /** One of each piece, all on the back row: no front line of rabble. */
+        const val V_BACK_ROW = 3
+        /** The standard field and army, but each side places its own pieces anywhere on its half, behind a screen. */
+        const val V_MUSTER = 4
+        /** The standard armies on new terrain each game: mountains and forests set at random, the same on both sides. */
+        const val V_WILD = 5
+        val VARIANTS = intArrayOf(V_STANDARD, V_OPEN, V_CLEAR, V_BACK_ROW, V_MUSTER, V_WILD)
+        val VARIANT_NAMES = arrayOf("Standard", "Open field", "Oops no terrain", "Back row", "Muster", "Wild field")
+        val VARIANT_TEXT = arrayOf(
+            "The classic layout. 20 pieces a side: a back row of nobles, with elephants, crossbowmen and six rabble in front. The mountains and forests are the same every game.",
+            "One of each piece, 10 a side. Behind a screen, each side places 3 mountains on white grass, 3 forests on green grass and all 10 pieces anywhere on its own half.",
+            "The standard armies with no mountains or forests. The river still crosses the middle: it ends a move, and pieces that cross it can't step back.",
+            "One of each piece, all 10 lined up on the back row: no front line of rabble. The standard mountains and forests, with a long open march between the armies.",
+            "The standard 20-piece army and terrain, but you choose where every piece starts. Behind a screen, each side places its whole army anywhere on its own half.",
+            "The standard armies on a new field every game: 3 mountains and 3 forests set at random on each side, mirrored so neither side has an edge.",
+        )
+        /** How many of each piece a side has in [variant]. */
+        fun armyFor(variant: Int) = if (variant == V_OPEN || variant == V_BACK_ROW) ONE_EACH else ARMY
+
+        /** A new game of [variant], ready for the first move (or for setting up behind the screen). */
+        fun start(variant: Int, rnd: Random = Random.Default): Cyvasse = when (variant) {
+            V_OPEN -> openField()
+            V_CLEAR -> clearField()
+            V_BACK_ROW -> standard().also { it.lineUpBackRow() }
+            V_MUSTER -> standard().also { it.startMuster() }
+            V_WILD -> standard().also { it.wildTerrain(rnd) }
+            else -> standard()
+        }
+
+        /** Whether a fresh game of [variant] is set up behind a screen before the battle. */
+        fun hasSetup(variant: Int) = variant == V_OPEN || variant == V_MUSTER
         /** What each player sets on their own half in an open-field game. */
         const val MOUNTAINS = 3
         const val WATERS = 0; const val FORESTS_PER_SIDE = 3
@@ -47,8 +88,8 @@ class Cyvasse {
             "Moves up to two tiles any way and takes only by landing on its victim.",
             "Steps one tile straight. As its move it can shoot one enemy diagonally beside it.",
             "Leaps one or two tiles diagonally, over pieces, and takes by landing. Water doesn't hold it.",
-            "Rides up to three tiles diagonally; pieces block it and water ends the ride. Anything but a rabble can take it.",
-            "Moves one tile any way. Only kings, dragons, heavy horses, elephants, catapults and trebuchets can take it.",
+            "Rides up to three tiles diagonally; pieces block it and water ends the ride.",
+            "Moves one tile any way.",
             "Moves up to two tiles straight. Shoots up to five tiles diagonally at the first piece in line, then must reload for a turn.",
             "Moves up to two tiles straight. Shoots up to five tiles straight at the first piece in line, then must reload for a turn.",
             "Flies any distance in a line over water, forest and mountains, and may land on a mountain; pieces stop it. Cannot attack into forests.",
@@ -84,6 +125,8 @@ class Cyvasse {
             ". . . . . . . . . .",
             "E X R R R R R R X E",
             "T H L S D K S L H C")
+        /** The back row for [V_BACK_ROW], left to right, as Alabaster sees it. */
+        val BACK_ROW = intArrayOf(TREBUCHET, HEAVY_HORSE, LIGHT_HORSE, SPEARMAN, DRAGON, KING, ELEPHANT, CROSSBOW, RABBLE, CATAPULT)
         private val LETTERS = mapOf('R' to RABBLE, 'S' to SPEARMAN, 'X' to CROSSBOW, 'L' to LIGHT_HORSE, 'H' to HEAVY_HORSE,
             'E' to ELEPHANT, 'C' to CATAPULT, 'T' to TREBUCHET, 'D' to DRAGON, 'K' to KING)
 
@@ -137,14 +180,8 @@ class Cyvasse {
         /** The four diagonal neighbours: where a crossbowman shoots and a rabble takes. */
         val DIAGONALS: Array<IntArray> = Array(CELLS) { c -> DIAG.mapNotNull { d -> (row(c) + d[0] to col(c) + d[1]).takeIf { on(it.first, it.second) }?.let { it.first * W + it.second } }.toIntArray() }
 
-        /** Whether a piece of [attacker]'s type may take one of [defender]'s (sides aside). */
-        fun beats(attacker: Int, defender: Int): Boolean = when {
-            attacker == 0 || defender == 0 -> false
-            attacker == KING -> true
-            defender == ELEPHANT -> attacker in intArrayOf(DRAGON, HEAVY_HORSE, ELEPHANT, TREBUCHET, CATAPULT)
-            defender == HEAVY_HORSE || defender == DRAGON -> attacker != RABBLE
-            else -> true
-        }
+        /** Whether a piece of [attacker]'s type may take one of [defender]'s (sides aside): every piece can take every piece. */
+        fun beats(attacker: Int, defender: Int): Boolean = attacker != 0 && defender != 0
 
         // ---- moves, packed in one Int: kind | a | b | via ----
         const val K_MOVE = 0; const val K_DEPLOY = 1; const val K_SWAP = 2; const val K_PASS = 3; const val K_RANGED = 4
@@ -174,7 +211,8 @@ class Cyvasse {
             g.phase = o.optInt("phase"); g.placer = o.optInt("placer"); g.turn = o.optInt("turn"); g.first = o.optInt("first")
             g.winner = o.optInt("winner", -1); g.bonusRabble = o.optInt("bonus", -1); g.quiet = o.optInt("quiet"); g.plies = o.optInt("plies")
             g.lastMove = o.optInt("last", -1); g.lastBy = o.optInt("lastBy", -1); g.lastText = o.optString("lastText", "")
-            g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate"); g.openField = o.optBoolean("open"); g.clearField = o.optBoolean("clear"); g.drawnBy = o.optInt("drawnBy")
+            g.keepFell = o.optInt("keepFell", -1); g.stalemate = o.optBoolean("stalemate"); g.drawnBy = o.optInt("drawnBy")
+            g.variant = o.optInt("variant", if (o.optBoolean("open")) V_OPEN else if (o.optBoolean("clear")) V_CLEAR else V_STANDARD)
             o.optJSONArray("seen")?.let { a -> for (i in 0 until a.length() / 2) g.seen[a.getInt(2 * i)] = a.getInt(2 * i + 1) }
             ia("waterWait", CELLS).copyInto(g.waterWait); ia("facing", CELLS).copyInto(g.facing); ia("reload", CELLS).copyInto(g.reload)
             ia("fortHits", 2).copyInto(g.fortHits)
@@ -229,22 +267,78 @@ class Cyvasse {
      * often each was seen: the same position a third time is a draw, as in chess.
      */
     val seen = HashMap<Int, Int>()
-    /** Each player placed their own terrain and fortress before the battle. */
-    var openField = false
-    /** No terrain at all: not even the river's water. */
-    var clearField = false
+    /** Which way to play: [V_STANDARD], [V_OPEN] and so on. */
+    var variant = V_STANDARD
+    /** Each player places their own terrain and pieces before the battle. */
+    val openField get() = variant == V_OPEN
+    /** No mountains or forests: only the river. */
+    val clearField get() = variant == V_CLEAR
+    /** Each side places mountains and forests behind the screen. */
+    val placesTerrain get() = variant == V_OPEN
+    /** Each side places its pieces behind the screen. */
+    val placesPieces get() = variant == V_OPEN || variant == V_MUSTER
+    /** How many pieces a side starts with. */
+    val armySize get() = armyFor(variant).sum()
 
-    /** Strips every mountain, forest and water tile (the halves still meet at the middle row). */
-    fun clearTerrain() {
-        for (c in 0 until CELLS) { terrain[c] = PLAIN; block[c] = 0 }
-        keepAt[0] = -1; keepAt[1] = -1; clearField = true
-    }
-
-    /** Clears the standard field's terrain (keeping the river and the armies) and opens the setup behind the screen. */
-    fun startOpenField() {
+    /** Bare ground everywhere but the river, which always crosses the middle row. */
+    private fun bareField() {
         for (c in 0 until CELLS) { terrain[c] = if (row(c) == RIVER) WATER else PLAIN; block[c] = 0 }
         keepAt[0] = -1; keepAt[1] = -1; keepGone[0] = false; keepGone[1] = false; fortHits.fill(0)
-        phase = SETUP; placer = 0; turn = 0; first = 0; openField = true
+    }
+
+    /** Takes every piece off the board into its side's reserve of [army]. */
+    private fun liftArmies(army: IntArray) {
+        for (c in 0 until CELLS) clearCell(c)
+        for (s in 0..1) army.copyInto(reserve[s])
+    }
+
+    /** Strips the mountains and forests; the river stays and still holds pieces as always. */
+    fun clearTerrain() { bareField(); variant = V_CLEAR }
+
+    /** A bare field with the river and one of each piece in reserve, set up behind the screen. */
+    fun startOpenField() {
+        bareField(); liftArmies(ONE_EACH)
+        phase = SETUP; placer = 0; turn = 0; first = 0; variant = V_OPEN
+    }
+
+    /** The standard field with every piece in reserve, to place behind the screen. */
+    fun startMuster() {
+        liftArmies(ARMY)
+        phase = SETUP; placer = 0; turn = 0; first = 0; variant = V_MUSTER
+    }
+
+    /** One of each piece, all on each side's back row. */
+    fun lineUpBackRow() {
+        liftArmies(IntArray(11))
+        for (k in 0 until W) {
+            board[(H - 1) * W + k] = piece(0, BACK_ROW[k])
+            board[k] = piece(1, BACK_ROW[k])
+        }
+        variant = V_BACK_ROW
+    }
+
+    /** New mountains (white grass) and forests (green grass) in each side's three free rows, mirrored across the river. */
+    fun wildTerrain(rnd: Random) {
+        bareField()
+        val free = ((RIVER + 1)..(RIVER + 3)).flatMap { r -> (0 until W).map { r * W + it } }.shuffled(rnd)
+        fun mirror(c: Int) = (H - 1 - row(c)) * W + col(c)
+        for (c in free.filter { lightGrass(it) }.take(MOUNTAINS)) { block[c] = MOUNTAIN; block[mirror(c)] = MOUNTAIN }
+        for (c in free.filter { !lightGrass(it) }.take(FORESTS_PER_SIDE)) { terrain[c] = FOREST; terrain[mirror(c)] = FOREST }
+        variant = V_WILD
+    }
+
+    /** Makes this game an exact copy of [o]. */
+    fun loadFrom(o: Cyvasse) {
+        o.board.copyInto(board); o.block.copyInto(block); o.terrain.copyInto(terrain); o.keepAt.copyInto(keepAt)
+        o.waterWait.copyInto(waterWait); o.reload.copyInto(reload); o.facing.copyInto(facing); o.fortHits.copyInto(fortHits)
+        o.crossed.copyInto(crossed); o.promoted.copyInto(promoted)
+        keepGone[0] = o.keepGone[0]; keepGone[1] = o.keepGone[1]
+        for (s in 0..1) { o.reserve[s].copyInto(reserve[s]); o.captured[s].copyInto(captured[s]) }
+        phase = o.phase; placer = o.placer; turn = o.turn; first = o.first; winner = o.winner
+        bonusRabble = o.bonusRabble; quiet = o.quiet; plies = o.plies
+        lastMove = o.lastMove; lastBy = o.lastBy; lastText = o.lastText; keepFell = o.keepFell; stalemate = o.stalemate
+        drawnBy = o.drawnBy; variant = o.variant
+        seen.clear(); seen.putAll(o.seen)
     }
 
     fun toJson(): JSONObject {
@@ -254,7 +348,7 @@ class Cyvasse {
             .put("res0", a(reserve[0])).put("res1", a(reserve[1])).put("cap0", a(captured[0])).put("cap1", a(captured[1]))
             .put("phase", phase).put("placer", placer).put("turn", turn).put("first", first).put("winner", winner)
             .put("bonus", bonusRabble).put("quiet", quiet).put("plies", plies)
-            .put("last", lastMove).put("lastBy", lastBy).put("lastText", lastText).put("keepFell", keepFell).put("stalemate", stalemate).put("open", openField).put("clear", clearField).put("drawnBy", drawnBy)
+            .put("last", lastMove).put("lastBy", lastBy).put("lastText", lastText).put("keepFell", keepFell).put("stalemate", stalemate).put("variant", variant).put("drawnBy", drawnBy)
             .put("seen", JSONArray().also { j -> for ((k, v) in seen) { j.put(k); j.put(v) } })
     }
 
@@ -267,7 +361,7 @@ class Cyvasse {
         for (s in 0..1) { reserve[s].copyInto(g.reserve[s]); captured[s].copyInto(g.captured[s]) }
         g.phase = phase; g.placer = placer; g.turn = turn; g.first = first; g.winner = winner
         g.bonusRabble = bonusRabble; g.quiet = quiet; g.plies = plies
-        g.lastMove = lastMove; g.lastBy = lastBy; g.lastText = lastText; g.keepFell = keepFell; g.stalemate = stalemate; g.openField = openField; g.clearField = clearField; g.drawnBy = drawnBy
+        g.lastMove = lastMove; g.lastBy = lastBy; g.lastText = lastText; g.keepFell = keepFell; g.stalemate = stalemate; g.variant = variant; g.drawnBy = drawnBy
         return g
     }
 
@@ -349,25 +443,51 @@ class Cyvasse {
         return true
     }
 
-    /** Clears [side]'s terrain and fortress (and, outside an open-field game, lifts its pieces). */
+    /** Clears what [side] has placed behind the screen: its pieces, and its terrain where it sets that too. */
     fun clearSetup(side: Int) {
         if (phase != SETUP) return
-        for (c in 0 until CELLS) if (inHalf(side, c)) { if (!openField && ownerOf(board[c]) == side) liftPiece(side, c); block[c] = 0; terrain[c] = PLAIN }
-        keepAt[side] = -1
+        for (c in 0 until CELLS) if (inHalf(side, c)) {
+            if (placesPieces && ownerOf(board[c]) == side) liftPiece(side, c)
+            if (placesTerrain) { block[c] = 0; terrain[c] = PLAIN }
+        }
+        if (placesTerrain) keepAt[side] = -1
     }
 
-    fun setupDone(side: Int) = mountainsPlaced(side) == MOUNTAINS &&
-        terrainPlaced(side, WATER) == WATERS && terrainPlaced(side, FOREST) == FORESTS_PER_SIDE && reserveCount(side) == 0
+    /** [side]'s mountains and forests are all set (always true where the terrain is fixed). */
+    fun terrainDone(side: Int) = !placesTerrain || (mountainsPlaced(side) == MOUNTAINS && terrainPlaced(side, FOREST) == FORESTS_PER_SIDE)
 
-    /** Random complete setup: terrain, fortress and (if any wait in reserve) the army. */
-    fun randomSetup(side: Int, rnd: Random, level: Int = 3) {
+    fun setupDone(side: Int) = terrainDone(side) && reserveCount(side) == 0
+
+    /** Random complete setup: terrain (where the sides set it) and the army. */
+    fun randomSetup(side: Int, rnd: Random, @Suppress("UNUSED_PARAMETER") level: Int = 3) {
         val old = placer; placer = side; clearSetup(side)
-        val cells = (0 until CELLS).filter { inHalf(side, it) && board[it] == 0 }.shuffled(rnd)
-        cells.filter { !lightGrass(it) }.take(FORESTS_PER_SIDE).forEach { toggleTerrain(side, FOREST, it) }
-        cells.filter { lightGrass(it) }.take(MOUNTAINS).forEach { toggleMountain(side, it) }
-        val open = cells.filter { block[it] != MOUNTAIN && block[it] != KEEP }.shuffled(rnd)
-        val army = TYPES.flatMap { t -> List(ARMY[t]) { t } }
-        for ((t, c) in army.zip(open)) standPiece(side, t, c)
+        if (placesTerrain) {
+            val cells = (0 until CELLS).filter { inHalf(side, it) && board[it] == 0 }.shuffled(rnd)
+            cells.filter { !lightGrass(it) }.take(FORESTS_PER_SIDE).forEach { toggleTerrain(side, FOREST, it) }
+            cells.filter { lightGrass(it) }.take(MOUNTAINS).forEach { toggleMountain(side, it) }
+        }
+        placeArmy(side, rnd)
+        placer = old
+    }
+
+    /**
+     * Stands every piece [side] still holds, in a sensible formation: siege engines and the king at the back (the king
+     * near the middle), riders and elephants behind the line, rabble and spearmen in front.
+     */
+    fun placeArmy(side: Int, rnd: Random) {
+        val old = placer; placer = side
+        // rows forward from the back row (0) toward the river (4), by piece type
+        val depth = intArrayOf(0, 3, 3, 2, 1, 1, 1, 0, 0, 1, 0)
+        for (t in intArrayOf(KING, TREBUCHET, CATAPULT, DRAGON, ELEPHANT, HEAVY_HORSE, LIGHT_HORSE, CROSSBOW, SPEARMAN, RABBLE)) {
+            while (reserve[side][t] > 0) {
+                val free = (0 until CELLS).filter { canStand(side, t, it) }
+                if (free.isEmpty()) break
+                val near = free.minOf { kotlin.math.abs(progress(side, it) - depth[t]) }
+                var pool = free.filter { kotlin.math.abs(progress(side, it) - depth[t]) == near }
+                if (t == KING) pool.filter { col(it) in 3..6 }.takeIf { it.isNotEmpty() }?.let { pool = it }
+                standPiece(side, t, pool.random(rnd))
+            }
+        }
         placer = old
     }
 
@@ -375,8 +495,8 @@ class Cyvasse {
     fun ready(side: Int, coin: Boolean): Boolean {
         if (phase != SETUP || side != placer || !setupDone(side)) return false
         if (side == 0) placer = 1
-        // an open-field game keeps the standard rule: Alabaster moves first
-        else { phase = BATTLE; first = if (coin && !openField) 1 else 0; turn = first }
+        // a game set up behind the screen keeps the standard rule: Alabaster moves first
+        else { phase = BATTLE; first = if (coin && !placesPieces) 1 else 0; turn = first }
         return true
     }
 
